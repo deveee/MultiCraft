@@ -64,7 +64,7 @@ public:
 	bool isIPv6() const;
 	bool isZero() const;
 	void setPort(unsigned short port);
-	void print(std::ostream *s) const;
+	void print(std::ostream &s) const;
 	std::string serializeString() const;
 	bool isLocalhost() const;
 

@@ -264,12 +264,12 @@ void Address::setPort(u16 port)
 	m_port = port;
 }
 
-void Address::print(std::ostream *s) const
+void Address::print(std::ostream& s) const
 {
 	if (m_addr_family == AF_INET6)
-		*s << "[" << serializeString() << "]:" << m_port;
+		s << "[" << serializeString() << "]:" << m_port;
 	else
-		*s << serializeString() << ":" << m_port;
+		s << serializeString() << ":" << m_port;
 }
 
 bool Address::isLocalhost() const

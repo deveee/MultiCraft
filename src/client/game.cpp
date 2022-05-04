@@ -1563,7 +1563,7 @@ bool Game::connectToServer(const GameStartData &start_data, bool *connect_ok)
 	client->m_connect_aborted = &m_connect_aborted;
 
 	infostream << "Connecting to server at ";
-	connect_address.print(&infostream);
+	connect_address.print(infostream);
 	infostream << std::endl;
 
 	client->connect(connect_address,
