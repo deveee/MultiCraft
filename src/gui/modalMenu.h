@@ -51,6 +51,18 @@ public:
 
 	virtual void regenerateGui(v2u32 screensize) = 0;
 	virtual void drawMenu() = 0;
+
+	enum NavigationDirection
+	{
+		ND_LEFT,
+		ND_RIGHT,
+		ND_UP,
+		ND_DOWN
+	};
+
+	void getAllChildren(gui::IGUIElement* element, std::vector<gui::IGUIElement*>& all_children);
+	gui::IGUIElement* findClosestElement(const NavigationDirection direction,
+										gui::IGUIElement* current_element);
 	virtual bool preprocessEvent(const SEvent &event);
 	virtual bool OnEvent(const SEvent &event) { return false; };
 	virtual bool pausesGame() { return false; } // Used for pause menu

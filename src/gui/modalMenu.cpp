@@ -23,10 +23,10 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "gettext.h"
 #include "porting.h"
 #include "settings.h"
+#include "client/renderingengine.h"
 
 #ifdef HAVE_TOUCHSCREENGUI
 #include "touchscreengui.h"
-#include "client/renderingengine.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
@@ -248,6 +248,103 @@ void GUIModalMenu::leave()
 
 #endif
 
+void GUIModalMenu::getAllChildren(gui::IGUIElement* element, std::vector<gui::IGUIElement*>& all_children)
+{
+	all_children.push_back(element);
+
+	const core::list<gui::IGUIElement*> &children = element->getChildren();
+
+	for (gui::IGUIElement* child : children)
+	{
+		all_children.push_back(child);
+		getAllChildren(child, all_children);
+	}
+}
+
+gui::IGUIElement* GUIModalMenu::findClosestElement(const NavigationDirection direction,
+												gui::IGUIElement* current_element)
+{
+	video::IVideoDriver* driver = Environment->getVideoDriver();
+	const int distance_max = driver->getScreenSize().Width * 100;
+
+	gui::IGUIElement* closest_widget = nullptr;
+	int smallest_distance = distance_max;
+	int smallest_wrapping_distance = distance_max;
+
+	core::rect<s32> current_position = current_element->getAbsoluteClippingRect();
+	int current_x = current_position.UpperLeftCorner.X;
+	int current_y = current_position.UpperLeftCorner.Y;
+	int current_w = current_position.getWidth();
+	int current_h = current_position.getHeight();
+
+	std::vector<gui::IGUIElement*> all_children;
+	getAllChildren(this, all_children);
+
+	for (gui::IGUIElement* child : all_children)
+	{
+		if (child == NULL || !child->isTabStop() || current_element == child ||
+			!child->isTrulyVisible() || !child->isEnabled())
+			continue;
+
+		int distance = 0;
+		int offset = 0;
+		core::rect<s32> child_position = child->getAbsoluteClippingRect();
+		int child_x = child_position.UpperLeftCorner.X;
+		int child_y = child_position.UpperLeftCorner.Y;
+		int child_w = child_position.getWidth();
+		int child_h = child_position.getHeight();
+
+		if (direction == ND_UP || direction == ND_DOWN)
+		{
+			if (direction == ND_UP)
+				distance = current_y - (child_y + child_h);
+			else
+				distance = child_y - (current_y + current_h);
+
+			int right_offset = std::max(0, child_x - current_x);
+			int left_offset  = std::max(0, (current_x + current_w) - (child_x + child_w));
+			offset = std::max(right_offset - left_offset, left_offset - right_offset);
+
+			distance *= 100;
+		}
+		else if (direction == ND_LEFT || direction == ND_RIGHT)
+		{
+			if (direction == ND_LEFT)
+				distance = current_x - (child_x + child_w);
+			else
+				distance = child_x - (current_x + current_w);
+
+			int down_offset = std::max(0, child_y - current_y);
+			int up_offset  = std::max(0, (current_y + current_h) - (child_y + child_h));
+			offset = std::max(down_offset - up_offset, up_offset - down_offset);
+
+			if (offset >= current_h)
+				distance = distance_max;
+		}
+
+		distance += offset;
+
+		if (distance < 0)
+		{
+			if (smallest_distance == distance_max && distance < smallest_wrapping_distance)
+			{
+				smallest_wrapping_distance = distance;
+				closest_widget = child;
+			}
+		}
+		else
+		{
+			if (distance < smallest_distance)
+			{
+				smallest_distance = distance;
+				closest_widget = child;
+			}
+		}
+	}
+
+	return closest_widget;
+}
+
 bool GUIModalMenu::preprocessEvent(const SEvent &event)
 {
 	// clang-format off
@@ -268,6 +365,35 @@ bool GUIModalMenu::preprocessEvent(const SEvent &event)
 		}
 	}
 #endif
+
+	if (event.EventType == EET_KEY_INPUT_EVENT)
+	{
+		if (event.KeyInput.PressedDown)
+		{
+			IrrlichtDevice* device = RenderingEngine::get_raw_device();
+			core::position2d<s32> position = device->getCursorControl()->getPosition();
+
+			gui::IGUIElement* closest_element = nullptr;
+			gui::IGUIElement* hovered =
+				Environment->getRootGUIElement()->getElementFromPoint(
+					core::position2d<s32>(position.X, position.Y));
+
+			if (event.KeyInput.Key == KEY_LEFT)
+				closest_element = findClosestElement(ND_LEFT, hovered);
+			else if (event.KeyInput.Key == KEY_RIGHT)
+				closest_element = findClosestElement(ND_RIGHT, hovered);
+			else if (event.KeyInput.Key == KEY_UP)
+				closest_element = findClosestElement(ND_UP, hovered);
+			else if (event.KeyInput.Key == KEY_DOWN)
+				closest_element = findClosestElement(ND_DOWN, hovered);
+
+			if (closest_element)
+			{
+				core::position2d<s32> position = closest_element->getAbsoluteClippingRect().getCenter();
+				device->getCursorControl()->setPosition(position);
+			}
+		}
+	}
 
 #if defined(__ANDROID__) || defined(__IOS__)
 	// display software keyboard when clicking edit boxes
