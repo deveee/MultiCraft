@@ -264,6 +264,60 @@ void GUIModalMenu::getAllChildren(gui::IGUIElement* element, std::vector<gui::IG
 gui::IGUIElement* GUIModalMenu::findClosestElement(const NavigationDirection direction,
 												gui::IGUIElement* current_element)
 {
+	if (direction == ND_UP || direction == ND_DOWN)
+	{
+		gui::IGUIElement* combo_box = nullptr;
+
+		if (current_element->getType() == gui::EGUIET_COMBO_BOX)
+			combo_box = current_element;
+
+		if (current_element->getParent() && current_element->getParent()->getType() == gui::EGUIET_COMBO_BOX)
+			combo_box = current_element->getParent();
+
+		if (combo_box)
+		{
+			for (gui::IGUIElement* child : combo_box->getChildren())
+			{
+				if (child->getType() == gui::EGUIET_LIST_BOX)
+					return nullptr;
+			}
+		}
+	}
+
+	if (direction == ND_UP || direction == ND_DOWN)
+	{
+		gui::IGUIElement* list_view = nullptr;
+
+		if (current_element->getType() == gui::EGUIET_ELEMENT)
+		{
+			for (gui::IGUIElement* child : current_element->getChildren())
+			{
+				if (child->getType() == gui::EGUIET_SCROLL_BAR)
+				{
+					list_view = current_element;
+					break;
+				}
+			}
+		}
+
+		if (current_element->getParent() && current_element->getParent()->getType() == gui::EGUIET_ELEMENT)
+		{
+			for (gui::IGUIElement* child : current_element->getParent()->getChildren())
+			{
+				if (child->getType() == gui::EGUIET_SCROLL_BAR)
+				{
+					list_view = current_element->getParent();
+					break;
+				}
+			}
+		}
+
+		if (list_view)
+		{
+			return nullptr;
+		}
+	}
+
 	video::IVideoDriver* driver = Environment->getVideoDriver();
 	const int distance_max = driver->getScreenSize().Width * 100;
 
