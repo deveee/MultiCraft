@@ -63,62 +63,8 @@ endif()
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
 
-set(IRRLICHTMT_BUILD_DIR "" CACHE PATH "Path to IrrlichtMt build directory.")
-if(NOT "${IRRLICHTMT_BUILD_DIR}" STREQUAL "")
-	find_package(IrrlichtMt QUIET
-		PATHS "${IRRLICHTMT_BUILD_DIR}"
-		NO_DEFAULT_PATH
-)
-
-	if(NOT TARGET IrrlichtMt::IrrlichtMt)
-		# find_package() searches certain subdirectories. ${PATH}/cmake is not
-		# the only one, but it is the one where IrrlichtMt is supposed to export
-		# IrrlichtMtConfig.cmake
-		message(FATAL_ERROR "Could not find IrrlichtMtConfig.cmake in ${IRRLICHTMT_BUILD_DIR}/cmake.")
-	endif()
 # This is done here so that relative search paths are more reasonable
-elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/lib/irrlichtmt")
-	message(STATUS "Using user-provided IrrlichtMt at subdirectory 'lib/irrlichtmt'")
-	if(BUILD_CLIENT)
-		# tell IrrlichtMt to create a static library
-		set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared library" FORCE)
-		add_subdirectory(lib/irrlichtmt EXCLUDE_FROM_ALL)
-		unset(BUILD_SHARED_LIBS CACHE)
-
-		if(NOT TARGET IrrlichtMt)
-			message(FATAL_ERROR "IrrlichtMt project is missing a CMake target?!")
-		endif()
-	else()
-		add_library(IrrlichtMt::IrrlichtMt INTERFACE IMPORTED)
-		set_target_properties(IrrlichtMt::IrrlichtMt PROPERTIES
-			INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/lib/irrlichtmt/include")
-	endif()
-else()
-	find_package(IrrlichtMt QUIET)
-	if(NOT TARGET IrrlichtMt::IrrlichtMt)
-		string(CONCAT explanation_msg
-			"The Minetest team has forked Irrlicht to make their own customizations. "
-			"It can be found here: https://github.com/minetest/irrlicht\n"
-			"For example use: git clone --depth=1 https://github.com/minetest/irrlicht lib/irrlichtmt\n")
-		if(BUILD_CLIENT)
-			message(FATAL_ERROR "IrrlichtMt is required to build the client, but it was not found.\n${explanation_msg}")
-		endif()
-
-		include(MinetestFindIrrlichtHeaders)
-		if(NOT IRRLICHT_INCLUDE_DIR)
-			message(FATAL_ERROR "Irrlicht or IrrlichtMt headers are required to build the server, but none found.\n${explanation_msg}")
-		endif()
-		message(STATUS "Found Irrlicht headers: ${IRRLICHT_INCLUDE_DIR}")
-		add_library(IrrlichtMt::IrrlichtMt INTERFACE IMPORTED)
-		# Note that we can't use target_include_directories() since that doesn't work for IMPORTED targets before CMake 3.11
-		set_target_properties(IrrlichtMt::IrrlichtMt PROPERTIES
-			INTERFACE_INCLUDE_DIRECTORIES "${IRRLICHT_INCLUDE_DIR}")
-	endif()
-endif()
-
-if(TARGET IrrlichtMt::IrrlichtMt)
-	message(STATUS "Found IrrlichtMt ${IrrlichtMt_VERSION}")
-endif()
+find_package(Irrlicht)
 
 
 # Installation

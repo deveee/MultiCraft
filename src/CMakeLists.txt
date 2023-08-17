@@ -31,6 +31,17 @@ if(NOT (BUILD_CLIENT OR BUILD_SERVER))
 	set(BUILD_SERVER TRUE)
 endif()
 
+option(USE_SDL "Use SDL2 for window management" FALSE)
+
+if(USE_SDL)
+	find_package(SDL2)
+	if (SDL2_FOUND)
+		message(STATUS "SDL2 found.")
+		include_directories(${SDL2_INCLUDEDIR})
+	else()
+		message(FATAL_ERROR "SDL2 not found.")
+	endif()
+endif()
 
 option(ENABLE_CURL "Enable cURL support for fetching media" TRUE)
 set(USE_CURL FALSE)
@@ -294,6 +305,10 @@ else()
 		if(NOT HAIKU AND NOT APPLE)
 			find_package(X11 REQUIRED)
 		endif(NOT HAIKU AND NOT APPLE)
+
+		find_package(JPEG REQUIRED)
+		find_package(BZip2 REQUIRED)
+		find_package(PNG REQUIRED)
 	endif()
 
 	set(PLATFORM_LIBS -lpthread ${CMAKE_DL_LIBS})
@@ -485,7 +500,9 @@ endif()
 include_directories(
 	${PROJECT_BINARY_DIR}
 	${PROJECT_SOURCE_DIR}
+	${IRRLICHT_INCLUDE_DIR}
 	${ZLIB_INCLUDE_DIR}
+	${PNG_INCLUDE_DIR}
 	${ZSTD_INCLUDE_DIR}
 	${SQLITE3_INCLUDE_DIR}
 	${LUA_INCLUDE_DIR}
@@ -524,7 +541,10 @@ if(BUILD_CLIENT)
 	target_link_libraries(
 		${PROJECT_NAME}
 		${ZLIB_LIBRARIES}
-		IrrlichtMt::IrrlichtMt
+		${IRRLICHT_LIBRARY}
+		${JPEG_LIBRARIES}
+		${BZIP2_LIBRARIES}
+		${PNG_LIBRARIES}
 		${ZSTD_LIBRARY}
 		${X11_LIBRARIES}
 		${SOUND_LIBRARIES}
@@ -535,6 +555,7 @@ if(BUILD_CLIENT)
 		${LUA_BIT_LIBRARY}
 		${FREETYPE_LIBRARY}
 		${PLATFORM_LIBS}
+		${SDL2_LIBRARIES}
 	)
 	if(NOT USE_LUAJIT)
 		set_target_properties(${PROJECT_NAME} PROPERTIES
