@@ -1162,9 +1162,6 @@ MapBlockMesh::MapBlockMesh(MeshMakeData *data, v3s16 camera_offset):
 				material.MaterialType = m_shdrsrc->getShaderInfo(
 						p.layer.shader_id).material;
 				p.layer.applyMaterialOptionsWithShaders(material);
-				if (p.layer.normal_texture)
-					material.setTexture(1, p.layer.normal_texture);
-				material.setTexture(2, p.layer.flags_texture);
 			} else {
 				p.layer.applyMaterialOptions(material);
 			}
@@ -1267,12 +1264,6 @@ bool MapBlockMesh::animate(bool faraway, float time, int crack,
 
 		const FrameSpec &animation_frame = (*tile.frames)[frame];
 		buf->getMaterial().setTexture(0, animation_frame.texture);
-		if (m_enable_shaders) {
-			if (animation_frame.normal_texture)
-				buf->getMaterial().setTexture(1,
-					animation_frame.normal_texture);
-			buf->getMaterial().setTexture(2, animation_frame.flags_texture);
-		}
 	}
 
 	// Day-night transition

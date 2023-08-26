@@ -40,7 +40,8 @@ NodeMetadata::~NodeMetadata()
 	delete m_inventory;
 }
 
-void NodeMetadata::serialize(std::ostream &os, u8 version, bool disk) const
+void NodeMetadata::serialize(std::ostream &os, u8 version, bool disk,
+		std::string formspec_prepend) const
 {
 	int num_vars = disk ? m_stringvars.size() : countNonPrivate();
 	writeU32(os, num_vars);
@@ -50,7 +51,10 @@ void NodeMetadata::serialize(std::ostream &os, u8 version, bool disk) const
 			continue;
 
 		os << serializeString16(sv.first);
-		os << serializeString32(sv.second);
+		if (!formspec_prepend.empty() && sv.first == "formspec")
+			os << serializeString32(insert_formspec_prepend(sv.second, formspec_prepend));
+		else
+			os << serializeString32(sv.second);
 		if (version >= 2)
 			writeU8(os, (priv) ? 1 : 0);
 	}
@@ -113,7 +117,7 @@ int NodeMetadata::countNonPrivate() const
 */
 
 void NodeMetadataList::serialize(std::ostream &os, u8 blockver, bool disk,
-	bool absolute_pos, bool include_empty) const
+	bool absolute_pos, bool include_empty, std::string formspec_prepend) const
 {
 	/*
 		Version 0 is a placeholder for "nothing to see here; go away."
@@ -146,7 +150,7 @@ void NodeMetadataList::serialize(std::ostream &os, u8 blockver, bool disk,
 			u16 p16 = (p.Z * MAP_BLOCKSIZE + p.Y) * MAP_BLOCKSIZE + p.X;
 			writeU16(os, p16);
 		}
-		data->serialize(os, version, disk);
+		data->serialize(os, version, disk, formspec_prepend);
 	}
 }
 

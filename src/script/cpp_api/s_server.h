@@ -50,6 +50,9 @@ public:
 	bool setPassword(const std::string &playername,
 		const std::string &password);
 
+	// Note that this calls collectgarbage() first.
+	size_t getMemoryUsageKB();
+
 	/* dynamic media handling */
 	static u32 allocateDynamicMediaCallback(lua_State *L, int f_idx);
 	void freeDynamicMediaCallback(u32 token);

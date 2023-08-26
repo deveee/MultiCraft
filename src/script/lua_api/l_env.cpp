@@ -449,8 +449,13 @@ int ModApiEnvMod::l_get_natural_light(lua_State *L)
 
 	// If it's the same as the artificial light, the sunlight needs to be
 	// searched for because the value may not emanate from the sun
-	if (daylight == n.param1 >> 4)
-		daylight = env->findSunlight(pos);
+	try {
+		if (daylight == n.param1 >> 4)
+			daylight = env->findSunlight(pos);
+	} catch (InvalidPositionException &e) {
+		errorstream << "InvalidPositionException when getting natural light at "
+			<< PP(pos) << std::endl;
+	}
 
 	lua_pushinteger(L, dnr * daylight / 1000);
 	return 1;
@@ -645,8 +650,11 @@ int ModApiEnvMod::l_add_entity(lua_State *L)
 	ServerActiveObject *obj = new LuaEntitySAO(env, pos, name, staticdata);
 	int objectid = env->addActiveObject(obj);
 	// If failed to add, return nothing (reads as nil)
-	if(objectid == 0)
+	if(objectid == 0) {
+		errorstream << "Failed to add entity " << name << " at " << PP(pos)
+			<< std::endl;
 		return 0;
+	}
 
 	// If already deleted (can happen in on_activate), return nil
 	if (obj->isGone())
@@ -757,7 +765,7 @@ int ModApiEnvMod::l_get_objects_in_area(lua_State *L)
 {
 	GET_ENV_PTR;
 	ScriptApiBase *script = getScriptApiBase(L);
-	
+
 	v3f minp = read_v3f(L, 1) * BS;
 	v3f maxp = read_v3f(L, 2) * BS;
 	aabb3f box(minp, maxp);
@@ -1443,6 +1451,34 @@ int ModApiEnvMod::l_get_translated_string(lua_State * L)
 	return 1;
 }
 
+// get_world_spawnpoint()
+int ModApiEnvMod::l_get_world_spawnpoint(lua_State * L)
+{
+	GET_ENV_PTR;
+
+	v3f spawnpoint;
+	if (!env->getWorldSpawnpoint(spawnpoint))
+		return 0;
+
+	push_v3f(L, spawnpoint);
+	return 1;
+}
+
+// set_world_spawnpoint(spawnpoint)
+int ModApiEnvMod::l_set_world_spawnpoint(lua_State * L)
+{
+	GET_ENV_PTR;
+
+	if (lua_isnil(L, 1)) {
+		env->resetWorldSpawnpoint();
+	} else {
+		const v3f spawnpoint = read_v3f(L, 1);
+		env->setWorldSpawnpoint(spawnpoint);
+	}
+
+	return 0;
+}
+
 void ModApiEnvMod::Initialize(lua_State *L, int top)
 {
 	API_FCT(set_node);
@@ -1494,6 +1530,8 @@ void ModApiEnvMod::Initialize(lua_State *L, int top)
 	API_FCT(forceload_free_block);
 	API_FCT(compare_block_status);
 	API_FCT(get_translated_string);
+	API_FCT(get_world_spawnpoint);
+	API_FCT(set_world_spawnpoint);
 }
 
 void ModApiEnvMod::InitializeClient(lua_State *L, int top)

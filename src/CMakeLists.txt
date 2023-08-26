@@ -1,4 +1,4 @@
-project(minetest)
+project(multicraft)
 
 INCLUDE(CheckIncludeFiles)
 INCLUDE(CheckLibraryExists)
@@ -32,12 +32,17 @@ if(NOT (BUILD_CLIENT OR BUILD_SERVER))
 endif()
 
 option(USE_SDL "Use SDL2 for window management" FALSE)
+option(USE_STATIC_BUILD "Link additional libraries needed for static build" FALSE)
 
 if(USE_SDL)
-	find_package(SDL2)
+	if(NOT USE_STATIC_BUILD)
+		find_package(SDL2)
+	else()
+		set(SDL2_FOUND TRUE)
+	endif()
 	if (SDL2_FOUND)
 		message(STATUS "SDL2 found.")
-		include_directories(${SDL2_INCLUDEDIR})
+		include_directories(${SDL2_INCLUDE_DIR})
 	else()
 		message(FATAL_ERROR "SDL2 not found.")
 	endif()
@@ -193,6 +198,8 @@ if(ENABLE_LEVELDB)
 	endif()
 endif(ENABLE_LEVELDB)
 
+option(ENABLE_SQLITE "Enable SQLite backend" TRUE)
+set(USE_SQLITE TRUE)
 
 OPTION(ENABLE_REDIS "Enable Redis backend" TRUE)
 set(USE_REDIS FALSE)
@@ -556,6 +563,8 @@ if(BUILD_CLIENT)
 		${FREETYPE_LIBRARY}
 		${PLATFORM_LIBS}
 		${SDL2_LIBRARIES}
+		luautf8
+		luachacha
 	)
 	if(NOT USE_LUAJIT)
 		set_target_properties(${PROJECT_NAME} PROPERTIES
@@ -565,6 +574,21 @@ if(BUILD_CLIENT)
 		)
 	endif()
 
+	if(USE_SDL)
+		target_link_libraries(
+			${PROJECT_NAME}
+			${SDL2_LIBRARIES}
+		)
+		if(USE_STATIC_BUILD AND WIN32)
+			target_link_libraries(
+				${PROJECT_NAME}
+				winmm
+				imm32
+				setupapi
+				opengl32
+			)
+		endif()
+	endif()
 	if(ENABLE_GLES)
 		target_link_libraries(
 			${PROJECT_NAME}
@@ -582,12 +606,23 @@ if(BUILD_CLIENT)
 			${PROJECT_NAME}
 			${GETTEXT_LIBRARY}
 		)
+		if(USE_STATIC_BUILD)
+			target_link_libraries(
+				${PROJECT_NAME}
+				${GETTEXT_ICONV_LIBRARY}
+			)
+		endif()
 	endif()
 	if(USE_CURL)
 		target_link_libraries(
 			${PROJECT_NAME}
 			${CURL_LIBRARY}
 		)
+		if(USE_STATIC_BUILD)
+			if(WIN32)
+				target_link_libraries(${PROJECT_NAME} bcrypt crypt32 ws2_32)
+			endif()
+		endif()
 	endif()
 	if(FREETYPE_PKGCONFIG_FOUND)
 		set_target_properties(${PROJECT_NAME}
@@ -634,6 +669,8 @@ if(BUILD_SERVER)
 		${LUA_BIT_LIBRARY}
 		${GMP_LIBRARY}
 		${PLATFORM_LIBS}
+		luautf8
+		luachacha
 	)
 	set_target_properties(${PROJECT_NAME}server PROPERTIES
 		COMPILE_DEFINITIONS "SERVER")
@@ -901,7 +938,7 @@ if(BUILD_CLIENT)
 	if(USE_GETTEXT)
 		foreach(LOCALE ${GETTEXT_USED_LOCALES})
 			set_mo_paths(MO_BUILD_PATH MO_DEST_PATH ${LOCALE})
-			set(MO_BUILD_PATH "${MO_BUILD_PATH}/${PROJECT_NAME}.mo")
+			set(MO_BUILD_PATH "${MO_BUILD_PATH}/minetest.mo")
 			install(FILES ${MO_BUILD_PATH} DESTINATION ${MO_DEST_PATH})
 		endforeach()
 	endif()
@@ -918,9 +955,9 @@ if (USE_GETTEXT)
 	set(MO_FILES)
 
 	foreach(LOCALE ${GETTEXT_USED_LOCALES})
-		set(PO_FILE_PATH "${GETTEXT_PO_PATH}/${LOCALE}/${PROJECT_NAME}.po")
+		set(PO_FILE_PATH "${GETTEXT_PO_PATH}/${LOCALE}/minetest.po")
 		set_mo_paths(MO_BUILD_PATH MO_DEST_PATH ${LOCALE})
-		set(MO_FILE_PATH "${MO_BUILD_PATH}/${PROJECT_NAME}.mo")
+		set(MO_FILE_PATH "${MO_BUILD_PATH}/minetest.mo")
 
 		add_custom_command(OUTPUT ${MO_BUILD_PATH}
 			COMMAND ${CMAKE_COMMAND} -E make_directory ${MO_BUILD_PATH}

@@ -237,7 +237,7 @@ void Sky::render()
 		}
 
 		// Draw far cloudy fog thing blended with skycolor
-		if (m_visible) {
+		/*if (m_visible) {
 			driver->setMaterial(m_materials[1]);
 			for (u32 j = 0; j < 4; j++) {
 				vertices[0] = video::S3DVertex(-1, -0.02, -1, 0, 0, 1, m_bgcolor, t, t);
@@ -260,7 +260,7 @@ void Sky::render()
 				}
 				driver->drawIndexedTriangleList(&vertices[0], 4, indices, 2);
 			}
-		}
+		}*/
 
 		// Draw stars before sun and moon to be behind them
 		if (m_star_params.visible)
@@ -813,7 +813,7 @@ void Sky::updateStars()
 
 	video::SColor fallback_color = m_star_params.starcolor; // used on GLES 2 “without shaders”
 	PcgRandom rgen(m_seed);
-	float d = (0.006 / 2) * m_star_params.scale;
+	float d = (0.003 / 2) * m_star_params.scale;
 	for (u16 i = 0; i < m_star_params.count; i++) {
 		v3f r = v3f(
 			rgen.range(-10000, 10000),

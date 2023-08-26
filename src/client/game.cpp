@@ -46,7 +46,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "gui/guiConfirmRegistration.h"
 #include "gui/guiFormSpecMenu.h"
 #include "gui/guiKeyChangeMenu.h"
-#include "gui/guiPasswordChange.h"
 #include "gui/guiVolumeChange.h"
 #include "gui/mainmenumanager.h"
 #include "gui/profilergraph.h"
@@ -175,14 +174,39 @@ struct LocalFormspecHandler : public TextDest
 			return;
 		}
 
+		if (m_formname == "MT_CHANGE_PW") {
+			if (fields.find("btn_change_pw") != fields.end()) {
+				const std::string old_pw = fields.at("old_pw");
+				const std::string new_pw = fields.at("new_pw");
+				const std::string confirm_pw = fields.at("confirm_pw");
+				if (new_pw != confirm_pw) {
+					g_gamecallback->changePassword(old_pw, new_pw, confirm_pw);
+					return;
+				}
+				m_client->sendChangePassword(old_pw, new_pw, true);
+			}
+
+			return;
+		}
+
 		if (m_formname == "MT_DEATH_SCREEN") {
 			assert(m_client != 0);
 			m_client->sendRespawn();
 			return;
 		}
 
-		if (m_client->modsLoaded())
-			m_client->getScript()->on_formspec_input(m_formname, fields);
+		if (m_client->modsLoaded()) {
+			try {
+				m_client->getScript()->on_formspec_input(m_formname, fields);
+			} catch (LuaError &e) {
+				const std::string error_message = std::string("LuaError: ") + e.what() +
+						strgettext("\nCheck debug.txt for details.");
+				m_client->setFatalError(error_message);
+#ifdef __ANDROID__
+				porting::handleError("LuaError (on_formspec_input)", error_message);
+#endif
+			}
+		}
 	}
 
 	Client *m_client = nullptr;
@@ -335,7 +359,7 @@ public:
 	static void playerDamage(MtEvent *e, void *data)
 	{
 		SoundMaker *sm = (SoundMaker *)data;
-		sm->m_sound->playSound(SimpleSoundSpec("player_damage", 0.5), false);
+		sm->m_sound->playSound(SimpleSoundSpec("player_damage", 1.0), false);
 	}
 
 	static void playerFallingDamage(MtEvent *e, void *data)
@@ -481,7 +505,7 @@ public:
 		m_sky_bg_color.set(bgcolorfa, services);
 
 		// Fog distance
-		float fog_distance = 10000 * BS;
+		float fog_distance = -1.0f; // sentinel for disabled fog
 
 		if (m_fog_enabled && !*m_force_fog_off)
 			fog_distance = *m_fog_range;
@@ -607,17 +631,23 @@ struct GameRunData {
 	bool dig_instantly;
 	bool digging_blocked;
 	bool reset_jump_timer;
+	bool disable_fog;
 	float nodig_delay_timer;
+	float noplace_delay_timer;
 	float dig_time;
 	float dig_time_complete;
 	float repeat_place_timer;
 	float object_hit_delay_timer;
 	float time_from_last_punch;
+	float pause_game_timer;
 	ClientActiveObject *selected_object;
 
 	float jump_timer;
 	float damage_flash;
 	float update_draw_list_timer;
+#if defined(__MACH__) && defined(__APPLE__)
+	float item_select_timer;
+#endif
 
 	f32 fog_range;
 
@@ -659,6 +689,9 @@ public:
 
 	void run();
 	void shutdown();
+#if defined(__ANDROID__) || defined(__IOS__)
+	void pauseGame();
+#endif
 
 protected:
 
@@ -692,7 +725,7 @@ protected:
 	// Input related
 	void processUserInput(f32 dtime);
 	void processKeyInput();
-	void processItemSelection(u16 *new_playeritem);
+	void processItemSelection(f32 dtime, GameRunData *run_data);
 
 	void dropSelectedItem(bool single_item = false);
 	void openInventory();
@@ -753,7 +786,7 @@ protected:
 
 	// Misc
 	void showOverlayMessage(const char *msg, float dtime, int percent,
-			bool draw_clouds = true);
+			bool draw_clouds = false);
 
 	static void settingChangedCallback(const std::string &setting_name, void *data);
 	void readSettings();
@@ -775,7 +808,7 @@ protected:
 		return input->wasKeyReleased(k);
 	}
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__IOS__)
 	void handleAndroidChatInput();
 #endif
 
@@ -787,6 +820,8 @@ private:
 
 	void showDeathFormspec();
 	void showPauseMenu();
+	void showChangePasswordDialog(std::string old_pw, std::string new_pw,
+		std::string confirm_pw);
 
 	void pauseAnimation();
 	void resumeAnimation();
@@ -909,10 +944,7 @@ private:
 
 	int m_reset_HW_buffer_counter = 0;
 #ifdef HAVE_TOUCHSCREENGUI
-	bool m_cache_hold_aux1;
-#endif
-#ifdef __ANDROID__
-	bool m_android_chat_open;
+	bool m_cache_touchtarget;
 #endif
 };
 
@@ -948,11 +980,6 @@ Game::Game() :
 		&settingChangedCallback, this);
 
 	readSettings();
-
-#ifdef HAVE_TOUCHSCREENGUI
-	m_cache_hold_aux1 = false;	// This is initialised properly later
-#endif
-
 }
 
 
@@ -981,6 +1008,7 @@ Game::~Game()
 	delete draw_control;
 
 	clearTextureNameCache();
+	setDisableTexturePacks(false);
 
 	g_settings->deregisterChangedCallback("doubletap_jump",
 		&settingChangedCallback, this);
@@ -1074,11 +1102,6 @@ void Game::run()
 
 	set_light_table(g_settings->getFloat("display_gamma"));
 
-#ifdef HAVE_TOUCHSCREENGUI
-	m_cache_hold_aux1 = g_settings->getBool("fast_move")
-			&& client->checkPrivilege("fast");
-#endif
-
 	irr::core::dimension2d<u32> previous_screen_size(g_settings->getU16("screen_w"),
 		g_settings->getU16("screen_h"));
 
@@ -1103,6 +1126,20 @@ void Game::run()
 		//    m_rendering_engine->run() from this iteration
 		//  + Sleep time until the wanted FPS are reached
 		draw_times.limit(device, &dtime);
+
+#if defined(__MACH__) && defined(__APPLE__) && !defined(__IOS__) && !defined(__aarch64__)
+		if (!device->isWindowFocused()) {
+			if (m_does_lost_focus_pause_game && !isMenuActive())
+				showPauseMenu();
+			sleep_ms(50);
+			continue;
+		}
+#else
+		if (device->isWindowMinimized()) {
+			sleep_ms(50);
+			continue;
+		}
+#endif
 
 		// Prepare render data for next iteration
 
@@ -1165,7 +1202,7 @@ void Game::shutdown()
 	g_touchscreengui->hide();
 #endif
 
-	showOverlayMessage(N_("Shutting down..."), 0, 0, false);
+	showOverlayMessage(N_("Shutting down..."), 0, 100);
 
 	if (clouds)
 		clouds->drop();
@@ -1244,9 +1281,9 @@ bool Game::init(
 bool Game::initSound()
 {
 #if USE_SOUND
-	if (g_settings->getBool("enable_sound") && g_sound_manager_singleton.get()) {
+	if (g_settings->getBool("enable_sound") && g_sound_manager_singleton) {
 		infostream << "Attempting to use OpenAL audio" << std::endl;
-		sound = createOpenALSoundManager(g_sound_manager_singleton.get(), &soundfetcher);
+		sound = createOpenALSoundManager(g_sound_manager_singleton, &soundfetcher);
 		if (!sound)
 			infostream << "Failed to initialize OpenAL audio" << std::endl;
 	} else
@@ -1311,12 +1348,6 @@ bool Game::createClient(const GameStartData &start_data)
 		return false;
 
 	bool could_connect, connect_aborted;
-#ifdef HAVE_TOUCHSCREENGUI
-	if (g_touchscreengui) {
-		g_touchscreengui->init(texture_src);
-		g_touchscreengui->hide();
-	}
-#endif
 	if (!connectToServer(start_data, &could_connect, &connect_aborted))
 		return false;
 
@@ -1329,6 +1360,10 @@ bool Game::createClient(const GameStartData &start_data)
 		return false;
 	}
 
+#if defined(__ANDROID__) || defined(__IOS__)
+	porting::notifyServerConnect(!simple_singleplayer_mode);
+#endif
+
 	if (!getServerContent(&connect_aborted)) {
 		if (error_message->empty() && !connect_aborted) {
 			// Should not happen if error messages are set properly
@@ -1339,7 +1374,7 @@ bool Game::createClient(const GameStartData &start_data)
 	}
 
 	auto *scsf = new GameGlobalShaderConstantSetterFactory(
-			&m_flags.force_fog_off, &runData.fog_range, client);
+			&runData.disable_fog, &runData.fog_range, client);
 	shader_src->addShaderConstantSetterFactory(scsf);
 
 	// Update cached textures, meshes and materials
@@ -1365,7 +1400,11 @@ bool Game::createClient(const GameStartData &start_data)
 
 	/* Pre-calculated values
 	 */
+#ifndef HAVE_TOUCHSCREENGUI
 	video::ITexture *t = texture_src->getTexture("crack_anylength.png");
+#else
+	video::ITexture *t = texture_src->getTexture("crack_anylength_touch.png");
+#endif
 	if (t) {
 		v2u32 size = t->getOriginalSize();
 		crack_animation_length = size.Y / size.X;
@@ -1392,10 +1431,11 @@ bool Game::createClient(const GameStartData &start_data)
 		str += L"]";
 		delete[] text;
 	}
+#ifndef NDEBUG
 	str += L" [";
 	str += driver->getName();
 	str += L"]";
-
+#endif
 	device->setWindowCaption(str.c_str());
 
 	LocalPlayer *player = client->getEnv().getLocalPlayer();
@@ -1414,7 +1454,7 @@ bool Game::createClient(const GameStartData &start_data)
 
 bool Game::initGui()
 {
-	m_game_ui->init();
+	m_game_ui->init(client);
 
 	// Remove stale "recent" chat messages from previous connections
 	chat_backend->clearRecentChat();
@@ -1427,10 +1467,11 @@ bool Game::initGui()
 			-1, chat_backend, client, &g_menumgr);
 
 #ifdef HAVE_TOUCHSCREENGUI
-
-	if (g_touchscreengui)
-		g_touchscreengui->show();
-
+	if (g_touchscreengui) {
+		g_touchscreengui->init(texture_src);
+		if (g_touchscreengui->isActive())
+			g_touchscreengui->show();
+	}
 #endif
 
 	return true;
@@ -1544,7 +1585,8 @@ bool Game::connectToServer(const GameStartData &start_data,
 			if (client->m_is_registration_confirmation_state) {
 				if (registration_confirmation_shown) {
 					// Keep drawing the GUI
-					m_rendering_engine->draw_menu_scene(guienv, dtime, true);
+					ITextureSource *tsrc = client->getTextureSource();
+					m_rendering_engine->draw_menu_scene(guienv, tsrc, dtime);
 				} else {
 					registration_confirmation_shown = true;
 					(new GUIConfirmRegistration(guienv, guienv->getRootGUIElement(), -1,
@@ -1554,7 +1596,7 @@ bool Game::connectToServer(const GameStartData &start_data,
 			} else {
 				wait_time += dtime;
 				// Only time out if we aren't waiting for the server we started
-				if (!start_data.address.empty() && wait_time > 10) {
+				if (!start_data.address.empty() && wait_time > 15) {
 					*error_message = gettext("Connection timed out.");
 					errorstream << *error_message << std::endl;
 					break;
@@ -1676,6 +1718,9 @@ inline void Game::updateInteractTimers(f32 dtime)
 	if (runData.object_hit_delay_timer >= 0)
 		runData.object_hit_delay_timer -= dtime;
 
+	if (runData.noplace_delay_timer >= 0)
+		runData.noplace_delay_timer -= dtime;
+
 	runData.time_from_last_punch += dtime;
 }
 
@@ -1705,9 +1750,12 @@ inline bool Game::handleCallbacks()
 	}
 
 	if (g_gamecallback->changepassword_requested) {
-		(new GUIPasswordChange(guienv, guiroot, -1,
-				       &g_menumgr, client, texture_src))->drop();
+		showChangePasswordDialog(g_gamecallback->old_pw_tmp,
+				g_gamecallback->new_pw_tmp, g_gamecallback->confirm_pw_tmp);
 		g_gamecallback->changepassword_requested = false;
+		g_gamecallback->old_pw_tmp.clear();
+		g_gamecallback->new_pw_tmp.clear();
+		g_gamecallback->confirm_pw_tmp.clear();
 	}
 
 	if (g_gamecallback->changevolume_requested) {
@@ -1861,27 +1909,33 @@ void Game::processUserInput(f32 dtime)
 	}
 #endif
 
-	if (!guienv->hasFocus(gui_chat_console) && gui_chat_console->isOpen()) {
-		gui_chat_console->closeConsoleAtOnce();
+	if (!gui_chat_console->hasFocus() && gui_chat_console->isOpen()) {
+		gui_chat_console->closeConsole();
 	}
 
 	// Input handler step() (used by the random input generator)
 	input->step(dtime);
 
-#ifdef __ANDROID__
-	auto formspec = m_game_ui->getFormspecGUI();
-	if (formspec)
-		formspec->getAndroidUIInput();
-	else
-		handleAndroidChatInput();
+#if defined(__ANDROID__) || defined(__IOS__)
+	if (!porting::hasRealKeyboard()) {
+		auto formspec = m_game_ui->getFormspecGUI();
+		if (formspec)
+			formspec->getAndroidUIInput();
+		else
+			handleAndroidChatInput();
+	}
 #endif
 
+	bool doubletap_jump = m_cache_doubletap_jump;
+#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
+	doubletap_jump |= input->sdl_game_controller.isActive();
+#endif
 	// Increase timer for double tap of "keymap_jump"
-	if (m_cache_doubletap_jump && runData.jump_timer <= 0.2f)
+	if (doubletap_jump && runData.jump_timer <= 0.15f)
 		runData.jump_timer += dtime;
 
 	processKeyInput();
-	processItemSelection(&runData.new_playeritem);
+	processItemSelection(dtime, &runData);
 }
 
 
@@ -1897,19 +1951,24 @@ void Game::processKeyInput()
 	} else if (wasKeyDown(KeyType::INVENTORY)) {
 		openInventory();
 	} else if (input->cancelPressed()) {
-#ifdef __ANDROID__
-		m_android_chat_open = false;
+#if defined(__ANDROID__) || defined(__IOS__)
+		gui_chat_console->setAndroidChatOpen(false);
 #endif
 		if (!gui_chat_console->isOpenInhibited()) {
 			showPauseMenu();
 		}
 	} else if (wasKeyDown(KeyType::CHAT)) {
-		openConsole(0.2, L"");
+#if defined(__ANDROID__) || defined(__IOS__)
+		if (isKeyDown(KeyType::SNEAK))
+			m_game_ui->toggleChat();
+		else
+ #endif
+		openConsole(core::clamp(g_settings->getFloat("console_message_height"), 0.1f, 1.0f), L"");
 	} else if (wasKeyDown(KeyType::CMD)) {
-		openConsole(0.2, L"/");
+		openConsole(core::clamp(g_settings->getFloat("console_message_height"), 0.1f, 1.0f), L"/");
 	} else if (wasKeyDown(KeyType::CMD_LOCAL)) {
 		if (client->modsLoaded())
-			openConsole(0.2, L".");
+			openConsole(core::clamp(g_settings->getFloat("console_message_height"), 0.1f, 1.0f), L".");
 		else
 			m_game_ui->showStatusText(wgettext("Client side scripting is disabled"));
 	} else if (wasKeyDown(KeyType::CONSOLE)) {
@@ -1917,6 +1976,11 @@ void Game::processKeyInput()
 	} else if (wasKeyDown(KeyType::FREEMOVE)) {
 		toggleFreeMove();
 	} else if (wasKeyDown(KeyType::JUMP)) {
+#ifdef HAVE_TOUCHSCREENGUI
+		if (isKeyDown(KeyType::SNEAK) && client->checkPrivilege("fly"))
+			toggleFast();
+		else
+ #endif
 		toggleFreeMoveAlt();
 	} else if (wasKeyDown(KeyType::PITCHMOVE)) {
 		togglePitchMove();
@@ -2007,13 +2071,18 @@ void Game::processKeyInput()
 	}
 }
 
-void Game::processItemSelection(u16 *new_playeritem)
+void Game::processItemSelection(f32 dtime, GameRunData *run_data)
 {
+#if defined(__MACH__) && defined(__APPLE__)
+	if (run_data->item_select_timer)
+			run_data->item_select_timer = MYMAX(0.0f, run_data->item_select_timer - dtime);
+#endif
+
 	LocalPlayer *player = client->getEnv().getLocalPlayer();
 
 	/* Item selection using mouse wheel
 	 */
-	*new_playeritem = player->getWieldIndex();
+	run_data->new_playeritem = player->getWieldIndex();
 
 	s32 wheel = input->getMouseWheel();
 	u16 max_item = MYMIN(PLAYER_INVENTORY_SIZE - 1,
@@ -2027,17 +2096,21 @@ void Game::processItemSelection(u16 *new_playeritem)
 	if (wasKeyDown(KeyType::HOTBAR_PREV))
 		dir = 1;
 
-	if (dir < 0)
-		*new_playeritem = *new_playeritem < max_item ? *new_playeritem + 1 : 0;
-	else if (dir > 0)
-		*new_playeritem = *new_playeritem > 0 ? *new_playeritem - 1 : max_item;
-	// else dir == 0
+#if defined(__MACH__) && defined(__APPLE__)
+	if (dir && !run_data->item_select_timer) {
+		run_data->item_select_timer = 0.05f;
+#else
+	if (dir) {
+#endif
+		run_data->new_playeritem += dir < 0 ? 1 : max_item;
+		run_data->new_playeritem %= max_item + 1;
+	}
 
 	/* Item selection using hotbar slot keys
 	 */
 	for (u16 i = 0; i <= max_item; i++) {
 		if (wasKeyDown((GameKeyType) (KeyType::SLOT_1 + i))) {
-			*new_playeritem = i;
+			run_data->new_playeritem = i;
 			break;
 		}
 	}
@@ -2068,21 +2141,13 @@ void Game::openInventory()
 
 	infostream << "Game: Launching inventory" << std::endl;
 
-	PlayerInventoryFormSource *fs_src = new PlayerInventoryFormSource(client);
-
 	InventoryLocation inventoryloc;
 	inventoryloc.setCurrentPlayer();
 
-	if (client->modsLoaded() && client->getScript()->on_inventory_open(fs_src->m_client->getInventory(inventoryloc))) {
-		delete fs_src;
-		return;
-	}
+	if (client->modsLoaded() && client->getScript()->on_inventory_open(client->getInventory(inventoryloc)))
+		return; // CSM prevented inventory opening
 
-	if (fs_src->getForm().empty()) {
-		delete fs_src;
-		return;
-	}
-
+	PlayerInventoryFormSource *fs_src = new PlayerInventoryFormSource(client);
 	TextDest *txt_dst = new TextDestPlayerInventory(client);
 	auto *&formspec = m_game_ui->updateFormspec("");
 	GUIFormSpecMenu::create(formspec, client, m_rendering_engine->get_gui_env(),
@@ -2096,10 +2161,19 @@ void Game::openConsole(float scale, const wchar_t *line)
 {
 	assert(scale > 0.0f && scale <= 1.0f);
 
-#ifdef __ANDROID__
-	porting::showInputDialog(gettext("ok"), "", "", 2);
-	m_android_chat_open = true;
-#else
+	if (gui_chat_console->getAndroidChatOpen())
+		return;
+
+#if defined(__ANDROID__) || defined(__IOS__)
+	if (!porting::hasRealKeyboard()) {
+		porting::showInputDialog("", "", 2);
+		gui_chat_console->setAndroidChatOpen(true);
+	}
+
+	if (!g_settings->getBool("device_is_tablet"))
+		return;
+#endif
+
 	if (gui_chat_console->isOpenInhibited())
 		return;
 	gui_chat_console->openConsole(scale);
@@ -2107,16 +2181,19 @@ void Game::openConsole(float scale, const wchar_t *line)
 		gui_chat_console->setCloseOnEnter(true);
 		gui_chat_console->replaceAndAddToHistory(line);
 	}
-#endif
 }
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__IOS__)
 void Game::handleAndroidChatInput()
 {
-	if (m_android_chat_open && porting::getInputDialogState() == 0) {
+	if (gui_chat_console->getAndroidChatOpen() &&
+			porting::getInputDialogState() == 0) {
 		std::string text = porting::getInputDialogValue();
 		client->typeChatMessage(utf8_to_wide(text));
-		m_android_chat_open = false;
+		gui_chat_console->setAndroidChatOpen(false);
+		if (!text.empty() && gui_chat_console->isOpen()) {
+			gui_chat_console->closeConsole();
+		}
 	}
 }
 #endif
@@ -2140,7 +2217,13 @@ void Game::toggleFreeMove()
 
 void Game::toggleFreeMoveAlt()
 {
-	if (m_cache_doubletap_jump && runData.jump_timer < 0.2f)
+	bool doubletap_jump = m_cache_doubletap_jump;
+#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
+	doubletap_jump |= input->sdl_game_controller.isActive();
+#endif
+
+	if (doubletap_jump && runData.jump_timer < 0.15f &&
+			(!simple_singleplayer_mode || client->checkPrivilege("fly")))
 		toggleFreeMove();
 
 	runData.reset_jump_timer = true;
@@ -2175,10 +2258,6 @@ void Game::toggleFast()
 	} else {
 		m_game_ui->showTranslatedStatusText("Fast mode disabled");
 	}
-
-#ifdef HAVE_TOUCHSCREENGUI
-	m_cache_hold_aux1 = fast_move && has_fast_privs;
-#endif
 }
 
 
@@ -2264,7 +2343,7 @@ void Game::toggleMinimap(bool shift_pressed)
 	u32 hud_flags = client->getEnv().getLocalPlayer()->hud_flags;
 
 	if (!(hud_flags & HUD_FLAG_MINIMAP_VISIBLE)) {
-		m_game_ui->m_flags.show_minimap = false;
+		m_game_ui->showMinimap(false);
 	} else {
 
 	// If radar is disabled, try to find a non radar mode or fall back to 0
@@ -2273,8 +2352,7 @@ void Game::toggleMinimap(bool shift_pressed)
 					mapper->getModeDef().type == MINIMAP_TYPE_RADAR)
 				mapper->nextMode();
 
-		m_game_ui->m_flags.show_minimap = mapper->getModeDef().type !=
-				MINIMAP_TYPE_OFF;
+		m_game_ui->showMinimap(mapper->getModeDef().type != MINIMAP_TYPE_OFF);
 	}
 	// <--
 	// End of 'not so satifying code'
@@ -2339,6 +2417,9 @@ void Game::toggleDebug()
 			m_game_ui->showTranslatedStatusText("Debug info and profiler graph hidden");
 		}
 	}
+
+	// Update the chat text as it may need changing because of rounded screens
+	m_game_ui->m_chat_text_needs_update = true;
 }
 
 
@@ -2388,8 +2469,13 @@ void Game::decreaseViewRange()
 
 void Game::toggleFullViewRange()
 {
+#if !defined(__ANDROID__) && !defined(__IOS__)
 	draw_control->range_all = !draw_control->range_all;
 	if (draw_control->range_all)
+#else
+	draw_control->extended_range = !draw_control->extended_range;
+	if (draw_control->extended_range)
+#endif
 		m_game_ui->showTranslatedStatusText("Enabled unlimited viewing range");
 	else
 		m_game_ui->showTranslatedStatusText("Disabled unlimited viewing range");
@@ -2408,13 +2494,9 @@ void Game::updateCameraDirection(CameraOrientation *cam, float dtime)
 	if ((device->isWindowActive() && device->isWindowFocused()
 			&& !isMenuActive()) || input->isRandom()) {
 
-#ifndef __ANDROID__
 		if (!input->isRandom()) {
-			// Mac OSX gets upset if this is set every frame
-			if (device->getCursorControl()->isVisible())
-				device->getCursorControl()->setVisible(false);
+			input->setCursorVisible(false);
 		}
-#endif
 
 		if (m_first_loop_after_window_activation) {
 			m_first_loop_after_window_activation = false;
@@ -2427,12 +2509,7 @@ void Game::updateCameraDirection(CameraOrientation *cam, float dtime)
 
 	} else {
 
-#ifndef ANDROID
-		// Mac OSX gets upset if this is set every frame
-		if (!device->getCursorControl()->isVisible())
-			device->getCursorControl()->setVisible(true);
-#endif
-
+		input->setCursorVisible(true);
 		m_first_loop_after_window_activation = true;
 
 	}
@@ -2455,9 +2532,10 @@ void Game::updateCameraOrientation(CameraOrientation *cam, float dtime)
 #ifdef HAVE_TOUCHSCREENGUI
 	if (g_touchscreengui) {
 		cam->camera_yaw   += g_touchscreengui->getYawChange();
-		cam->camera_pitch  = g_touchscreengui->getPitch();
-	} else {
+		cam->camera_pitch += g_touchscreengui->getPitchChange();
+	}
 #endif
+	{
 		v2s32 center(driver->getScreenSize().Width / 2, driver->getScreenSize().Height / 2);
 		v2s32 dist = input->getMousePos() - center;
 
@@ -2471,15 +2549,18 @@ void Game::updateCameraOrientation(CameraOrientation *cam, float dtime)
 
 		if (dist.X != 0 || dist.Y != 0)
 			input->setMousePos(center.X, center.Y);
-#ifdef HAVE_TOUCHSCREENGUI
 	}
-#endif
 
 	if (m_cache_enable_joysticks) {
 		f32 sens_scale = getSensitivityScaleFactor();
 		f32 c = m_cache_joystick_frustum_sensitivity * dtime * sens_scale;
+#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
+		cam->camera_yaw -= input->sdl_game_controller.getCameraYaw() * c;
+		cam->camera_pitch += input->sdl_game_controller.getCameraPitch() * c;
+#else
 		cam->camera_yaw -= input->joystick.getAxisWithoutDead(JA_FRUSTUM_HORIZONTAL) * c;
 		cam->camera_pitch += input->joystick.getAxisWithoutDead(JA_FRUSTUM_VERTICAL) * c;
+#endif
 	}
 
 	cam->camera_pitch = rangelim(cam->camera_pitch, -89.5, 89.5);
@@ -2505,8 +2586,13 @@ void Game::updatePlayerControl(const CameraOrientation &cam)
 		isKeyDown(KeyType::PLACE),
 		cam.camera_pitch,
 		cam.camera_yaw,
+#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
+		input->sdl_game_controller.getMoveSideward(),
+		input->sdl_game_controller.getMoveForward()
+#else
 		input->getMovementSpeed(),
 		input->getMovementDirection()
+#endif
 	);
 
 	// autoforward if set: move towards pointed position at maximum speed
@@ -2515,17 +2601,6 @@ void Game::updatePlayerControl(const CameraOrientation &cam)
 		control.movement_speed = 1.0f;
 		control.movement_direction = 0.0f;
 	}
-
-#ifdef HAVE_TOUCHSCREENGUI
-	/* For touch, simulate holding down AUX1 (fast move) if the user has
-	 * the fast_move setting toggled on. If there is an aux1 key defined for
-	 * touch then its meaning is inverted (i.e. holding aux1 means walk and
-	 * not fast)
-	 */
-	if (m_cache_hold_aux1) {
-		control.aux1 = control.aux1 ^ true;
-	}
-#endif
 
 	client->setPlayerControl(control);
 
@@ -2931,6 +3006,13 @@ void Game::updateChat(f32 dtime)
 	if (buf.getLinesModified()) {
 		buf.resetLinesModified();
 		m_game_ui->setChatText(chat_backend->getRecentChat(), buf.getLineCount());
+		gui_chat_console->onLinesModified();
+	}
+	
+	auto &prompt = chat_backend->getPrompt();
+	if (prompt.getLineModified()) {
+		prompt.resetLineModified();
+		gui_chat_console->onPromptModified();
 	}
 
 	// Make sure that the size is still correct
@@ -3077,7 +3159,7 @@ void Game::processPlayerInteraction(f32 dtime, bool show_hud, bool show_debug)
 
 #ifdef HAVE_TOUCHSCREENGUI
 
-	if ((g_settings->getBool("touchtarget")) && (g_touchscreengui)) {
+	if (g_touchscreengui && g_touchscreengui->isActive() && m_cache_touchtarget) {
 		shootline = g_touchscreengui->getShootline();
 		// Scale shootline to the acual distance the player can reach
 		shootline.end = shootline.start
@@ -3302,10 +3384,13 @@ void Game::handlePointingAtNode(const PointedThing &pointed,
 
 	ClientMap &map = client->getEnv().getClientMap();
 
+	bool digging = false;
 	if (runData.nodig_delay_timer <= 0.0 && isKeyDown(KeyType::DIG)
 			&& !runData.digging_blocked
 			&& client->checkPrivilege("interact")) {
 		handleDigging(pointed, nodepos, selected_item, hand_item, dtime);
+		digging = true;
+		runData.noplace_delay_timer = 1.0;
 	}
 
 	// This should be done after digging handling
@@ -3323,7 +3408,7 @@ void Game::handlePointingAtNode(const PointedThing &pointed,
 	}
 
 	if ((wasKeyPressed(KeyType::PLACE) ||
-			runData.repeat_place_timer >= m_repeat_place_time) &&
+			runData.repeat_place_timer >= m_repeat_place_time) && !digging &&
 			client->checkPrivilege("interact")) {
 		runData.repeat_place_timer = 0;
 		infostream << "Place button pressed while looking at ground" << std::endl;
@@ -3556,7 +3641,21 @@ void Game::handlePointingAtObject(const PointedThing &pointed,
 
 	m_game_ui->setInfoText(infotext);
 
-	if (isKeyDown(KeyType::DIG)) {
+	const ItemDefinition &playeritem_def =
+		tool_item.getDefinition(itemdef_manager);
+	bool nohit_enabled = ((ItemGroupList) playeritem_def.groups)["nohit"] != 0;
+
+	bool should_punch = isKeyDown(KeyType::DIG) && !nohit_enabled;
+	bool should_interact = wasKeyPressed(KeyType::PLACE) || ((wasKeyPressed(KeyType::DIG) && nohit_enabled));
+
+#ifdef HAVE_TOUCHSCREENGUI
+	if (g_touchscreengui->isActive()) {
+		should_punch = wasKeyPressed(KeyType::PLACE) && !nohit_enabled;
+		should_interact = wasKeyPressed(KeyType::DIG) || ((wasKeyPressed(KeyType::PLACE) && nohit_enabled));
+	}
+#endif
+
+	if (should_punch) {
 		bool do_punch = false;
 		bool do_punch_damage = false;
 
@@ -3586,8 +3685,8 @@ void Game::handlePointingAtObject(const PointedThing &pointed,
 			if (!disable_send)
 				client->interact(INTERACT_START_DIGGING, pointed);
 		}
-	} else if (wasKeyDown(KeyType::PLACE)) {
-		infostream << "Pressed place button while pointing at object" << std::endl;
+	} else if (should_interact) {
+		infostream << "Right-clicked object" << std::endl;
 		client->interact(INTERACT_PLACE, pointed);  // place
 	}
 }
@@ -3669,6 +3768,8 @@ void Game::handleDigging(const PointedThing &pointed, const v3s16 &nodepos,
 		client->setCrack(runData.dig_index, nodepos);
 	} else {
 		infostream << "Digging completed" << std::endl;
+		runData.noplace_delay_timer = 1.0;
+		client->interact(INTERACT_DIGGING_COMPLETED, pointed);
 		client->setCrack(-1, v3s16(0, 0, 0));
 
 		runData.dig_time = 0;
@@ -3741,11 +3842,8 @@ void Game::updateFrame(ProfilerGraph *graph, RunStats *stats, f32 dtime,
 		Fog range
 	*/
 
-	if (draw_control->range_all) {
-		runData.fog_range = 100000 * BS;
-	} else {
-		runData.fog_range = draw_control->wanted_range * BS;
-	}
+	runData.disable_fog = !m_cache_enable_fog || m_flags.force_fog_off || draw_control->range_all;
+	runData.fog_range = draw_control->wanted_range * BS;
 
 	/*
 		Calculate general brightness
@@ -3830,27 +3928,15 @@ void Game::updateFrame(ProfilerGraph *graph, RunStats *stats, f32 dtime,
 		Fog
 	*/
 
-	if (m_cache_enable_fog) {
-		driver->setFog(
-				sky->getBgColor(),
-				video::EFT_FOG_LINEAR,
-				runData.fog_range * m_cache_fog_start,
-				runData.fog_range * 1.0,
-				0.01,
-				false, // pixel fog
-				true // range fog
-		);
-	} else {
-		driver->setFog(
-				sky->getBgColor(),
-				video::EFT_FOG_LINEAR,
-				100000 * BS,
-				110000 * BS,
-				0.01f,
-				false, // pixel fog
-				false // range fog
-		);
-	}
+	driver->setFog(
+			sky->getBgColor(),
+			video::EFT_FOG_LINEAR,
+			runData.fog_range * m_cache_fog_start,
+			runData.fog_range * 1.0,
+			0.01,
+			false, // pixel fog
+			true // range fog
+	);
 
 	/*
 		Damage camera tilt
@@ -3887,7 +3973,8 @@ void Game::updateFrame(ProfilerGraph *graph, RunStats *stats, f32 dtime,
 		// Update wielded tool
 		ItemStack selected_item, hand_item;
 		ItemStack &tool_item = player->getWieldedItem(&selected_item, &hand_item);
-		camera->wield(tool_item);
+		const ItemDefinition &item_def = tool_item.getDefinition(itemdef_manager);
+		camera->wield(tool_item, itemgroup_get(item_def.groups, "no_change_anim") > 0);
 	}
 
 	/*
@@ -3957,13 +4044,31 @@ void Game::updateFrame(ProfilerGraph *graph, RunStats *stats, f32 dtime,
 			(player->hud_flags & HUD_FLAG_CROSSHAIR_VISIBLE) &&
 			(camera->getCameraMode() != CAMERA_MODE_THIRD_FRONT));
 #ifdef HAVE_TOUCHSCREENGUI
-	try {
-		draw_crosshair = !g_settings->getBool("touchtarget");
-	} catch (SettingNotFoundException) {
-	}
+	draw_crosshair = !m_cache_touchtarget || !g_touchscreengui->isActive();
 #endif
+
+	video::SOverrideMaterial &mat = driver->getOverrideMaterial();
+#if IRRLICHT_VERSION_MAJOR == 1 && IRRLICHT_VERSION_MINOR < 9
+	mat.EnableFlags = 0;
+#else
+	mat.reset();
+#endif
+	if (runData.disable_fog) {
+		mat.Material.FogEnable = false;
+		mat.EnableFlags |= video::EMF_FOG_ENABLE;
+		mat.EnablePasses = scene::ESNRP_SKY_BOX | scene::ESNRP_SOLID |
+				scene::ESNRP_TRANSPARENT | scene::ESNRP_TRANSPARENT_EFFECT |
+				scene::ESNRP_SHADOW;
+	}
+
 	m_rendering_engine->draw_scene(skycolor, m_game_ui->m_flags.show_hud,
 			m_game_ui->m_flags.show_minimap, draw_wield_tool, draw_crosshair);
+
+#if IRRLICHT_VERSION_MAJOR == 1 && IRRLICHT_VERSION_MINOR < 9
+	mat.EnableFlags = 0;
+#else
+	mat.reset();
+#endif
 
 	/*
 		Profiler graph
@@ -4072,6 +4177,15 @@ void FpsControl::limit(IrrlichtDevice *device, f32 *dtime)
 		device->isWindowFocused() && !g_menumgr.pausesGame()
 			? g_settings->getFloat("fps_max")
 			: g_settings->getFloat("fps_max_unfocused"));
+#if defined(__ANDROID__) || defined(__IOS__)
+	if (g_menumgr.pausesGame() && !device->isWindowFocused())
+		frametime_min = 1000;
+#endif
+#if defined(__MACH__) && defined(__APPLE__) && !defined(__IOS__)
+	// FPS limiting causes freezes on macOS
+	if (!g_menumgr.pausesGame())
+		frametime_min = 0;
+#endif
 
 	u64 time = porting::getTimeUs();
 
@@ -4098,6 +4212,20 @@ void FpsControl::limit(IrrlichtDevice *device, f32 *dtime)
 		*dtime = 0;
 
 	last_time = time;
+
+#if defined(__ANDROID__) || defined(__IOS__)
+	if (g_menumgr.pausesGame()) {
+		runData.pause_game_timer += *dtime;
+		float disconnect_time = 180.0f;
+#ifdef __IOS__
+		disconnect_time = simple_singleplayer_mode ? 60.0f : 120.0f;
+#endif
+		if (runData.pause_game_timer > disconnect_time) {
+			g_gamecallback->disconnect();
+			return;
+		}
+	}
+#endif
 }
 
 void Game::showOverlayMessage(const char *msg, float dtime, int percent, bool draw_clouds)
@@ -4129,6 +4257,10 @@ void Game::readSettings()
 
 	m_cache_fog_start                    = g_settings->getFloat("fog_start");
 
+#ifdef HAVE_TOUCHSCREENGUI
+	m_cache_touchtarget                  = g_settings->getBool("touchtarget");
+#endif
+
 	m_cache_cam_smoothing = 0;
 	if (g_settings->getBool("cinematic"))
 		m_cache_cam_smoothing = 1 - g_settings->getFloat("cinematic_camera_smoothing");
@@ -4141,6 +4273,19 @@ void Game::readSettings()
 
 	m_does_lost_focus_pause_game = g_settings->getBool("pause_on_lost_focus");
 }
+
+#if defined(__ANDROID__) || defined(__IOS__)
+void Game::pauseGame()
+{
+	if (g_menumgr.pausesGame() || !hud)
+		return;
+#ifdef HAVE_TOUCHSCREENGUI
+	g_touchscreengui->handleReleaseAll();
+#endif
+	showPauseMenu();
+	runData.pause_game_timer = 0;
+}
+#endif
 
 /****************************************************************************/
 /****************************************************************************
@@ -4173,7 +4318,7 @@ void Game::showDeathFormspec()
 #define GET_KEY_NAME(KEY) gettext(getKeySetting(#KEY).name())
 void Game::showPauseMenu()
 {
-#ifdef HAVE_TOUCHSCREENGUI
+/*#ifdef HAVE_TOUCHSCREENGUI
 	static const std::string control_text = strgettext("Default Controls:\n"
 		"No menu visible:\n"
 		"- single tap: button activate\n"
@@ -4222,37 +4367,56 @@ void Game::showPauseMenu()
 
 	std::string control_text = std::string(control_text_buf);
 	str_formspec_escape(control_text);
-#endif
+#endif*/
 
 	float ypos = simple_singleplayer_mode ? 0.7f : 0.1f;
+#if defined(__ANDROID__) || defined(__IOS__)
+	bool hasRealKeyboard = porting::hasRealKeyboard();
+	if (simple_singleplayer_mode && hasRealKeyboard)
+		ypos -= 0.6f;
+#endif
+#ifdef __IOS__
+	ypos += 0.5f;
+#endif
+	const bool high_dpi = RenderingEngine::isHighDpi();
+	const std::string x2 = high_dpi ? ".x2" : "";
 	std::ostringstream os;
 
 	os << "formspec_version[1]" << SIZE_TAG
-		<< "button_exit[4," << (ypos++) << ";3,0.5;btn_continue;"
-		<< strgettext("Continue") << "]";
+		<< "no_prepend[]"
+		<< "bgcolor[#00000060;true]"
+
+		<< "style_type[image_button_exit,image_button;bgimg=gui/gui_button" << x2 <<
+			".png;bgimg_middle=" << (high_dpi ? "48" : "32") << ";padding=" << (high_dpi ? "-30" : "-20") << "]"
+		<< "style_type[image_button_exit,image_button:hovered;bgimg=gui/gui_button_hovered" << x2 << ".png]"
+		<< "style_type[image_button_exit,image_button:pressed;bgimg=gui/gui_button_pressed" << x2 << ".png]"
+
+		<< "image_button_exit[3.5," << (ypos++) << ";4,0.9;;btn_continue;"
+		<< strgettext("Continue") << ";;false]";
 
 	if (!simple_singleplayer_mode) {
-		os << "button_exit[4," << (ypos++) << ";3,0.5;btn_change_password;"
-			<< strgettext("Change Password") << "]";
-	} else {
-		os << "field[4.95,0;5,1.5;;" << strgettext("Game paused") << ";]";
+		os << "image_button[3.5," << (ypos++) << ";4,0.9;;btn_change_password;"
+			<< strgettext("Change Password") << ";;false]";
 	}
 
-#ifndef __ANDROID__
 #if USE_SOUND
 	if (g_settings->getBool("enable_sound")) {
-		os << "button_exit[4," << (ypos++) << ";3,0.5;btn_sound;"
-			<< strgettext("Sound Volume") << "]";
+		os << "image_button_exit[3.5," << (ypos++) << ";4,0.9;;btn_sound;"
+			<< strgettext("Sound Volume") << ";;false]";
 	}
 #endif
-	os		<< "button_exit[4," << (ypos++) << ";3,0.5;btn_key_config;"
-		<< strgettext("Change Keys")  << "]";
+#if defined(__ANDROID__) || defined(__IOS__)
+	if (hasRealKeyboard)
 #endif
-	os		<< "button_exit[4," << (ypos++) << ";3,0.5;btn_exit_menu;"
-		<< strgettext("Exit to Menu") << "]";
-	os		<< "button_exit[4," << (ypos++) << ";3,0.5;btn_exit_os;"
-		<< strgettext("Exit to OS")   << "]"
-		<< "textarea[7.5,0.25;3.9,6.25;;" << control_text << ";]"
+	os		<< "image_button_exit[3.5," << (ypos++) << ";4,0.9;;btn_key_config;"
+		<< strgettext("Change Keys")  << ";;false]";
+	os		<< "image_button_exit[3.5," << (ypos++) << ";4,0.9;;btn_exit_menu;"
+		<< strgettext("Exit to Menu") << ";;false]";
+#if !defined(__ANDROID__) && !defined(__IOS__)
+	os		<< "image_button_exit[3.5," << (ypos++) << ";4,0.9;;btn_exit_os;"
+		<< strgettext("Exit to OS")   << ";;false]";
+#endif
+/*		<< "textarea[7.5,0.25;3.9,6.25;;" << control_text << ";]"
 		<< "textarea[0.4,0.25;3.9,6.25;;" << PROJECT_NAME_C " " VERSION_STRING "\n"
 		<< "\n"
 		<<  strgettext("Game info:") << "\n";
@@ -4292,7 +4456,7 @@ void Game::showPauseMenu()
 
 		}
 	}
-	os << ";]";
+	os << ";]"*/;
 
 	/* Create menu */
 	/* Note: FormspecFormSource and LocalFormspecHandler  *
@@ -4306,8 +4470,48 @@ void Game::showPauseMenu()
 	formspec->setFocus("btn_continue");
 	formspec->doPause = true;
 
+	runData.pause_game_timer = 0;
 	if (simple_singleplayer_mode)
 		pauseAnimation();
+}
+
+void Game::showChangePasswordDialog(std::string old_pw, std::string new_pw,
+		std::string confirm_pw)
+{
+	str_formspec_escape(old_pw);
+	str_formspec_escape(new_pw);
+	str_formspec_escape(confirm_pw);
+
+	const bool high_dpi = RenderingEngine::isHighDpi();
+	const std::string x2 = high_dpi ? ".x2" : "";
+	std::ostringstream os;
+	os << "formspec_version[5]"
+		<< "size[10.5,7.5]"
+		<< "no_prepend[]"
+		<< "bgcolor[#320000b4;true]"
+		<< "background9[0,0;0,0;bg_common.png;true;40]"
+		<< "pwdfield[1,1.2;8.5,0.8;old_pw;" << strgettext("Old Password") << ":;" << old_pw << "]"
+		<< "pwdfield[1,2.8;8.5,0.8;new_pw;" << strgettext("New Password") << ":;" << new_pw << "]"
+		<< "pwdfield[1,4.4;8.5,0.8;confirm_pw;" << strgettext("Confirm Password") << ":;" << confirm_pw << "]"
+		<< "style_type[image_button_exit,image_button;bgimg=gui/gui_button" << x2
+			<< ".png;bgimg_middle=" << (high_dpi ? "48" : "32") << ";padding=" << (high_dpi ? "-30" : "-20") << "]"
+		<< "style_type[image_button_exit,image_button:hovered;bgimg=gui/gui_button_hovered" << x2 << ".png]"
+		<< "style_type[image_button_exit,image_button:pressed;bgimg=gui/gui_button_pressed" << x2 << ".png]"
+		<< "image_button[1,5.9;4.1,0.8;;btn_change_pw;" << strgettext("Change") << ";;false]"
+		<< "image_button_exit[5.4,5.9;4.1,0.8;;btn_cancel;" << strgettext("Cancel") << ";;false]";
+
+	if (new_pw != confirm_pw)
+		os << "label[1,7.1;\x1b(c@red)" << strgettext("Passwords do not match!") << "]";
+
+	/* Create menu */
+	/* Note: FormspecFormSource and LocalFormspecHandler  *
+	 * are deleted by guiFormSpecMenu                     */
+	FormspecFormSource *fs_src = new FormspecFormSource(os.str());
+	LocalFormspecHandler *txt_dst = new LocalFormspecHandler("MT_CHANGE_PW", client);
+
+	auto *&formspec = m_game_ui->getFormspecGUI();
+	GUIFormSpecMenu::create(formspec, client, m_rendering_engine->get_gui_env(),
+		&input->joystick, fs_src, txt_dst, client->getFormspecPrepend(), sound);
 }
 
 /****************************************************************************/
@@ -4315,6 +4519,8 @@ void Game::showPauseMenu()
  extern function for launching the game
  ****************************************************************************/
 /****************************************************************************/
+
+static Game *g_game = NULL;
 
 void the_game(bool *kill,
 		InputHandler *input,
@@ -4325,6 +4531,7 @@ void the_game(bool *kill,
 		bool *reconnect_requested) // Used for local game
 {
 	Game game;
+	g_game = &game;
 
 	/* Make a copy of the server address because if a local singleplayer server
 	 * is created then this is updated and we don't want to change the value
@@ -4346,11 +4553,27 @@ void the_game(bool *kill,
 	} catch (ServerError &e) {
 		error_message = e.what();
 		errorstream << "ServerError: " << error_message << std::endl;
+#ifdef __ANDROID__
+		porting::handleError("ServerError", error_message);
+#endif
 	} catch (ModError &e) {
 		// DO NOT TRANSLATE the `ModError`, it's used by ui.lua
 		error_message = std::string("ModError: ") + e.what() +
 				strgettext("\nCheck debug.txt for details.");
 		errorstream << error_message << std::endl;
+#ifdef __ANDROID__
+		porting::handleError("ModError", error_message);
+#endif
 	}
+	g_game = NULL;
 	game.shutdown();
 }
+
+#if defined(__ANDROID__) || defined(__IOS__)
+extern "C" void external_pause_game()
+{
+	if (!g_game)
+		return;
+	g_game->pauseGame();
+}
+#endif

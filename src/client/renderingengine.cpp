@@ -19,6 +19,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 */
 
 #include <IrrlichtDevice.h>
+#include "filesys.h"
 #include "fontengine.h"
 #include "client.h"
 #include "clouds.h"
@@ -37,7 +38,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "../gui/guiSkin.h"
 
 #if !defined(_WIN32) && !defined(__APPLE__) && !defined(__ANDROID__) && \
-		!defined(SERVER) && !defined(__HAIKU__)
+		!defined(SERVER) && !defined(__HAIKU__) && !defined(__IOS__)
 #define XORG_USED
 #endif
 #ifdef XORG_USED
@@ -56,8 +57,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <winuser.h>
 #endif
 
-#if ENABLE_GLES
-#include "filesys.h"
+#ifdef __ANDROID__
+#include "defaultsettings.h"
 #endif
 
 RenderingEngine *RenderingEngine::s_singleton = nullptr;
@@ -91,8 +92,13 @@ RenderingEngine::RenderingEngine(IEventReceiver *receiver)
 
 	// Resolution selection
 	bool fullscreen = g_settings->getBool("fullscreen");
+#if defined(__ANDROID__) || defined(__IOS__)
+	u16 screen_w = 0;
+	u16 screen_h = 0;
+ #else
 	u16 screen_w = g_settings->getU16("screen_w");
 	u16 screen_h = g_settings->getU16("screen_h");
+ #endif
 
 	// bpp, fsaa, vsync
 	bool vsync = g_settings->getBool("vsync");
@@ -132,9 +138,6 @@ RenderingEngine::RenderingEngine(IEventReceiver *receiver)
 	params.Vsync = vsync;
 	params.EventReceiver = receiver;
 	params.HighPrecisionFPU = true;
-#ifdef __ANDROID__
-	params.PrivateData = porting::app_global;
-#endif
 #if ENABLE_GLES
 	// there is no standardized path for these on desktop
 	std::string rel_path = std::string("client") + DIR_DELIM
@@ -151,6 +154,13 @@ RenderingEngine::RenderingEngine(IEventReceiver *receiver)
 			gui::EGST_WINDOWS_METALLIC, driver);
 	m_device->getGUIEnvironment()->setSkin(skin);
 	skin->drop();
+
+#ifdef __ANDROID__
+	// Apply settings according to screen size
+	// We can get real screen size only after device initialization finished
+	if (m_device)
+		set_default_settings();
+#endif
 }
 
 RenderingEngine::~RenderingEngine()
@@ -464,6 +474,14 @@ void RenderingEngine::draw_load_screen(const std::wstring &text,
 		gui::IGUIEnvironment *guienv, ITextureSource *tsrc, float dtime,
 		int percent, bool clouds)
 {
+#ifdef __IOS__
+		if (m_device->isWindowMinimized())
+			return;
+#else
+		if (!m_device->isWindowFocused())
+			return;
+#endif
+
 	v2u32 screensize = getWindowSize();
 
 	v2s32 textsize(g_fontengine->getTextWidth(text), g_fontengine->getLineHeight());
@@ -481,31 +499,50 @@ void RenderingEngine::draw_load_screen(const std::wstring &text,
 		get_video_driver()->beginScene(
 				true, true, video::SColor(255, 140, 186, 250));
 		g_menucloudsmgr->drawAll();
-	} else
+	} else {
 		get_video_driver()->beginScene(true, true, video::SColor(255, 0, 0, 0));
+		video::ITexture *background_image = tsrc->getTexture("bg.png");
+
+		v2u32 screensize = driver->getScreenSize();
+		get_video_driver()->draw2DImage(background_image,
+			irr::core::rect<s32>(0, 0, screensize.X * 4, screensize.Y * 4),
+			irr::core::rect<s32>(0, 0, screensize.X, screensize.Y), 0, 0, false);
+	}
 
 	// draw progress bar
 	if ((percent >= 0) && (percent <= 100)) {
-		video::ITexture *progress_img = tsrc->getTexture("progress_bar.png");
+		std::string texture_path = porting::path_share + DIR_DELIM + "textures"
+				+ DIR_DELIM + "base" + DIR_DELIM + "pack" + DIR_DELIM;
+		video::ITexture *progress_img =
+				driver->getTexture((texture_path + "progress_bar.png").c_str());
 		video::ITexture *progress_img_bg =
-				tsrc->getTexture("progress_bar_bg.png");
+				driver->getTexture((texture_path + "progress_bar_bg.png").c_str());
+		video::ITexture *progress_img_fg =
+				driver->getTexture((texture_path + "progress_bar_fg.png").c_str());
 
-		if (progress_img && progress_img_bg) {
-#ifndef __ANDROID__
+		if (progress_img && progress_img_bg && progress_img_fg) {
 			const core::dimension2d<u32> &img_size =
 					progress_img_bg->getSize();
-			u32 imgW = rangelim(img_size.Width, 200, 600);
-			u32 imgH = rangelim(img_size.Height, 24, 72);
+#if !defined(__ANDROID__) && !defined(__IOS__)
+			float density = RenderingEngine::getDisplayDensity();
+			float gui_scaling = g_settings->getFloat("gui_scaling");
+			float scale = density * gui_scaling;
+			u32 imgW = rangelim(img_size.Width, 256, 1024) * scale;
+			u32 imgH = rangelim(img_size.Height, 32, 128) * scale;
 #else
-			const core::dimension2d<u32> img_size(256, 48);
-			float imgRatio = (float)img_size.Height / img_size.Width;
-			u32 imgW = screensize.X / 2.2f;
-			u32 imgH = floor(imgW * imgRatio);
+			float imgRatio = (float) img_size.Height / img_size.Width;
+			u32 imgW = screensize.X / 2;
+			if (!hasNPotSupport()) {
+				imgW = npot2(imgW);
+				if (imgW > (screensize.X * 0.7) && imgW >= 1024)
+					imgW /= 2;
+			}
+			u32 imgH = imgW * imgRatio;
 #endif
 			v2s32 img_pos((screensize.X - imgW) / 2,
 					(screensize.Y - imgH) / 2);
 
-			draw2DImageFilterScaled(get_video_driver(), progress_img_bg,
+			draw2DImageFilterScaled(driver, progress_img_bg,
 					core::rect<s32>(img_pos.X, img_pos.Y,
 							img_pos.X + imgW,
 							img_pos.Y + imgH),
@@ -513,7 +550,19 @@ void RenderingEngine::draw_load_screen(const std::wstring &text,
 							img_size.Height),
 					0, 0, true);
 
-			draw2DImageFilterScaled(get_video_driver(), progress_img,
+			const video::SColor color(255, 255 - percent * 2, percent * 2, 25);
+			const video::SColor colors[] = {color, color, color, color};
+
+			draw2DImageFilterScaled(driver, progress_img_fg,
+					core::rect<s32>(img_pos.X, img_pos.Y,
+							img_pos.X + (percent * imgW) / 100,
+							img_pos.Y + imgH),
+					core::rect<s32>(0, 0,
+							(percent * img_size.Width) / 100,
+							img_size.Height),
+					0, colors, true);
+
+			draw2DImageFilterScaled(driver, progress_img,
 					core::rect<s32>(img_pos.X, img_pos.Y,
 							img_pos.X + (percent * imgW) / 100,
 							img_pos.Y + imgH),
@@ -525,7 +574,7 @@ void RenderingEngine::draw_load_screen(const std::wstring &text,
 	}
 
 	guienv->drawAll();
-	get_video_driver()->endScene();
+	driver->endScene();
 	guitext->remove();
 }
 
@@ -533,7 +582,7 @@ void RenderingEngine::draw_load_screen(const std::wstring &text,
 	Draws the menu scene including (optional) cloud background.
 */
 void RenderingEngine::draw_menu_scene(gui::IGUIEnvironment *guienv,
-		float dtime, bool clouds)
+		ITextureSource *tsrc, float dtime, bool clouds)
 {
 	bool cloud_menu_background = clouds && g_settings->getBool("menu_clouds");
 	if (cloud_menu_background) {
@@ -542,8 +591,15 @@ void RenderingEngine::draw_menu_scene(gui::IGUIEnvironment *guienv,
 		get_video_driver()->beginScene(
 				true, true, video::SColor(255, 140, 186, 250));
 		g_menucloudsmgr->drawAll();
-	} else
+	} else {
 		get_video_driver()->beginScene(true, true, video::SColor(255, 0, 0, 0));
+		video::ITexture *background_image = tsrc->getTexture("bg.png");
+
+		v2u32 screensize = driver->getScreenSize();
+		get_video_driver()->draw2DImage(background_image,
+			irr::core::rect<s32>(0, 0, screensize.X * 4, screensize.Y * 4),
+			irr::core::rect<s32>(0, 0, screensize.X, screensize.Y), 0, 0, false);
+	}
 
 	guienv->drawAll();
 	get_video_driver()->endScene();
@@ -598,7 +654,7 @@ const VideoDriverInfo &RenderingEngine::getVideoDriverInfo(irr::video::E_DRIVER_
 	return driver_info_map.at((int)type);
 }
 
-#ifndef __ANDROID__
+#if !defined(__ANDROID__) && !defined(__IOS__)
 #if defined(XORG_USED)
 
 static float calcDisplayDensity(irr::video::IVideoDriver *driver)
@@ -695,14 +751,30 @@ v2u32 RenderingEngine::getDisplaySize()
 	return deskres;
 }
 
-#else // __ANDROID__
+#else // __ANDROID__/__IOS__
 float RenderingEngine::getDisplayDensity()
 {
-	return porting::getDisplayDensity();
+	static const float density = porting::getDisplayDensity();
+	return density;
 }
 
 v2u32 RenderingEngine::getDisplaySize()
 {
-	return porting::getDisplaySize();
+	const RenderingEngine *engine = RenderingEngine::get_instance();
+	if (engine == nullptr)
+		return v2u32(0, 0);
+	return engine->getWindowSize();
 }
-#endif // __ANDROID__
+#endif // __ANDROID__/__IOS__
+
+bool RenderingEngine::isHighDpi()
+{
+#if defined(__MACH__) && defined(__APPLE__) && !defined(__IOS__)
+	return g_settings->getFloat("screen_dpi") / 72.0f >= 2;
+#elif defined(__IOS__)
+	float density = RenderingEngine::getDisplayDensity();
+	return g_settings->getBool("device_is_tablet") ? (density >= 2) : (density >= 3);
+#else
+	return RenderingEngine::getDisplayDensity() >= 3;
+#endif
+}

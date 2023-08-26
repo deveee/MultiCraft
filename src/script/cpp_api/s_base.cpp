@@ -40,6 +40,8 @@ extern "C" {
 #else
 	#include "bit.h"
 #endif
+LUALIB_API int luaopen_utf8(lua_State *L);
+LUALIB_API int luaopen_chacha(lua_State *L);
 }
 
 #include <cstdio>
@@ -94,6 +96,41 @@ ScriptApiBase::ScriptApiBase(ScriptingType type):
 	lua_pushcfunction(m_luastack, luaopen_bit);
 	lua_pushstring(m_luastack, LUA_BITLIBNAME);
 	lua_call(m_luastack, 1, 0);
+
+
+	lua_pushcfunction(m_luastack, luaopen_utf8);
+	lua_call(m_luastack, 0, 0);
+
+	lua_pushcfunction(m_luastack, luaopen_chacha);
+	lua_call(m_luastack, 0, 1);
+	lua_setglobal(m_luastack, "chacha");
+
+	// Load string.buffer if it is in package.preload
+	lua_getglobal(m_luastack, "package");
+	lua_getfield(m_luastack, -1, "preload");
+	lua_getfield(m_luastack, -1, "string.buffer");
+	if (!lua_isnil(m_luastack, -1)) {
+		// string.buffer = require("string.buffer")
+		lua_getglobal(m_luastack, "string");
+		lua_getglobal(m_luastack, "require");
+		lua_pushstring(m_luastack, "string.buffer");
+		lua_call(m_luastack, 1, 1);
+		lua_setfield(m_luastack, -2, "buffer");
+		lua_pop(m_luastack, 1); // Pop string
+	}
+
+	// Pop package, package.preload, and package.preload["string.buffer"]
+	lua_pop(m_luastack, 3);
+
+	// Delete references to package on the client (as they're no longer needed)
+	if (m_type == ScriptingType::Client) {
+		lua_pushnil(m_luastack);
+		lua_setglobal(m_luastack, "module");
+		lua_pushnil(m_luastack);
+		lua_setglobal(m_luastack, "require");
+		lua_pushnil(m_luastack);
+		lua_setglobal(m_luastack, "package");
+	}
 
 	// Make the ScriptApiBase* accessible to ModApiBase
 #if INDIRECT_SCRIPTAPI_RIDX
@@ -158,6 +195,7 @@ void ScriptApiBase::clientOpenLibs(lua_State *L)
 		{ LUA_STRLIBNAME,  luaopen_string  },
 		{ LUA_MATHLIBNAME, luaopen_math    },
 		{ LUA_DBLIBNAME,   luaopen_debug   },
+		{ LUA_LOADLIBNAME, luaopen_package },
 #if USE_LUAJIT
 		{ LUA_JITLIBNAME,  luaopen_jit     },
 #endif
@@ -411,7 +449,7 @@ void ScriptApiBase::objectrefGetOrCreate(lua_State *L,
 	} else {
 		push_objectRef(L, cobj->getId());
 		if (cobj->isGone())
-			warningstream << "ScriptApiBase::objectrefGetOrCreate(): "
+			actionstream << "ScriptApiBase::objectrefGetOrCreate(): "
 					<< "Pushing ObjectRef to removed/deactivated object"
 					<< ", this is probably a bug." << std::endl;
 	}

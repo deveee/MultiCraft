@@ -24,6 +24,11 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "gettext.h"
 #include "util/string.h"
 #include "log.h"
+#include "porting.h"
+
+#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+#include <SDL.h>
+#endif
 
 #if USE_GETTEXT && defined(_MSC_VER)
 #include <windows.h>
@@ -131,6 +136,10 @@ void init_gettext(const char *path, const std::string &configured_language,
 		setenv("LANG", configured_language.c_str(), 1);
 #endif
 
+#if defined(__ANDROID__) || defined(__APPLE__)
+		setenv("LANG", configured_language.c_str(), 1);
+#endif
+
 		// Reload locale with changed environment
 		setlocale(LC_ALL, "");
 #elif defined(_MSC_VER)
@@ -207,6 +216,20 @@ void init_gettext(const char *path, const std::string &configured_language,
 	}
 	else {
 		 /* set current system default locale */
+#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+		SDL_Locale* locale = SDL_GetPreferredLocales();
+
+		if (locale) {
+			if (locale[0].language) {
+				char lang[3] = {0};
+				strncpy(lang, locale[0].language, 2);
+				SDL_setenv("LANG", lang, 1);
+				SDL_setenv("LANGUAGE", lang, 1);
+			}
+
+			SDL_free(locale);
+		}
+#endif
 		setlocale(LC_ALL, "");
 	}
 
@@ -221,7 +244,7 @@ void init_gettext(const char *path, const std::string &configured_language,
 #endif
 #endif
 
-	std::string name = lowercase(PROJECT_NAME);
+	std::string name = "minetest";;
 	infostream << "Gettext: domainname=\"" << name
 		<< "\" path=\"" << path << "\"" << std::endl;
 

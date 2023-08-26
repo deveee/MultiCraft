@@ -102,8 +102,6 @@ private:
 
 	static int l_set_formspec_prepend(lua_State *L);
 
-	static int l_get_screen_info(lua_State *L);
-
 	//filesystem
 
 	static int l_get_mainmenu_path(lua_State *L);
@@ -118,9 +116,13 @@ private:
 
 	static int l_get_gamepath(lua_State *L);
 
+	static int l_get_serverlistpath(lua_State *L);
+
 	static int l_get_texturepath(lua_State *L);
 
 	static int l_get_texturepath_share(lua_State *L);
+
+	static int l_get_locale_path(lua_State *L);
 
 	static int l_get_cache_path(lua_State *L);
 
@@ -155,6 +157,13 @@ private:
 
 	// async
 	static int l_do_async_callback(lua_State *L);
+
+	// MultiCraft
+	static int l_load_translation(lua_State *L);
+
+	static int l_sleep_ms(lua_State *L);
+
+	static int l_get_translated_string(lua_State *L);
 
 public:
 

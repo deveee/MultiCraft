@@ -46,6 +46,9 @@ public:
 	void allowFocusRemoval(bool allow);
 	bool canTakeFocus(gui::IGUIElement *e);
 	void draw();
+#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
+	void drawCursor();
+#endif
 	void quitMenu();
 	void removeChildren();
 
@@ -54,9 +57,8 @@ public:
 	virtual bool preprocessEvent(const SEvent &event);
 	virtual bool OnEvent(const SEvent &event) { return false; };
 	virtual bool pausesGame() { return false; } // Used for pause menu
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__IOS__)
 	virtual bool getAndroidUIInput() { return false; }
-	bool hasAndroidUIInput();
 #endif
 
 protected:
@@ -74,7 +76,7 @@ protected:
 	v2s32 m_old_pointer;  // Mouse position after previous mouse event
 	v2u32 m_screensize_old;
 	float m_gui_scale;
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__IOS__)
 	std::string m_jni_field_name;
 #endif
 #ifdef HAVE_TOUCHSCREENGUI
@@ -105,7 +107,7 @@ private:
 #ifdef HAVE_TOUCHSCREENGUI
 	irr_ptr<gui::IGUIElement> m_hovered;
 
-	bool simulateMouseEvent(gui::IGUIElement *target, ETOUCH_INPUT_EVENT touch_event);
+	bool convertToMouseEvent(SEvent &mouse_event, ETOUCH_INPUT_EVENT touch_event) const noexcept;
 	void enter(gui::IGUIElement *element);
 	void leave();
 #endif

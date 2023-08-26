@@ -80,7 +80,7 @@ ClientLauncher::~ClientLauncher()
 	delete m_rendering_engine;
 
 #if USE_SOUND
-	g_sound_manager_singleton.reset();
+	deleteSoundManagerSingleton(g_sound_manager_singleton);
 #endif
 }
 
@@ -97,8 +97,11 @@ bool ClientLauncher::run(GameStartData &start_data, const Settings &cmd_args)
 	init_args(start_data, cmd_args);
 
 #if USE_SOUND
-	if (g_settings->getBool("enable_sound"))
-		g_sound_manager_singleton = createSoundManagerSingleton();
+	if (g_settings->getBool("enable_sound")) {
+		// Check if it's already created just in case
+		if (!g_sound_manager_singleton)
+			g_sound_manager_singleton = createSoundManagerSingleton();
+	}
 #endif
 
 	if (!init_engine()) {
@@ -119,6 +122,8 @@ bool ClientLauncher::run(GameStartData &start_data, const Settings &cmd_args)
 	}
 
 	m_rendering_engine->setupTopLevelWindow(PROJECT_NAME_C);
+
+	RenderingEngine::get_raw_device()->getLogger()->setLogLevel(irr::ELL_INFORMATION);
 
 	/*
 		This changes the minimum allowed number of vertices in a VBO.
@@ -144,30 +149,21 @@ bool ClientLauncher::run(GameStartData &start_data, const Settings &cmd_args)
 	skin->setColor(gui::EGDC_3D_SHADOW, video::SColor(255, 0, 0, 0));
 	skin->setColor(gui::EGDC_HIGH_LIGHT, video::SColor(255, 70, 120, 50));
 	skin->setColor(gui::EGDC_HIGH_LIGHT_TEXT, video::SColor(255, 255, 255, 255));
-#ifdef HAVE_TOUCHSCREENGUI
-	float density = RenderingEngine::getDisplayDensity();
-	skin->setSize(gui::EGDS_CHECK_BOX_WIDTH, (s32)(17.0f * density));
-	skin->setSize(gui::EGDS_SCROLLBAR_SIZE, (s32)(14.0f * density));
-	skin->setSize(gui::EGDS_WINDOW_BUTTON_WIDTH, (s32)(15.0f * density));
-	if (density > 1.5f) {
-		std::string sprite_path = porting::path_user + "/textures/base/pack/";
-		if (density > 3.5f)
-			sprite_path.append("checkbox_64.png");
-		else if (density > 2.0f)
-			sprite_path.append("checkbox_32.png");
-		else
-			sprite_path.append("checkbox_16.png");
-		// Texture dimensions should be a power of 2
-		gui::IGUISpriteBank *sprites = skin->getSpriteBank();
-		video::IVideoDriver *driver = m_rendering_engine->get_video_driver();
-		video::ITexture *sprite_texture = driver->getTexture(sprite_path.c_str());
-		if (sprite_texture) {
-			s32 sprite_id = sprites->addTextureAsSprite(sprite_texture);
-			if (sprite_id != -1)
-				skin->setIcon(gui::EGDI_CHECK_BOX_CHECKED, sprite_id);
-		}
-	}
-#endif
+	float density = RenderingEngine::getDisplayDensity() * g_settings->getFloat("gui_scaling");
+	skin->setSize(gui::EGDS_CHECK_BOX_WIDTH, (s32)(18.0f * density));
+#if IRRLICHT_VERSION_MAJOR == 1 && IRRLICHT_VERSION_MINOR >= 9
+	// Load check icon for the checkbox
+	// TODO other icons
+	std::string sprite_path = porting::path_share + DIR_DELIM + "textures"
+				+ DIR_DELIM + "base" + DIR_DELIM + "pack" + DIR_DELIM + "checkbox.png";
+	if (auto *sprite_texture = RenderingEngine::get_video_driver()->getTexture(sprite_path.c_str())) {
+		auto *sprites = skin->getSpriteBank();
+		s32 sprite_id = sprites->addTextureAsSprite(sprite_texture);
+		if (sprite_id != -1)
+			skin->setIcon(gui::EGDI_CHECK_BOX_CHECKED, sprite_id);
+ 	}
+ #endif
+
 	g_fontengine = new FontEngine(guienv);
 	FATAL_ERROR_IF(g_fontengine == NULL, "Font engine creation failed.");
 
@@ -291,6 +287,11 @@ bool ClientLauncher::run(GameStartData &start_data, const Settings &cmd_args)
 		delete g_touchscreengui;
 		g_touchscreengui = NULL;
 		receiver->m_touchscreengui = NULL;
+#endif
+
+#if defined(__ANDROID__) || defined(__IOS__)
+		if (!g_gamecallback->shutdown_requested)
+			porting::notifyExitGame();
 #endif
 
 		// If no main menu, show error and exit
@@ -472,7 +473,7 @@ bool ClientLauncher::launch_game(std::string &error_message,
 
 	// If using simple singleplayer mode, override
 	if (start_data.isSinglePlayer()) {
-		start_data.name = "singleplayer";
+		start_data.name = "Player";
 		start_data.password = "";
 		start_data.socket_port = myrand_range(49152, 65535);
 	} else {
@@ -548,9 +549,7 @@ void ClientLauncher::main_menu(MainMenuData *menudata)
 	infostream << "Waited for other menus" << std::endl;
 
 	// Cursor can be non-visible when coming from the game
-#ifndef ANDROID
-	m_rendering_engine->get_raw_device()->getCursorControl()->setVisible(true);
-#endif
+	input->setCursorVisible(true);
 
 	/* show main menu */
 	GUIEngine mymenu(&input->joystick, guiroot, m_rendering_engine, &g_menumgr, menudata, *kill);

@@ -94,6 +94,19 @@ struct MediaInfo
 	}
 };
 
+struct InMemoryMediaInfo
+{
+	std::string data;
+	std::string sha1_digest;
+
+	InMemoryMediaInfo(const std::string &data_="",
+	                  const std::string &sha1_digest_=""):
+		data(data_),
+		sha1_digest(sha1_digest_)
+	{
+	}
+};
+
 struct ServerSoundParams
 {
 	enum Type {
@@ -137,7 +150,7 @@ struct ClientInfo {
 	u8 ser_vers;
 	u16 prot_vers;
 	u8 major, minor, patch;
-	std::string vers_string, lang_code;
+	std::string vers_string, platform, sysinfo, lang_code;
 };
 
 class Server : public con::PeerHandler, public MapEventReceiver,
@@ -263,6 +276,8 @@ public:
 
 	bool dynamicAddMedia(std::string filepath, u32 token,
 		const std::string &to_player, bool ephemeral);
+	bool addMediaFile(const std::string &filename, const std::string &filepath,
+			std::string *filedata = nullptr, std::string *digest = nullptr);
 
 	ServerInventoryManager *getInventoryMgr() const { return m_inventory_mgr.get(); }
 	void sendDetachedInventory(Inventory *inventory, const std::string &name, session_t peer_id);
@@ -338,12 +353,9 @@ public:
 	void deletingPeer(con::Peer *peer, bool timeout);
 
 	void DenySudoAccess(session_t peer_id);
-	void DenyAccessVerCompliant(session_t peer_id, u16 proto_ver, AccessDeniedCode reason,
-		const std::string &str_reason = "", bool reconnect = false);
 	void DenyAccess(session_t peer_id, AccessDeniedCode reason,
-		const std::string &custom_reason = "");
+		const std::string &custom_reason = "", bool reconnect = false);
 	void acceptAuth(session_t peer_id, bool forSudoMode);
-	void DenyAccess_Legacy(session_t peer_id, const std::wstring &reason);
 	void DisconnectPeer(session_t peer_id);
 	bool getClientConInfo(session_t peer_id, con::rtt_stat_type type, float *retval);
 	bool getClientInfo(session_t peer_id, ClientInfo &ret);
@@ -392,6 +404,15 @@ public:
 	// Environment mutex (envlock)
 	std::mutex m_env_mutex;
 
+	inline bool isCompatPlayerModel(const std::string &model_name)
+	{
+		return std::find(m_compat_player_models.begin(), m_compat_player_models.end(), model_name) != m_compat_player_models.end();
+	}
+	const std::vector<std::string> getCompatPlayerModels()
+	{
+		return m_compat_player_models;
+	}
+
 private:
 	friend class EmergeThread;
 	friend class RemoteClient;
@@ -421,7 +442,7 @@ private:
 
 	void init();
 
-	void SendMovement(session_t peer_id);
+	void SendMovement(session_t peer_id, u16 protocol_version);
 	void SendHP(session_t peer_id, u16 hp);
 	void SendBreath(session_t peer_id, u16 breath);
 	void SendAccessDenied(session_t peer_id, AccessDeniedCode reason,
@@ -483,8 +504,6 @@ private:
 	// Sends blocks to clients (locks env and con on its own)
 	void SendBlocks(float dtime);
 
-	bool addMediaFile(const std::string &filename, const std::string &filepath,
-			std::string *filedata = nullptr, std::string *digest = nullptr);
 	void fillMediaCache();
 	void sendMediaAnnouncement(session_t peer_id, const std::string &lang_code);
 	void sendRequestedMedia(session_t peer_id,
@@ -673,6 +692,7 @@ private:
 
 	// media files known to server
 	std::unordered_map<std::string, MediaInfo> m_media;
+	std::unordered_map<std::string, InMemoryMediaInfo> m_compat_media;
 
 	// pending dynamic media callbacks, clients inform the server when they have a file fetched
 	std::unordered_map<u32, PendingDynamicMediaCallback> m_pending_dyn_media;
@@ -711,6 +731,8 @@ private:
 	MetricCounterPtr m_aom_buffer_counter;
 	MetricCounterPtr m_packet_recv_counter;
 	MetricCounterPtr m_packet_recv_processed_counter;
+
+	std::vector<std::string> m_compat_player_models;
 };
 
 /*

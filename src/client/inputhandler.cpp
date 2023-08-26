@@ -20,8 +20,19 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #include "util/numeric.h"
 #include "inputhandler.h"
+#include "gui/guiChatConsole.h"
 #include "gui/mainmenumanager.h"
 #include "hud.h"
+#include "settings.h"
+
+#ifdef __IOS__
+#include "porting_ios.h"
+extern "C" void external_pause_game();
+#endif
+
+#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
+#include <SDL.h>
+#endif
 
 void KeyCache::populate_nonchanging()
 {
@@ -98,13 +109,57 @@ void KeyCache::populate()
 
 bool MyEventReceiver::OnEvent(const SEvent &event)
 {
+#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
+	if (event.EventType == irr::EET_SDL_CONTROLLER_BUTTON_EVENT ||
+			event.EventType == irr::EET_SDL_CONTROLLER_AXIS_EVENT) {
+		if (g_settings->getBool("enable_joysticks")) {
+			sdl_game_controller->translateEvent(event);
+			input->setCursorVisible(sdl_game_controller->isCursorVisible());
+		}
+	} else if ((event.EventType == irr::EET_MOUSE_INPUT_EVENT &&
+			event.MouseInput.Event == irr::EMIE_MOUSE_MOVED) ||
+			event.EventType == irr::EET_TOUCH_INPUT_EVENT) {
+		if (!sdl_game_controller->isFakeEvent() &&
+				sdl_game_controller->isActive()) {
+			sdl_game_controller->setActive(false);
+			input->setCursorVisible(sdl_game_controller->isCursorVisible());
+		}
+	}
+#endif
+
+#ifdef HAVE_TOUCHSCREENGUI
+	if (event.EventType == irr::EET_TOUCH_INPUT_EVENT) {
+		TouchScreenGUI::setActive(true);
+		if (m_touchscreengui && !isMenuActive())
+			m_touchscreengui->show();
+	} else if ((event.EventType == irr::EET_MOUSE_INPUT_EVENT &&
+			event.MouseInput.Event == irr::EMIE_MOUSE_MOVED) ||
+			sdl_game_controller->isActive()) {
+		TouchScreenGUI::setActive(false);
+		if (m_touchscreengui && !isMenuActive())
+			m_touchscreengui->hide();
+	}
+#endif
+
+#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
+	if (event.EventType == irr::EET_SDL_CONTROLLER_BUTTON_EVENT)
+		return true;
+#endif
+
+	GUIChatConsole* chat_console = GUIChatConsole::getChatConsole();
+	if (chat_console && chat_console->isOpen()) {
+		bool result = chat_console->preprocessEvent(event);
+		if (result)
+			return true;
+	}
+
 	/*
 		React to nothing here if a menu is active
 	*/
 	if (isMenuActive()) {
 #ifdef HAVE_TOUCHSCREENGUI
 		if (m_touchscreengui) {
-			m_touchscreengui->Toggle(false);
+			m_touchscreengui->hide();
 		}
 #endif
 		return g_menumgr.preprocessEvent(event);
@@ -134,6 +189,15 @@ bool MyEventReceiver::OnEvent(const SEvent &event)
 	} else if (m_touchscreengui && event.EventType == irr::EET_TOUCH_INPUT_EVENT) {
 		// In case of touchscreengui, we have to handle different events
 		m_touchscreengui->translateEvent(event);
+		return true;
+#endif
+
+#ifdef __IOS__
+	} else if (event.EventType == irr::EET_APPLICATION_EVENT) {
+		int AppEvent = event.ApplicationEvent.EventType;
+		ioswrap_events(AppEvent);
+		if (AppEvent == irr::EAET_WILL_PAUSE)
+			external_pause_game();
 		return true;
 #endif
 
@@ -191,8 +255,10 @@ bool MyEventReceiver::OnEvent(const SEvent &event)
 				LL_NONE,    // ELL_NONE
 		};
 		assert(event.LogEvent.Level < ARRLEN(irr_loglev_conv));
+#ifndef NDEBUG
 		g_logger.log(irr_loglev_conv[event.LogEvent.Level],
 				std::string("Irrlicht: ") + event.LogEvent.Text);
+#endif
 		return true;
 	}
 	/* always return false in order to continue processing events */

@@ -11,10 +11,11 @@
 
 #if defined USE_CMAKE_CONFIG_H
 	#include "cmake_config.h"
-#elif defined (__ANDROID__)
-	#define PROJECT_NAME "minetest"
-	#define PROJECT_NAME_C "Minetest"
+#elif defined(__ANDROID__) || defined(__APPLE__)
+	#define PROJECT_NAME "multicraft"
+	#define PROJECT_NAME_C "MultiCraft"
 	#define STATIC_SHAREDIR ""
+	#define ENABLE_UPDATE_CHECKER 1
 	#define VERSION_STRING STR(VERSION_MAJOR) "." STR(VERSION_MINOR) "." STR(VERSION_PATCH) STR(VERSION_EXTRA)
 #ifdef NDEBUG
 		#define BUILD_TYPE "Release"

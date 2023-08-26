@@ -23,6 +23,99 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "modalMenu.h"
 #include "chat.h"
 #include "config.h"
+#include "guiScrollBar.h"
+
+struct ChatSelection
+{
+	enum SelectionType {
+		SELECTION_NONE,
+		SELECTION_HISTORY,
+		SELECTION_PROMPT
+	};
+
+	ChatSelection() : selection_type(SELECTION_NONE), scroll(0), row(0),
+			line_index(0), line(0), fragment(0), character(0), x_max(false) {};
+
+	void reset() {
+		selection_type = SELECTION_NONE;
+		scroll = 0;
+		row = 0;
+		line_index = 0;
+		line = 0;
+		fragment = 0;
+		character = 0;
+		x_max = false;
+	}
+
+	bool operator== (const ChatSelection &other) const {
+		if (selection_type == SELECTION_HISTORY &&
+				other.selection_type == SELECTION_HISTORY) {
+			return (row + scroll == other.row + other.scroll &&
+					line_index == other.line_index &&
+					line == other.line &&
+					fragment == other.fragment &&
+					character == other.character &&
+					x_max == other.x_max);
+
+		} else {
+			return (scroll + character == other.scroll + other.character &&
+					x_max == other.x_max);
+		}
+	}
+
+	bool operator< (const ChatSelection &other) const {
+		if (selection_type == SELECTION_HISTORY &&
+				other.selection_type == SELECTION_HISTORY) {
+			if (row + scroll != other.row + other.scroll)
+				return (row + scroll < other.row + other.scroll);
+			if (line_index != other.line_index)
+				return (line_index < other.line_index);
+			if (line != other.line)
+				return (line < other.line);
+			if (fragment != other.fragment)
+				return (fragment < other.fragment);
+			if (character != other.character)
+				return (character < other.character);
+			if (x_max != other.x_max)
+				return (x_max < other.x_max);
+
+			return false;
+
+		} else {
+			if (scroll + character != other.scroll + other.character)
+				return (scroll + character < other.scroll + other.character);
+			if (x_max != other.x_max)
+				return (x_max < other.x_max);
+
+			return false;
+		}
+	}
+
+	bool operator> (const ChatSelection &other) {
+		return other < *this;
+	}
+
+	bool operator<= (const ChatSelection &other) {
+		return !(*this > other);
+	}
+
+	bool operator>= (const ChatSelection &other) {
+		return !(*this < other);
+	}
+
+	bool operator!= (const ChatSelection &other) const {
+		return !this->operator==(other);
+	}
+
+	SelectionType selection_type;
+	int scroll;
+	int row;
+	int line_index;
+	unsigned int line;
+	unsigned int fragment;
+	unsigned int character;
+	bool x_max;
+};
 
 class Client;
 
@@ -50,8 +143,6 @@ public:
 	// Close the console, equivalent to openConsole(0).
 	// This doesn't close immediately but initiates an animation.
 	void closeConsole();
-	// Close the console immediately, without animation.
-	void closeConsoleAtOnce();
 	// Set whether to close the console after the user presses enter.
 	void setCloseOnEnter(bool close) { m_close_on_enter = close; }
 
@@ -74,6 +165,21 @@ public:
 
 	virtual bool acceptsIME() { return true; }
 
+	bool hasFocus();
+
+	bool convertToMouseEvent(
+		SEvent &mouse_event, SEvent touch_event) const noexcept;
+
+	bool preprocessEvent(SEvent event);
+
+	bool getAndroidChatOpen() { return m_android_chat_open; }
+	void setAndroidChatOpen(bool value) { m_android_chat_open = value; }
+
+	void onLinesModified();
+	void onPromptModified();
+
+	static GUIChatConsole* getChatConsole() { return m_chat_console; }
+
 private:
 	void reformatConsole();
 	void recalculateConsolePosition();
@@ -87,7 +193,19 @@ private:
 	// If clicked fragment has a web url, send it to the system default web browser
 	void middleClick(s32 col, s32 row);
 
+	ChatSelection getCursorPos(s32 x, s32 y);
+	ChatSelection getPromptCursorPos(s32 x, s32 y);
+	ChatSelection getCurrentPromptCursorPos();
+	irr::core::stringc getSelectedText();
+	irr::core::stringc getPromptSelectedText();
+	void movePromptCursor(s32 x, s32 y);
+	void deletePromptSelection();
+	void createVScrollBar();
+	void updateVScrollBar(bool force_update = false, bool move_bottom = false);
+
 private:
+	static GUIChatConsole* m_chat_console;
+
 	ChatBackend* m_chat_backend;
 	Client* m_client;
 	IMenuManager* m_menumgr;
@@ -134,4 +252,17 @@ private:
 	bool m_cache_clickable_chat_weblinks;
 	// Track if a ctrl key is currently held down
 	bool m_is_ctrl_down;
+
+	ChatSelection m_mark_begin;
+	ChatSelection m_mark_end;
+	bool m_history_marking = false;
+	bool m_prompt_marking = false;
+	bool m_long_press = false;
+	ChatSelection m_cursor_press_pos;
+
+	u32 m_scrollbar_width = 0;
+	GUIScrollBar *m_vscrollbar = nullptr;
+	s32 m_bottom_scroll_pos = 0;
+
+	bool m_android_chat_open = false;
 };

@@ -23,24 +23,37 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "filesys.h"
 #include "config.h"
 #include "constants.h"
-#include "porting.h"
 #include "mapgen/mapgen.h" // Mapgen::setDefaultSettings
 #include "util/string.h"
 
+#ifdef __ANDROID__
+#include "client/renderingengine.h"
+#endif
+
+#ifdef __APPLE__
+#ifdef __IOS__
+#import "SDVersion.h"
+#else
+#import <AppKit/AppKit.h>
+#endif
+#endif
+
 void set_default_settings()
 {
-	Settings *settings = Settings::createLayer(SL_DEFAULTS);
+	Settings *settings = Settings::getLayer(SL_DEFAULTS);
+	if (settings == nullptr)
+		settings = Settings::createLayer(SL_DEFAULTS);
 
 	// Client and server
 	settings->setDefault("language", "");
 	settings->setDefault("name", "");
 	settings->setDefault("bind_address", "");
-	settings->setDefault("serverlist_url", "servers.minetest.net");
+	settings->setDefault("serverlist_url", "servers.multicraft.world");
 
 	// Client
 	settings->setDefault("address", "");
 	settings->setDefault("enable_sound", "true");
-	settings->setDefault("sound_volume", "0.8");
+	settings->setDefault("sound_volume", "1.0");
 	settings->setDefault("mute_sound", "false");
 	settings->setDefault("enable_mesh_cache", "false");
 	settings->setDefault("mesh_generation_interval", "0");
@@ -61,9 +74,9 @@ void set_default_settings()
 	settings->setDefault("curl_file_download_timeout", "300000");
 	settings->setDefault("curl_verify_cert", "true");
 	settings->setDefault("enable_remote_media_server", "true");
-	settings->setDefault("enable_client_modding", "false");
+	settings->setDefault("enable_client_modding", "true");
 	settings->setDefault("max_out_chat_queue_size", "20");
-	settings->setDefault("pause_on_lost_focus", "false");
+	settings->setDefault("pause_on_lost_focus", "true");
 	settings->setDefault("enable_register_confirmation", "true");
 	settings->setDefault("clickable_chat_weblinks", "false");
 	settings->setDefault("chat_weblink_color", "#8888FF");
@@ -176,7 +189,7 @@ void set_default_settings()
 	settings->setDefault("near_plane", "0.1");
 #endif
 	settings->setDefault("screen_w", "1024");
-	settings->setDefault("screen_h", "600");
+	settings->setDefault("screen_h", "768");
 	settings->setDefault("autosave_screensize", "true");
 	settings->setDefault("fullscreen", "false");
 	settings->setDefault("vsync", "false");
@@ -207,12 +220,13 @@ void set_default_settings()
 	settings->setDefault("cinematic_camera_smoothing", "0.7");
 	settings->setDefault("enable_clouds", "true");
 	settings->setDefault("view_bobbing_amount", "1.0");
-	settings->setDefault("fall_bobbing_amount", "0.03");
+	settings->setDefault("fall_bobbing_amount", "1.0");
 	settings->setDefault("enable_3d_clouds", "true");
 	settings->setDefault("cloud_radius", "12");
 	settings->setDefault("menu_clouds", "true");
 	settings->setDefault("opaque_water", "false");
 	settings->setDefault("console_height", "0.6");
+	settings->setDefault("console_message_height", "0.25");
 	settings->setDefault("console_color", "(0,0,0)");
 	settings->setDefault("console_alpha", "200");
 	settings->setDefault("formspec_fullscreen_bg_color", "(0,0,0)");
@@ -220,21 +234,24 @@ void set_default_settings()
 	settings->setDefault("formspec_default_bg_color", "(0,0,0)");
 	settings->setDefault("formspec_default_bg_opacity", "140");
 	settings->setDefault("selectionbox_color", "(0,0,0)");
-	settings->setDefault("selectionbox_width", "2");
+	settings->setDefault("selectionbox_width", "4");
 	settings->setDefault("node_highlighting", "box");
 	settings->setDefault("crosshair_color", "(255,255,255)");
 	settings->setDefault("crosshair_alpha", "255");
-	settings->setDefault("recent_chat_messages", "6");
+	settings->setDefault("recent_chat_messages", "10");
 	settings->setDefault("hud_scaling", "1.0");
 	settings->setDefault("gui_scaling", "1.0");
 	settings->setDefault("gui_scaling_filter", "false");
 	settings->setDefault("gui_scaling_filter_txr2img", "true");
 	settings->setDefault("desynchronize_mapblock_texture_animation", "true");
 	settings->setDefault("hud_hotbar_max_width", "1.0");
+	settings->setDefault("hud_move_upwards", "0");
+	settings->setDefault("round_screen", "0");
 	settings->setDefault("enable_local_map_saving", "false");
 	settings->setDefault("show_entity_selectionbox", "false");
+	settings->setDefault("transparency_sorting", "true");
 	settings->setDefault("texture_clean_transparent", "false");
-	settings->setDefault("texture_min_size", "64");
+	settings->setDefault("texture_min_size", "0");
 	settings->setDefault("ambient_occlusion_gamma", "1.8");
 #if ENABLE_GLES
 	settings->setDefault("enable_shaders", "false");
@@ -243,11 +260,11 @@ void set_default_settings()
 #endif
 	settings->setDefault("enable_particles", "true");
 	settings->setDefault("arm_inertia", "true");
-	settings->setDefault("show_nametag_backgrounds", "true");
+	settings->setDefault("show_nametag_backgrounds", "false");
 
 	settings->setDefault("enable_minimap", "true");
 	settings->setDefault("minimap_shape_round", "true");
-	settings->setDefault("minimap_double_scan_height", "true");
+	settings->setDefault("minimap_double_scan_height", "false");
 
 	// Effects
 	settings->setDefault("directional_colored_fog", "true");
@@ -286,39 +303,53 @@ void set_default_settings()
 	settings->setDefault("aux1_descends", "false");
 	settings->setDefault("doubletap_jump", "false");
 	settings->setDefault("always_fly_fast", "true");
-#ifdef HAVE_TOUCHSCREENGUI
-	settings->setDefault("autojump", "true");
-#else
 	settings->setDefault("autojump", "false");
-#endif
 	settings->setDefault("continuous_forward", "false");
-	settings->setDefault("enable_joysticks", "false");
+#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
+	settings->setDefault("enable_joysticks", "true");
+#else
+ 	settings->setDefault("enable_joysticks", "false");
+#endif
 	settings->setDefault("joystick_id", "0");
 	settings->setDefault("joystick_type", "");
 	settings->setDefault("repeat_joystick_button_time", "0.17");
 	settings->setDefault("joystick_frustum_sensitivity", "170");
-	settings->setDefault("joystick_deadzone", "2048");
+	settings->setDefault("joystick_deadzone", "4096");
 
 	// Main menu
 	settings->setDefault("main_menu_path", "");
 	settings->setDefault("serverlist_file", "favoriteservers.json");
 
 	// General font settings
+	std::string MultiCraftFont = porting::getDataPath("fonts" DIR_DELIM "MultiCraftFont.ttf");
+
+#if !defined(__ANDROID__) && !defined(__APPLE__)
 	settings->setDefault("font_path", porting::getDataPath("fonts" DIR_DELIM "Arimo-Regular.ttf"));
 	settings->setDefault("font_path_italic", porting::getDataPath("fonts" DIR_DELIM "Arimo-Italic.ttf"));
 	settings->setDefault("font_path_bold", porting::getDataPath("fonts" DIR_DELIM "Arimo-Bold.ttf"));
 	settings->setDefault("font_path_bold_italic", porting::getDataPath("fonts" DIR_DELIM "Arimo-BoldItalic.ttf"));
+#else
+	settings->setDefault("font_path", MultiCraftFont);
+	settings->setDefault("font_path_italic", MultiCraftFont);
+	settings->setDefault("font_path_bold", MultiCraftFont);
+	settings->setDefault("font_path_bold_italic", MultiCraftFont);
+#endif
 	settings->setDefault("font_bold", "false");
 	settings->setDefault("font_italic", "false");
 	settings->setDefault("font_shadow", "1");
 	settings->setDefault("font_shadow_alpha", "127");
 	settings->setDefault("font_size_divisible_by", "1");
-	settings->setDefault("mono_font_path", porting::getDataPath("fonts" DIR_DELIM "Cousine-Regular.ttf"));
-	settings->setDefault("mono_font_path_italic", porting::getDataPath("fonts" DIR_DELIM "Cousine-Italic.ttf"));
-	settings->setDefault("mono_font_path_bold", porting::getDataPath("fonts" DIR_DELIM "Cousine-Bold.ttf"));
-	settings->setDefault("mono_font_path_bold_italic", porting::getDataPath("fonts" DIR_DELIM "Cousine-BoldItalic.ttf"));
+	settings->setDefault("mono_font_path", MultiCraftFont);
+	settings->setDefault("mono_font_path_italic", MultiCraftFont);
+	settings->setDefault("mono_font_path_bold", MultiCraftFont);
+	settings->setDefault("mono_font_path_bold_italic", MultiCraftFont);
 	settings->setDefault("mono_font_size_divisible_by", "1");
+
+#if !defined(__ANDROID__) && !defined(__APPLE__)
 	settings->setDefault("fallback_font_path", porting::getDataPath("fonts" DIR_DELIM "DroidSansFallbackFull.ttf"));
+#else
+	settings->setDefault("fallback_font_path", MultiCraftFont);
+#endif
 
 	std::string font_size_str = std::to_string(TTF_DEFAULT_FONT_SIZE);
 	settings->setDefault("font_size", font_size_str);
@@ -326,7 +357,7 @@ void set_default_settings()
 	settings->setDefault("chat_font_size", "0"); // Default "font_size"
 
 	// ContentDB
-	settings->setDefault("contentdb_url", "https://content.minetest.net");
+	settings->setDefault("contentdb_url", "https://content.multicraft.world");
 	settings->setDefault("contentdb_max_concurrent_downloads", "3");
 
 #ifdef __ANDROID__
@@ -335,10 +366,20 @@ void set_default_settings()
 	settings->setDefault("contentdb_flag_blacklist", "nonfree, desktop_default");
 #endif
 
+	settings->setDefault("update_information_url", "https://updates.multicraft.world/app.json");
+	#if ENABLE_UPDATE_CHECKER
+		settings->setDefault("update_last_checked", "");
+	#else
+		settings->setDefault("update_last_checked", "disabled");
+	#endif
 
 	// Server
+	settings->setDefault("compat_player_model", "character.b3d,3d_armor_character.b3d,skinsdb_3d_armor_character_5.b3d");
+	settings->setDefault("compat_send_original_model", "true");
+	settings->setDefault("disable_texture_packs", "false");
 	settings->setDefault("disable_escape_sequences", "false");
-	settings->setDefault("strip_color_codes", "false");
+	settings->setDefault("strip_color_codes", "true");
+	settings->setDefault("announce_mt", "true");
 #if USE_PROMETHEUS
 	settings->setDefault("prometheus_listener_address", "127.0.0.1:30000");
 #endif
@@ -347,13 +388,14 @@ void set_default_settings()
 	settings->setDefault("enable_ipv6", "true");
 	settings->setDefault("ipv6_server", "false");
 	settings->setDefault("max_packets_per_iteration","1024");
-	settings->setDefault("port", "30000");
+	settings->setDefault("port", "40000");
+	settings->setDefault("enable_protocol_compat", "true");
 	settings->setDefault("strict_protocol_version_checking", "false");
 	settings->setDefault("player_transfer_distance", "0");
 	settings->setDefault("max_simultaneous_block_sends_per_client", "40");
 	settings->setDefault("time_send_interval", "5");
 
-	settings->setDefault("default_game", "minetest");
+	settings->setDefault("default_game", "default");
 	settings->setDefault("motd", "");
 	settings->setDefault("max_users", "15");
 	settings->setDefault("creative_mode", "false");
@@ -361,7 +403,7 @@ void set_default_settings()
 	settings->setDefault("default_password", "");
 	settings->setDefault("default_privs", "interact, shout");
 	settings->setDefault("enable_pvp", "true");
-	settings->setDefault("enable_mod_channels", "false");
+	settings->setDefault("enable_mod_channels", "true");
 	settings->setDefault("disallow_empty_password", "false");
 	settings->setDefault("disable_anticheat", "false");
 	settings->setDefault("enable_rollback_recording", "false");
@@ -371,7 +413,7 @@ void set_default_settings()
 	settings->setDefault("kick_msg_crash", "This server has experienced an internal error. You will now be disconnected.");
 	settings->setDefault("ask_reconnect_on_crash", "false");
 
-	settings->setDefault("chat_message_format", "<@name> @message");
+	settings->setDefault("chat_message_format", "@name: @message");
 	settings->setDefault("profiler_print_interval", "0");
 	settings->setDefault("active_object_send_range_blocks", "8");
 	settings->setDefault("active_block_range", "4");
@@ -380,7 +422,7 @@ void set_default_settings()
 	settings->setDefault("max_block_send_distance", "12");
 	settings->setDefault("block_send_optimize_distance", "4");
 	settings->setDefault("server_side_occlusion_culling", "true");
-	settings->setDefault("csm_restriction_flags", "62");
+	settings->setDefault("csm_restriction_flags", "60");
 	settings->setDefault("csm_restriction_noderange", "0");
 	settings->setDefault("max_clearobjects_extra_loaded_blocks", "4096");
 	settings->setDefault("time_speed", "72");
@@ -389,7 +431,7 @@ void set_default_settings()
 	settings->setDefault("max_objects_per_block", "64");
 	settings->setDefault("server_map_save_interval", "5.3");
 	settings->setDefault("chat_message_max_size", "500");
-	settings->setDefault("chat_message_limit_per_10sec", "8.0");
+	settings->setDefault("chat_message_limit_per_10sec", "5.0");
 	settings->setDefault("chat_message_limit_trigger_kick", "50");
 	settings->setDefault("sqlite_synchronous", "2");
 	settings->setDefault("map_compression_level_disk", "-1");
@@ -402,13 +444,14 @@ void set_default_settings()
 	settings->setDefault("nodetimer_interval", "0.2");
 	settings->setDefault("ignore_world_load_errors", "false");
 	settings->setDefault("remote_media", "");
-	settings->setDefault("debug_log_level", "action");
+	settings->setDefault("debug_log_level", "warning");
 	settings->setDefault("debug_log_size_max", "50");
 	settings->setDefault("chat_log_level", "error");
 	settings->setDefault("emergequeue_limit_total", "1024");
 	settings->setDefault("emergequeue_limit_diskonly", "128");
 	settings->setDefault("emergequeue_limit_generate", "128");
 	settings->setDefault("num_emerge_threads", "1");
+	settings->setDefault("log_mod_memory_usage_on_load", "false");
 	settings->setDefault("secure.enable_security", "true");
 	settings->setDefault("secure.trusted_mods", "");
 	settings->setDefault("secure.http_mods", "");
@@ -416,7 +459,7 @@ void set_default_settings()
 	// Physics
 	settings->setDefault("movement_acceleration_default", "3");
 	settings->setDefault("movement_acceleration_air", "2");
-	settings->setDefault("movement_acceleration_fast", "10");
+	settings->setDefault("movement_acceleration_fast", "20");
 	settings->setDefault("movement_speed_walk", "4");
 	settings->setDefault("movement_speed_crouch", "1.35");
 	settings->setDefault("movement_speed_fast", "20");
@@ -424,7 +467,7 @@ void set_default_settings()
 	settings->setDefault("movement_speed_jump", "6.5");
 	settings->setDefault("movement_liquid_fluidity", "1");
 	settings->setDefault("movement_liquid_fluidity_smooth", "0.5");
-	settings->setDefault("movement_liquid_sink", "10");
+	settings->setDefault("movement_liquid_sink", "20");
 	settings->setDefault("movement_gravity", "9.81");
 
 	// Liquids
@@ -433,7 +476,7 @@ void set_default_settings()
 	settings->setDefault("liquid_update", "1.0");
 
 	// Mapgen
-	settings->setDefault("mg_name", "v7");
+	settings->setDefault("mg_name", "v7p");
 	settings->setDefault("water_level", "1");
 	settings->setDefault("mapgen_limit", "31007");
 	settings->setDefault("chunksize", "5");
@@ -453,60 +496,249 @@ void set_default_settings()
 	settings->setDefault("screen_dpi", "72");
 	settings->setDefault("display_density_factor", "1");
 
+	settings->setDefault("device_is_tablet", "false");
+
 	// Altered settings for macOS
-#if defined(__MACH__) && defined(__APPLE__)
-	settings->setDefault("keymap_sneak", "KEY_SHIFT");
-	settings->setDefault("fps_max", "0");
+#if defined(__MACH__) && defined(__APPLE__) && !defined(__IOS__)
+ 	settings->setDefault("screen_w", "0");
+ 	settings->setDefault("screen_h", "0");
+	settings->setDefault("keymap_camera_mode", "KEY_KEY_C");
+	settings->setDefault("vsync", "true");
+
+	int ScaleFactor = (int) [NSScreen mainScreen].backingScaleFactor;
+	settings->setDefault("screen_dpi", std::to_string(ScaleFactor * 72));
+	if (ScaleFactor >= 2) {
+		settings->setDefault("hud_scaling", "1.5");
+	} else {
+		settings->setDefault("font_size", std::to_string(TTF_DEFAULT_FONT_SIZE - 2));
+		settings->setDefault("hud_scaling", "1.25");
+		settings->setDefault("gui_scaling", "1.5");
+	}
+
+	// Shaders work but may reduce performance on iGPU
+	settings->setDefault("enable_shaders", "false");
 #endif
 
 #ifdef HAVE_TOUCHSCREENGUI
 	settings->setDefault("touchtarget", "true");
-	settings->setDefault("touchscreen_threshold","20");
-	settings->setDefault("fixed_virtual_joystick", "false");
+	settings->setDefault("touchscreen_threshold", "20");
+	settings->setDefault("touch_sensitivity", "0.2");
+	settings->setDefault("fixed_virtual_joystick", "true");
 	settings->setDefault("virtual_joystick_triggers_aux1", "false");
+	settings->setDefault("fast_move", "true");
 #endif
-	// Altered settings for Android
-#ifdef __ANDROID__
-	settings->setDefault("screen_w", "0");
-	settings->setDefault("screen_h", "0");
+
+	// Mobile Platform
+#if defined(__ANDROID__) || defined(__IOS__)
 	settings->setDefault("fullscreen", "true");
-	settings->setDefault("smooth_lighting", "false");
-	settings->setDefault("performance_tradeoffs", "true");
-	settings->setDefault("max_simultaneous_block_sends_per_client", "10");
-	settings->setDefault("emergequeue_limit_diskonly", "16");
-	settings->setDefault("emergequeue_limit_generate", "16");
-	settings->setDefault("max_block_generate_distance", "5");
-	settings->setDefault("enable_3d_clouds", "false");
-	settings->setDefault("fps_max", "30");
-	settings->setDefault("fps_max_unfocused", "10");
-	settings->setDefault("max_objects_per_block", "20");
-	settings->setDefault("sqlite_synchronous", "1");
-	settings->setDefault("map_compression_level_disk", "-1");
-	settings->setDefault("map_compression_level_net", "-1");
-	settings->setDefault("server_map_save_interval", "15");
-	settings->setDefault("client_mapblock_limit", "1000");
-	settings->setDefault("active_block_range", "2");
-	settings->setDefault("viewing_range", "50");
-	settings->setDefault("leaves_style", "simple");
-	settings->setDefault("curl_verify_cert","false");
+ 	settings->setDefault("emergequeue_limit_diskonly", "16");
+ 	settings->setDefault("emergequeue_limit_generate", "16");
+	settings->setDefault("curl_verify_cert", "false");
+	settings->setDefault("max_objects_per_block", "16");
+	settings->setDefault("doubletap_jump", "true");
+	settings->setDefault("gui_scaling_filter_txr2img", "false");
+	settings->setDefault("autosave_screensize", "false");
+	settings->setDefault("recent_chat_messages", "6");
 
-	// Apply settings according to screen size
-	float x_inches = (float) porting::getDisplaySize().X /
-			(160.f * porting::getDisplayDensity());
+	// Set the optimal settings depending on the memory size [Android] | model [iOS]
+#ifdef __ANDROID__
+	float memoryMax = porting::getTotalSystemMemory();
 
-	if (x_inches < 3.7f) {
-		settings->setDefault("hud_scaling", "0.6");
-		settings->setDefault("font_size", "14");
-		settings->setDefault("mono_font_size", "14");
-	} else if (x_inches < 4.5f) {
-		settings->setDefault("hud_scaling", "0.7");
-		settings->setDefault("font_size", "14");
-		settings->setDefault("mono_font_size", "14");
-	} else if (x_inches < 6.0f) {
-		settings->setDefault("hud_scaling", "0.85");
-		settings->setDefault("font_size", "14");
-		settings->setDefault("mono_font_size", "14");
+	if (memoryMax < 2) {
+		// minimal settings for less than 2GB RAM
+#elif __IOS__
+	if (false) {
+		// obsolete
+#endif
+		settings->setDefault("client_unload_unused_data_timeout", "60");
+		settings->setDefault("client_mapblock_limit", "50");
+		settings->setDefault("fps_max", "30");
+		settings->setDefault("fps_max_unfocused", "10");
+		settings->setDefault("viewing_range", "30");
+		settings->setDefault("smooth_lighting", "false");
+		settings->setDefault("enable_3d_clouds", "false");
+		settings->setDefault("active_object_send_range_blocks", "1");
+		settings->setDefault("active_block_range", "1");
+		settings->setDefault("dedicated_server_step", "0.2");
+		settings->setDefault("abm_interval", "3.0");
+		settings->setDefault("chunksize", "3");
+		settings->setDefault("max_block_generate_distance", "1");
+		settings->setDefault("arm_inertia", "false");
+#ifdef __ANDROID__
+	} else if (memoryMax >= 2 && memoryMax < 4) {
+		// low settings for 2-4GB RAM
+#elif __IOS__
+	} else if (!IOS_VERSION_AVAILABLE("13.0")) {
+		// low settings
+#endif
+		settings->setDefault("client_unload_unused_data_timeout", "120");
+		settings->setDefault("client_mapblock_limit", "200");
+		settings->setDefault("fps_max", "35");
+		settings->setDefault("fps_max_unfocused", "10");
+		settings->setDefault("viewing_range", "40");
+		settings->setDefault("smooth_lighting", "false");
+		settings->setDefault("active_object_send_range_blocks", "1");
+		settings->setDefault("active_block_range", "2");
+		settings->setDefault("dedicated_server_step", "0.2");
+		settings->setDefault("abm_interval", "2.0");
+		settings->setDefault("chunksize", "3");
+		settings->setDefault("max_block_generate_distance", "2");
+		settings->setDefault("arm_inertia", "false");
+#ifdef __ANDROID__
+	} else if (memoryMax >= 4 && memoryMax < 6) {
+		// medium settings for 4.1-6GB RAM
+#elif __IOS__
+	} else if (([SDVersion deviceVersion] == iPhone6S) || ([SDVersion deviceVersion] == iPhone6SPlus) || ([SDVersion deviceVersion] == iPhoneSE) ||
+			   ([SDVersion deviceVersion] == iPhone7) || ([SDVersion deviceVersion] == iPhone7Plus) ||
+			   ([SDVersion deviceVersion] == iPadMini4) || ([SDVersion deviceVersion] == iPadAir2) || ([SDVersion deviceVersion] == iPad5))
+	{
+		// medium settings
+#endif
+		settings->setDefault("client_unload_unused_data_timeout", "180");
+		settings->setDefault("client_mapblock_limit", "300");
+		settings->setDefault("fps_max", "35");
+		settings->setDefault("viewing_range", "60");
+		settings->setDefault("active_object_send_range_blocks", "2");
+		settings->setDefault("active_block_range", "2");
+		settings->setDefault("max_block_generate_distance", "3");
+	} else {
+		// high settings
+		settings->setDefault("client_mapblock_limit", "500");
+		settings->setDefault("viewing_range", "125");
+		settings->setDefault("active_object_send_range_blocks", "4");
+		settings->setDefault("max_block_generate_distance", "5");
+
+		// enable visual shader effects
+		settings->setDefault("enable_waving_water", "true");
+		settings->setDefault("enable_waving_leaves", "true");
+		settings->setDefault("enable_waving_plants", "true");
 	}
-	// Tablets >= 6.0 use non-Android defaults for these settings
+
+	// Android Settings
+#ifdef __ANDROID__
+	// Switch to olges2 with shaders on powerful Android devices
+	if (memoryMax >= 6) {
+		settings->setDefault("video_driver", "ogles2");
+		settings->setDefault("enable_shaders", "true");
+	} else {
+		settings->setDefault("video_driver", "ogles1");
+		settings->setDefault("enable_shaders", "false");
+	}
+
+	v2u32 window_size = RenderingEngine::getDisplaySize();
+	if (window_size.X > 0) {
+		float x_inches = window_size.X / (160.f * RenderingEngine::getDisplayDensity());
+		if (x_inches <= 3.7) {
+			// small 4" phones
+			g_settings->setDefault("hud_scaling", "0.55");
+			g_settings->setDefault("touch_sensitivity", "0.3");
+		} else if (x_inches > 3.7 && x_inches <= 4.5) {
+			// medium phones
+			g_settings->setDefault("hud_scaling", "0.6");
+			g_settings->setDefault("selectionbox_width", "6");
+		} else if (x_inches > 4.5 && x_inches <= 5.5) {
+			// large 6" phones
+			g_settings->setDefault("hud_scaling", "0.7");
+			g_settings->setDefault("selectionbox_width", "6");
+		} else if (x_inches > 5.5 && x_inches <= 6.5) {
+			// 7" tablets
+			g_settings->setDefault("hud_scaling", "0.9");
+			g_settings->setDefault("selectionbox_width", "6");
+		} else if (x_inches >= 7.0) {
+			settings->setDefault("device_is_tablet", "true");
+			settings->setDefault("recent_chat_messages", "8");
+			settings->setDefault("console_message_height", "0.4");
+		}
+
+		if (x_inches <= 4.5) {
+			settings->setDefault("font_size", std::to_string(TTF_DEFAULT_FONT_SIZE - 1));
+		} else if (x_inches >= 7.0) {
+			settings->setDefault("font_size", std::to_string(TTF_DEFAULT_FONT_SIZE + 1));
+		}
+
+		// Settings for the Rounded or Cutout Screen
+		int RoundScreen = porting::getRoundScreen();
+		if (RoundScreen > 0)
+			settings->setDefault("round_screen", std::to_string(RoundScreen));
+	}
+#endif // Android
+
+	// iOS Settings
+#ifdef __IOS__
+	// Switch to olges2 with shaders in new iOS versions
+	if (IOS_VERSION_AVAILABLE("13.0")) {
+		settings->setDefault("video_driver", "ogles2");
+		settings->setDefault("enable_shaders", "true");
+	} else {
+		settings->setDefault("video_driver", "ogles1");
+		settings->setDefault("enable_shaders", "false");
+	}
+
+	settings->setDefault("debug_log_level", "none");
+
+	if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
+		settings->setDefault("device_is_tablet", "true");
+		settings->setDefault("recent_chat_messages", "8");
+		settings->setDefault("console_message_height", "0.4");
+	}
+
+	// Set the size of the elements depending on the screen size
+	if SDVersion4Inch {
+		// 4" iPhone and iPod Touch
+		settings->setDefault("hud_scaling", "0.55");
+		settings->setDefault("touch_sensitivity", "0.33");
+	} else if SDVersion4and7Inch {
+		// 4.7" iPhone
+ 		settings->setDefault("hud_scaling", "0.6");
+		settings->setDefault("touch_sensitivity", "0.27");
+	} else if SDVersion5and5Inch {
+		// 5.5" iPhone Plus
+		settings->setDefault("hud_scaling", "0.65");
+		settings->setDefault("touch_sensitivity", "0.3");
+	} else if (SDVersion5and8Inch || SDVersion6and1Inch) {
+		// 5.8" and 6.1" iPhones
+		settings->setDefault("hud_scaling", "0.8");
+		settings->setDefault("touch_sensitivity", "0.35");
+		settings->setDefault("selectionbox_width", "6");
+	} else if SDVersion6and5Inch {
+		// 6.5" iPhone
+ 		settings->setDefault("hud_scaling", "0.85");
+		settings->setDefault("touch_sensitivity", "0.35");
+		settings->setDefault("selectionbox_width", "6");
+	} else if SDVersion7and9Inch {
+		// iPad mini
+		settings->setDefault("hud_scaling", "0.9");
+		settings->setDefault("touch_sensitivity", "0.25");
+		settings->setDefault("selectionbox_width", "6");
+	} else if SDVersion8and3Inch {
+		settings->setDefault("touch_sensitivity", "0.25");
+		settings->setDefault("selectionbox_width", "6");
+	} else {
+		// iPad
+		settings->setDefault("touch_sensitivity", "0.3");
+		settings->setDefault("selectionbox_width", "6");
+	}
+
+	if SDVersion4Inch {
+		settings->setDefault("font_size", std::to_string(TTF_DEFAULT_FONT_SIZE - 2));
+	} else if (SDVersion4and7Inch || SDVersion5and5Inch) {
+		settings->setDefault("font_size", std::to_string(TTF_DEFAULT_FONT_SIZE - 1));
+	} else if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad && !SDVersion7and9Inch) {
+		settings->setDefault("font_size", std::to_string(TTF_DEFAULT_FONT_SIZE + 1));
+	}
+
+	// Settings for the Rounded Screen and Home Bar
+	if SDVersionRoundScreen {
+		int upwards = 25, round = 40;
+		if SDVersioniPhone12Series {
+			upwards = 20, round = 90;
+		} else if SDVersion8and3Inch {
+			upwards = 15, round = 20;
+		}
+
+		settings->setDefault("hud_move_upwards", std::to_string(upwards));
+		settings->setDefault("round_screen", std::to_string(round));
+ 	}
+#endif // iOS
 #endif
 }

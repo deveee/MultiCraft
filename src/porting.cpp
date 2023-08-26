@@ -530,26 +530,7 @@ bool setSystemPaths()
 
 #endif
 
-void migrateCachePath()
-{
-	const std::string local_cache_path = path_user + DIR_DELIM + "cache";
-
-	// Delete tmp folder if it exists (it only ever contained
-	// a temporary ogg file, which is no longer used).
-	if (fs::PathExists(local_cache_path + DIR_DELIM + "tmp"))
-		fs::RecursiveDelete(local_cache_path + DIR_DELIM + "tmp");
-
-	// Bail if migration impossible
-	if (path_cache == local_cache_path || !fs::PathExists(local_cache_path)
-			|| fs::PathExists(path_cache)) {
-		return;
-	}
-	if (!fs::Rename(local_cache_path, path_cache)) {
-		errorstream << "Failed to migrate local cache path "
-			"to system path!" << std::endl;
-	}
-}
-
+#if !defined(__ANDROID__) && !defined(__IOS__)
 void initializePaths()
 {
 #if RUN_IN_PLACE
@@ -618,8 +599,6 @@ void initializePaths()
 		// If neither works, use $PATH_USER/cache
 		path_cache = path_user + DIR_DELIM + "cache";
 	}
-	// Migrate cache folder to new location if possible
-	migrateCachePath();
 #  endif // _WIN32
 #endif // RUN_IN_PLACE
 
@@ -654,6 +633,13 @@ void initializePaths()
 	}
 #endif  // USE_GETTEXT
 }
+
+// Dummy for other OS
+bool hasRealKeyboard()
+{
+	return true;
+}
+#endif
 
 ////
 //// OS-specific Secure Random
@@ -742,9 +728,14 @@ static bool open_uri(const std::string &uri)
 	openURIAndroid(uri);
 	return true;
 #elif defined(__APPLE__)
+#ifdef __IOS__
+	ioswrap_open_url(uri.c_str());
+	return true;
+#else
 	const char *argv[] = {"open", uri.c_str(), NULL};
 	return posix_spawnp(NULL, "open", NULL, NULL, (char**)argv,
 		(*_NSGetEnviron())) == 0;
+#endif
 #else
 	const char *argv[] = {"xdg-open", uri.c_str(), NULL};
 	return posix_spawnp(NULL, "xdg-open", NULL, NULL, (char**)argv, environ) == 0;

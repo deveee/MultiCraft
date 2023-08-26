@@ -40,7 +40,7 @@ struct ObjectProperties
 	std::string mesh = "";
 	v3f visual_size = v3f(1, 1, 1);
 	std::vector<std::string> textures;
-	std::string damage_texture_modifier = "^[brighten";
+	std::string damage_texture_modifier = "^[colorize:#FF000085";
 	std::vector<video::SColor> colors;
 	v2s16 spritediv = v2s16(1, 1);
 	v2s16 initial_sprite_basepos;
@@ -70,6 +70,6 @@ struct ObjectProperties
 	std::string dump();
 	// check limits of some important properties (strings) that'd cause exceptions later on
 	bool validate();
-	void serialize(std::ostream &os) const;
+	void serialize(std::ostream &os, u16 protocol_version) const;
 	void deSerialize(std::istream &is);
 };

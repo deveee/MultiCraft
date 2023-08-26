@@ -51,7 +51,9 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "modchannels.h"
 #include "serverlist.h"
 #include "util/string.h"
+#if USE_SQLITE
 #include "rollback.h"
+#endif
 #include "util/serialize.h"
 #include "util/thread.h"
 #include "defaultsettings.h"
@@ -355,7 +357,9 @@ Server::~Server()
 	// Delete things in the reverse order of creation
 	delete m_emerge;
 	delete m_env;
+#if USE_SQLITE
 	delete m_rollback;
+#endif
 	delete m_mod_storage_database;
 	delete m_banmanager;
 	delete m_itemdef;
@@ -432,6 +436,17 @@ void Server::init()
 
 	m_modmgr->loadMods(m_script);
 
+	// m_compat_player_models is used to prevent constant re-parsing of the
+	// setting
+	std::string player_models = g_settings->get("compat_player_model");
+	player_models.erase(std::remove_if(player_models.begin(),
+			player_models.end(), static_cast<int(*)(int)>(&std::isspace)),
+			player_models.end());
+	if (player_models.empty() || isSingleplayer())
+		FATAL_ERROR_IF(!m_compat_player_models.empty(), "Compat player models list not empty");
+	else
+		m_compat_player_models = str_split(player_models, ',');
+
 	// Read Textures and calculate sha1 sums
 	fillMediaCache();
 
@@ -472,10 +487,12 @@ void Server::init()
 	// Initialize mapgens
 	m_emerge->initMapgens(servermap->getMapgenParams());
 
+#if USE_SQLITE
 	if (g_settings->getBool("enable_rollback_recording")) {
 		// Create rollback manager
 		m_rollback = new RollbackManager(m_path_world, this);
 	}
+#endif
 
 	// Give environment reference to scripting api
 	m_script->initializeEnvironment(m_env);
@@ -483,7 +500,13 @@ void Server::init()
 	// Register us to receive map edit events
 	servermap->addEventReceiver(this);
 
-	m_env->loadMeta();
+	try {
+		m_env->loadMeta();
+	} catch (SerializationError &e) {
+		warningstream << "Environment metadata is corrupted: " << e.what() << std::endl;
+		warningstream << "Loading the default instead" << std::endl;
+		m_env->loadDefaultMeta();
+	}
 
 	// Those settings can be overwritten in world.mt, they are
 	// intended to be cached after environment loading.
@@ -510,14 +533,6 @@ void Server::start()
 	// Start thread
 	m_thread->start();
 
-	// ASCII art for the win!
-	std::cerr
-		<< "         __.               __.                 __.  " << std::endl
-		<< "  _____ |__| ____   _____ /  |_  _____  _____ /  |_ " << std::endl
-		<< " /     \\|  |/    \\ /  __ \\    _\\/  __ \\/   __>    _\\" << std::endl
-		<< "|  Y Y  \\  |   |  \\   ___/|  | |   ___/\\___  \\|  |  " << std::endl
-		<< "|__|_|  /  |___|  /\\______>  |  \\______>_____/|  |  " << std::endl
-		<< "      \\/ \\/     \\/         \\/                  \\/   " << std::endl;
 	actionstream << "World at [" << m_path_world << "]" << std::endl;
 	actionstream << "Server for gameid=\"" << m_gamespec.id
 			<< "\" listening on ";
@@ -697,7 +712,7 @@ void Server::AsyncRunStep(bool initial_step)
 	// send masterserver announce
 	{
 		float &counter = m_masterserver_timer;
-		if (!isSingleplayer() && (!counter || counter >= 300.0) &&
+		if (!isSingleplayer() && (!counter || counter >= 60.0) &&
 				g_settings->getBool("server_announce")) {
 			ServerList::sendAnnounce(counter ? ServerList::AA_UPDATE :
 						ServerList::AA_START,
@@ -828,7 +843,11 @@ void Server::AsyncRunStep(bool initial_step)
 					// u16 id
 					// std::string data
 					buffer.append(idbuf, sizeof(idbuf));
-					buffer.append(serializeString16(aom.datastring));
+					if (client->net_proto_version >= 37 ||
+							aom.legacystring.empty())
+						buffer.append(serializeString16(aom.datastring));
+					else
+						buffer.append(serializeString16(aom.legacystring));
 				}
 			}
 			/*
@@ -1036,8 +1055,7 @@ void Server::Receive()
 		} catch (const ClientStateError &e) {
 			errorstream << "ProcessData: peer=" << peer_id << " what()="
 					 << e.what() << std::endl;
-			DenyAccess_Legacy(peer_id, L"Your client sent something server didn't expect."
-					L"Try reconnecting or updating your client");
+			DenyAccess(peer_id, SERVER_ACCESSDENIED_UNEXPECTED_DATA);
 		} catch (const con::PeerNotFoundException &e) {
 			// Do nothing
 		} catch (const con::NoIncomingDataException &e) {
@@ -1070,15 +1088,13 @@ PlayerSAO* Server::StageTwoClientInit(session_t peer_id)
 		if (player && player->getPeerId() != PEER_ID_INEXISTENT) {
 			actionstream << "Server: Failed to emerge player \"" << playername
 					<< "\" (player allocated to an another client)" << std::endl;
-			DenyAccess_Legacy(peer_id, L"Another client is connected with this "
-					L"name. If your client closed unexpectedly, try again in "
-					L"a minute.");
+			DenyAccess(peer_id, SERVER_ACCESSDENIED_ALREADY_CONNECTED);
 		} else {
 			errorstream << "Server: " << playername << ": Failed to emerge player"
 					<< std::endl;
-			DenyAccess_Legacy(peer_id, L"Could not allocate player.");
+			DenyAccess(peer_id, SERVER_ACCESSDENIED_SERVER_FAIL);
 		}
-		return NULL;
+		return nullptr;
 	}
 
 	/*
@@ -1142,18 +1158,16 @@ void Server::ProcessData(NetworkPacket *pkt)
 		Address address = getPeerAddress(peer_id);
 		std::string addr_s = address.serializeString();
 
-		if(m_banmanager->isIpBanned(addr_s)) {
+		// FIXME: Isn't it a bit excessive to check this for every packet?
+		if (m_banmanager->isIpBanned(addr_s)) {
 			std::string ban_name = m_banmanager->getBanName(addr_s);
 			infostream << "Server: A banned client tried to connect from "
-					<< addr_s << "; banned name was "
-					<< ban_name << std::endl;
-			// This actually doesn't seem to transfer to the client
-			DenyAccess_Legacy(peer_id, L"Your ip is banned. Banned name was "
-					+ utf8_to_wide(ban_name));
+					<< addr_s << "; banned name was " << ban_name << std::endl;
+			DenyAccess(peer_id, SERVER_ACCESSDENIED_CUSTOM_STRING,
+				"Your IP is banned. Banned name was " + ban_name);
 			return;
 		}
-	}
-	catch(con::PeerNotFoundException &e) {
+	} catch (con::PeerNotFoundException &e) {
 		/*
 		 * no peer for this packet found
 		 * most common reason is peer timeout, e.g. peer didn't
@@ -1204,6 +1218,9 @@ void Server::ProcessData(NetworkPacket *pkt)
 			return;
 		}
 
+		RemoteClient *client = getClient(peer_id);
+		if (client)
+			pkt->setProtocolVersion(client->net_proto_version);
 		handleCommand(pkt);
 	} catch (SendFailedException &e) {
 		errorstream << "Server::ProcessData(): SendFailedException: "
@@ -1211,7 +1228,7 @@ void Server::ProcessData(NetworkPacket *pkt)
 				<< std::endl;
 	} catch (PacketError &e) {
 		actionstream << "Server::ProcessData(): PacketError: "
-				<< "what=" << e.what()
+				<< "what=" << e.what() << ", command=" << pkt->getCommand() // TODO: REMOVE COMMAND=
 				<< std::endl;
 	}
 }
@@ -1285,6 +1302,8 @@ bool Server::getClientInfo(session_t peer_id, ClientInfo &ret)
 	ret.minor = client->getMinor();
 	ret.patch = client->getPatch();
 	ret.vers_string = client->getFullVer();
+	ret.platform = client->getPlatform();
+	ret.sysinfo = client->getSysInfo();
 
 	ret.lang_code = client->getLangCode();
 
@@ -1344,11 +1363,11 @@ void Server::Send(session_t peer_id, NetworkPacket *pkt)
 		clientCommandFactoryTable[pkt->getCommand()].reliable);
 }
 
-void Server::SendMovement(session_t peer_id)
+void Server::SendMovement(session_t peer_id, u16 protocol_version)
 {
 	std::ostringstream os(std::ios_base::binary);
 
-	NetworkPacket pkt(TOCLIENT_MOVEMENT, 12 * sizeof(float), peer_id);
+	NetworkPacket pkt(TOCLIENT_MOVEMENT, 12 * sizeof(float), peer_id, protocol_version);
 
 	pkt << g_settings->getFloat("movement_acceleration_default");
 	pkt << g_settings->getFloat("movement_acceleration_air");
@@ -1386,7 +1405,13 @@ void Server::SendPlayerHP(PlayerSAO *playersao)
 void Server::SendHP(session_t peer_id, u16 hp)
 {
 	NetworkPacket pkt(TOCLIENT_HP, 1, peer_id);
-	pkt << hp;
+	// Minetest 0.4 uses 8-bit integers for HPP.
+	if (m_clients.getProtocolVersion(peer_id) >= 37) {
+		pkt << hp;
+	} else {
+		u8 raw_hp = hp & 0xFF;
+		pkt << raw_hp;
+	}
 	Send(&pkt);
 }
 
@@ -1409,13 +1434,6 @@ void Server::SendAccessDenied(session_t peer_id, AccessDeniedCode reason,
 	else if (reason == SERVER_ACCESSDENIED_SHUTDOWN ||
 			reason == SERVER_ACCESSDENIED_CRASH)
 		pkt << custom_reason << (u8)reconnect;
-	Send(&pkt);
-}
-
-void Server::SendAccessDenied_Legacy(session_t peer_id,const std::wstring &reason)
-{
-	NetworkPacket pkt(TOCLIENT_ACCESS_DENIED_LEGACY, 0, peer_id);
-	pkt << reason;
 	Send(&pkt);
 }
 
@@ -1505,6 +1523,9 @@ void Server::SendInventory(PlayerSAO *sao, bool incremental)
 
 void Server::SendChatMessage(session_t peer_id, const ChatMessage &message)
 {
+	NetworkPacket legacypkt(TOCLIENT_CHAT_MESSAGE_OLD, 0, peer_id);
+	legacypkt << message.message;
+
 	NetworkPacket pkt(TOCLIENT_CHAT_MESSAGE, 0, peer_id);
 	u8 version = 1;
 	u8 type = message.type;
@@ -1516,9 +1537,12 @@ void Server::SendChatMessage(session_t peer_id, const ChatMessage &message)
 		if (!player)
 			return;
 
-		Send(&pkt);
+		if (player->protocol_version < 35)
+			Send(&legacypkt);
+		else
+			Send(&pkt);
 	} else {
-		m_clients.sendToAll(&pkt);
+		m_clients.sendToAllCompat(&pkt, &legacypkt, 35);
 	}
 }
 
@@ -1536,7 +1560,11 @@ void Server::SendShowFormspecMessage(session_t peer_id, const std::string &forms
 		pkt.putLongString("");
 	} else {
 		m_formspec_state_data[peer_id] = formname;
-		pkt.putLongString(formspec);
+		RemotePlayer *player = m_env->getPlayer(peer_id);
+		if (player && player->protocol_version < 37)
+			pkt.putLongString(insert_formspec_prepend(formspec, player->formspec_prepend));
+		else
+			pkt.putLongString(formspec);
 	}
 	pkt << formname;
 
@@ -1574,7 +1602,7 @@ void Server::SendSpawnParticle(session_t peer_id, u16 protocol_version,
 	}
 	assert(protocol_version != 0);
 
-	NetworkPacket pkt(TOCLIENT_SPAWN_PARTICLE, 0, peer_id);
+	NetworkPacket pkt(TOCLIENT_SPAWN_PARTICLE, 0, peer_id, protocol_version);
 
 	{
 		// NetworkPacket and iostreams are incompatible...
@@ -1621,7 +1649,7 @@ void Server::SendAddParticleSpawner(session_t peer_id, u16 protocol_version,
 	}
 	assert(protocol_version != 0);
 
-	NetworkPacket pkt(TOCLIENT_ADD_PARTICLESPAWNER, 100, peer_id);
+	NetworkPacket pkt(TOCLIENT_ADD_PARTICLESPAWNER, 100, peer_id, protocol_version);
 
 	pkt << p.amount << p.time << p.minpos << p.maxpos << p.minvel
 		<< p.maxvel << p.minacc << p.maxacc << p.minexptime << p.maxexptime
@@ -1656,7 +1684,7 @@ void Server::SendDeleteParticleSpawner(session_t peer_id, u32 id)
 
 void Server::SendHUDAdd(session_t peer_id, u32 id, HudElement *form)
 {
-	NetworkPacket pkt(TOCLIENT_HUDADD, 0 , peer_id);
+	NetworkPacket pkt(TOCLIENT_HUDADD, 0 , peer_id, m_clients.getProtocolVersion(peer_id));
 
 	pkt << id << (u8) form->type << form->pos << form->name << form->scale
 			<< form->text << form->number << form->item << form->dir
@@ -1675,7 +1703,7 @@ void Server::SendHUDRemove(session_t peer_id, u32 id)
 
 void Server::SendHUDChange(session_t peer_id, u32 id, HudElementStat stat, void *value)
 {
-	NetworkPacket pkt(TOCLIENT_HUDCHANGE, 0, peer_id);
+	NetworkPacket pkt(TOCLIENT_HUDCHANGE, 0, peer_id, m_clients.getProtocolVersion(peer_id));
 	pkt << id << (u8) stat;
 
 	switch (stat) {
@@ -1784,7 +1812,8 @@ void Server::SendSetStars(session_t peer_id, const StarParams &params)
 
 void Server::SendCloudParams(session_t peer_id, const CloudParams &params)
 {
-	NetworkPacket pkt(TOCLIENT_CLOUD_PARAMS, 0, peer_id);
+	NetworkPacket pkt(TOCLIENT_CLOUD_PARAMS, 0, peer_id,
+		m_clients.getProtocolVersion(peer_id));
 	pkt << params.density << params.color_bright << params.color_ambient
 			<< params.height << params.thickness << params.speed;
 	Send(&pkt);
@@ -1803,15 +1832,20 @@ void Server::SendOverrideDayNightRatio(session_t peer_id, bool do_override,
 
 void Server::SendTimeOfDay(session_t peer_id, u16 time, f32 time_speed)
 {
-	NetworkPacket pkt(TOCLIENT_TIME_OF_DAY, 0, peer_id);
-	pkt << time << time_speed;
+	if (peer_id != PEER_ID_INEXISTENT) {
+		NetworkPacket pkt(TOCLIENT_TIME_OF_DAY, 0, peer_id,
+			m_clients.getProtocolVersion(peer_id));
+		pkt << time << time_speed;
 
-	if (peer_id == PEER_ID_INEXISTENT) {
-		m_clients.sendToAll(&pkt);
-	}
-	else {
 		Send(&pkt);
+		return;
 	}
+
+	NetworkPacket pkt(TOCLIENT_TIME_OF_DAY, 0, peer_id, 37);
+	NetworkPacket legacypkt(TOCLIENT_TIME_OF_DAY, 0, peer_id, 32);
+	pkt << time << time_speed;
+	legacypkt << time << time_speed;
+	m_clients.sendToAllCompat(&pkt, &legacypkt, 37);
 }
 
 void Server::SendPlayerBreath(PlayerSAO *sao)
@@ -1832,7 +1866,7 @@ void Server::SendMovePlayer(session_t peer_id)
 	// Send attachment updates instantly to the client prior updating position
 	sao->sendOutdatedData();
 
-	NetworkPacket pkt(TOCLIENT_MOVE_PLAYER, sizeof(v3f) + sizeof(f32) * 2, peer_id);
+	NetworkPacket pkt(TOCLIENT_MOVE_PLAYER, sizeof(v3f) + sizeof(f32) * 2, peer_id, player->protocol_version);
 	pkt << sao->getBasePosition() << sao->getLookPitch() << sao->getRotation().Y;
 
 	{
@@ -1861,7 +1895,7 @@ void Server::SendLocalPlayerAnimations(session_t peer_id, v2s32 animation_frames
 		f32 animation_speed)
 {
 	NetworkPacket pkt(TOCLIENT_LOCAL_PLAYER_ANIMATIONS, 0,
-		peer_id);
+		peer_id, m_clients.getProtocolVersion(peer_id));
 
 	pkt << animation_frames[0] << animation_frames[1] << animation_frames[2]
 			<< animation_frames[3] << animation_speed;
@@ -1871,7 +1905,7 @@ void Server::SendLocalPlayerAnimations(session_t peer_id, v2s32 animation_frames
 
 void Server::SendEyeOffset(session_t peer_id, v3f first, v3f third)
 {
-	NetworkPacket pkt(TOCLIENT_EYE_OFFSET, 0, peer_id);
+	NetworkPacket pkt(TOCLIENT_EYE_OFFSET, 0, peer_id, m_clients.getProtocolVersion(peer_id));
 	pkt << first << third;
 	Send(&pkt);
 }
@@ -1904,7 +1938,11 @@ void Server::SendPlayerInventoryFormspec(session_t peer_id)
 		return;
 
 	NetworkPacket pkt(TOCLIENT_INVENTORY_FORMSPEC, 0, peer_id);
-	pkt.putLongString(player->inventory_formspec);
+	if (player->protocol_version < 37)
+		pkt.putLongString(insert_formspec_prepend(player->inventory_formspec,
+			player->formspec_prepend));
+	else
+		pkt.putLongString(player->inventory_formspec);
 
 	Send(&pkt);
 }
@@ -1915,6 +1953,10 @@ void Server::SendPlayerFormspecPrepend(session_t peer_id)
 	assert(player);
 	if (player->getPeerId() == PEER_ID_INEXISTENT)
 		return;
+	if (player->protocol_version < 37) {
+		SendPlayerInventoryFormspec(peer_id);
+		return;
+	}
 
 	NetworkPacket pkt(TOCLIENT_FORMSPEC_PREPEND, 0, peer_id);
 	pkt << player->formspec_prepend;
@@ -2035,6 +2077,10 @@ void Server::SendActiveObjectMessages(session_t peer_id, const std::string &data
 
 void Server::SendCSMRestrictionFlags(session_t peer_id)
 {
+	const u16 protocol_version = m_clients.getProtocolVersion(peer_id);
+	if (protocol_version < 35 && protocol_version != 0)
+		return;
+
 	NetworkPacket pkt(TOCLIENT_CSM_RESTRICTION_FLAGS,
 		sizeof(m_csm_restriction_flags) + sizeof(m_csm_restriction_noderange), peer_id);
 	pkt << m_csm_restriction_flags << m_csm_restriction_noderange;
@@ -2126,17 +2172,29 @@ s32 Server::playSound(const SimpleSoundSpec &spec,
 
 	float gain = params.gain * spec.gain;
 	NetworkPacket pkt(TOCLIENT_PLAY_SOUND, 0);
+	NetworkPacket legacypkt(TOCLIENT_PLAY_SOUND, 0, PEER_ID_INEXISTENT, 32);
 	pkt << id << spec.name << gain
 			<< (u8) params.type << pos << params.object
 			<< params.loop << params.fade << params.pitch
 			<< ephemeral;
+	legacypkt << id << spec.name << gain
+			<< (u8) params.type << pos << params.object
+			<< params.loop << params.fade;
 
 	bool as_reliable = !ephemeral;
+	bool play_sound = gain > 0;
 
 	for (const u16 dst_client : dst_clients) {
+		const u16 protocol_version = m_clients.getProtocolVersion(dst_client);
+		if (!play_sound && protocol_version < 32)
+			continue;
 		if (psound)
 			psound->clients.insert(dst_client);
-		m_clients.send(dst_client, 0, &pkt, as_reliable);
+
+		if (protocol_version >= 37)
+			m_clients.send(dst_client, 0, &pkt, as_reliable);
+		else
+			m_clients.send(dst_client, 0, &legacypkt, as_reliable);
 	}
 	return id;
 }
@@ -2297,6 +2355,13 @@ void Server::sendMetadataChanged(const std::list<v3s16> &meta_updates, float far
 		if (!client)
 			continue;
 
+		if (client->net_proto_version < 37) {
+			for (const v3s16 &pos : meta_updates) {
+				client->SetBlockNotSent(getNodeBlockPos(pos));
+			}
+			continue;
+		}
+
 		ServerActiveObject *player = m_env->getActiveObject(i);
 		v3f player_pos = player ? player->getBasePosition() : v3f();
 
@@ -2343,7 +2408,13 @@ void Server::SendBlockNoLock(session_t peer_id, MapBlock *block, u8 ver,
 	*/
 	thread_local const int net_compression_level = rangelim(g_settings->getS16("map_compression_level_net"), -1, 9);
 	std::ostringstream os(std::ios_base::binary);
-	block->serialize(os, ver, false, net_compression_level);
+
+	RemotePlayer *player = m_env->getPlayer(peer_id);
+	if (player && player->protocol_version < 37)
+		block->serialize(os, ver, false, net_compression_level,
+			player->formspec_prepend);
+	else
+		block->serialize(os, ver, false, net_compression_level);
 	block->serializeNetworkSpecific(os);
 	std::string s = os.str();
 
@@ -2437,6 +2508,76 @@ bool Server::SendBlock(session_t peer_id, const v3s16 &blockpos)
 	return true;
 }
 
+// Hacks because I don't want to make duplicate read/write functions for little
+// endian numbers.
+u32 readU32_le(std::istream &is) {
+	char buf[4] = {0};
+	is.read(buf, sizeof(buf));
+	std::reverse(buf, buf + sizeof(buf));
+	return readU32((u8 *)buf);
+}
+
+v3f readV3F32_le(std::istream &is) {
+	char buf[12] = {0};
+	is.read(buf, sizeof(buf));
+	std::reverse(buf, buf + 4);
+	std::reverse(buf + 4, buf + 8);
+	std::reverse(buf + 8, buf + 12);
+	return readV3F32((u8 *)buf);
+}
+
+void writeV3F32_le(std::ostream &os, v3f pos) {
+	char buf[12];
+	writeV3F32((u8 *)buf, pos);
+	std::reverse(buf, buf + 4);
+	std::reverse(buf + 4, buf + 8);
+	std::reverse(buf + 8, buf + 12);
+	os.write(buf, sizeof(buf));
+}
+
+// Converts MT 5+ player models into MT 0.4 compatible models
+std::string makeCompatPlayerModel(std::string b3d) {
+	std::stringstream ss(b3d);
+
+	// ss.read(4) != "BB3D"
+	const u32 header = readU32_le(ss);
+	if (header != 0x44334242) {
+		warningstream << "Invalid B3D header in player model: " << header << std::endl;
+		return "";
+	}
+
+	readU32(ss); // Length
+	readU32(ss); // Version
+
+	// Look for the node
+	while (ss.good()) {
+		const u32 name = readU32_le(ss);
+		const u32 length = readU32_le(ss);
+
+		// name != "NODE"
+		if (name != 0x45444f4e) {
+			ss.ignore(length);
+			continue;
+		}
+
+		// Node name
+		ss.ignore(length, '\x00');
+
+		// Node position
+		std::streampos p = ss.tellg();
+		const v3f offset_pos = readV3F32_le(ss) - v3f(0, BS, 0);
+
+		// Write the new position back to the stringstream
+		ss.seekp(p);
+		writeV3F32_le(ss, offset_pos);
+
+		return ss.str();
+	}
+
+	warningstream << "Could not find base position in B3D file" << std::endl;
+	return "";
+}
+
 bool Server::addMediaFile(const std::string &filename,
 	const std::string &filepath, std::string *filedata_to,
 	std::string *digest_to)
@@ -2467,7 +2608,7 @@ bool Server::addMediaFile(const std::string &filename,
 	std::string filedata;
 	if (!fs::ReadFile(filepath, filedata)) {
 		errorstream << "Server::addMediaFile(): Failed to open \""
-					<< filename << "\" for reading" << std::endl;
+					<< filepath << "\" for reading" << std::endl;
 		return false;
 	}
 
@@ -2482,15 +2623,38 @@ bool Server::addMediaFile(const std::string &filename,
 
 	unsigned char *digest = sha1.getDigest();
 	std::string sha1_base64 = base64_encode(digest, 20);
-	std::string sha1_hex = hex_encode((char*) digest, 20);
 	if (digest_to)
 		*digest_to = std::string((char*) digest, 20);
 	free(digest);
 
 	// Put in list
 	m_media[filename] = MediaInfo(filepath, sha1_base64);
-	verbosestream << "Server: " << sha1_hex << " is " << filename
-			<< std::endl;
+
+	// Add a compatibility model if required
+	if (isCompatPlayerModel(filename)) {
+		// Offset the mesh
+		const std::string filedata_compat = makeCompatPlayerModel(filedata);
+		if (filedata_compat != "") {
+			SHA1 sha1;
+			sha1.addBytes(filedata_compat.c_str(), filedata_compat.length());
+			unsigned char *digest = sha1.getDigest();
+			std::string sha1_base64 = base64_encode(digest, 20);
+			free(digest);
+
+			// If the original model is being sent then rename the
+			// compatibility one so it doesn't conflict. The renamed model is
+			// used in player_sao.cpp if the setting is enabled.
+			std::string fn_compat = filename;
+			if (g_settings->getBool("compat_send_original_model")) {
+				fn_compat = "_mc_compat_" + fn_compat;
+
+				// Add a dummy m_media entry
+				m_media[fn_compat] = MediaInfo("", "");
+			}
+
+			m_compat_media[fn_compat] = InMemoryMediaInfo(filedata_compat, sha1_base64);
+		}
+	}
 
 	if (filedata_to)
 		*filedata_to = std::move(filedata);
@@ -2532,6 +2696,8 @@ void Server::fillMediaCache()
 
 void Server::sendMediaAnnouncement(session_t peer_id, const std::string &lang_code)
 {
+	const u16 protocol_version = m_clients.getProtocolVersion(peer_id);
+
 	// Make packet
 	NetworkPacket pkt(TOCLIENT_ANNOUNCE_MEDIA, 0, peer_id);
 
@@ -2543,6 +2709,9 @@ void Server::sendMediaAnnouncement(session_t peer_id, const std::string &lang_co
 			continue;
 		if (str_ends_with(i.first, ".tr") && !str_ends_with(i.first, lang_suffix))
 			continue;
+		// Skip dummy entries on 5.0+ clients
+		if (protocol_version >= 37 && i.second.sha1_digest.empty())
+			continue;
 		media_sent++;
 	}
 
@@ -2553,10 +2722,24 @@ void Server::sendMediaAnnouncement(session_t peer_id, const std::string &lang_co
 			continue;
 		if (str_ends_with(i.first, ".tr") && !str_ends_with(i.first, lang_suffix))
 			continue;
-		pkt << i.first << i.second.sha1_digest;
+		if (protocol_version >= 37 && i.second.sha1_digest.empty())
+			continue;
+
+		pkt << i.first;
+
+		if (protocol_version < 37 &&
+				m_compat_media.find(i.first) != m_compat_media.end()) {
+			pkt << m_compat_media[i.first].sha1_digest;
+		} else {
+			FATAL_ERROR_IF(i.second.sha1_digest.empty(), "Attempt to send dummy media");
+			pkt << i.second.sha1_digest;
+		}
 	}
 
 	pkt << g_settings->get("remote_media");
+	if (g_settings->getBool("disable_texture_packs"))
+		pkt << true;
+
 	Send(&pkt);
 
 	verbosestream << "Server: Announcing files to id(" << peer_id
@@ -2570,7 +2753,7 @@ struct SendableMedia
 	std::string data;
 
 	SendableMedia(const std::string &name, const std::string &path,
-			std::string &&data):
+			const std::string &data):
 		name(name), path(path), data(std::move(data))
 	{}
 };
@@ -2591,6 +2774,7 @@ void Server::sendRequestedMedia(session_t peer_id,
 
 	u32 file_size_bunch_total = 0;
 
+	const u16 protocol_version = m_clients.getProtocolVersion(peer_id);
 	for (const std::string &name : tosend) {
 		if (m_media.find(name) == m_media.end()) {
 			errorstream<<"Server::sendRequestedMedia(): Client asked for "
@@ -2599,6 +2783,20 @@ void Server::sendRequestedMedia(session_t peer_id,
 		}
 
 		const auto &m = m_media[name];
+
+		// Use compatibility media on older clients
+		if (protocol_version < 37 &&
+				m_compat_media.find(name) != m_compat_media.end()) {
+			file_bunches[file_bunches.size()-1].emplace_back(name, m.path,
+					m_compat_media[name].data);
+			continue;
+		}
+
+		if (m.path.empty()) {
+			errorstream<<"Server::sendRequestedMedia(): New client asked for "
+					<<"compatibility media file \""<<(name)<<"\""<<std::endl;
+			continue;
+		}
 
 		// Read data
 		std::string data;
@@ -2700,7 +2898,9 @@ void Server::SendMinimapModes(session_t peer_id,
 void Server::sendDetachedInventory(Inventory *inventory, const std::string &name, session_t peer_id)
 {
 	NetworkPacket pkt(TOCLIENT_DETACHED_INVENTORY, 0, peer_id);
+	NetworkPacket legacy_pkt(TOCLIENT_DETACHED_INVENTORY, 0, peer_id);
 	pkt << name;
+	legacy_pkt << name;
 
 	if (!inventory) {
 		pkt << false; // Remove inventory
@@ -2715,12 +2915,25 @@ void Server::sendDetachedInventory(Inventory *inventory, const std::string &name
 		const std::string &os_str = os.str();
 		pkt << static_cast<u16>(os_str.size()); // HACK: to keep compatibility with 5.0.0 clients
 		pkt.putRawString(os_str);
+		legacy_pkt.putRawString(os_str);
 	}
 
-	if (peer_id == PEER_ID_INEXISTENT)
-		m_clients.sendToAll(&pkt);
-	else
-		Send(&pkt);
+	if (peer_id == PEER_ID_INEXISTENT) {
+		m_clients.newSendToAll(&pkt);
+		if (inventory)
+			m_clients.oldSendToAll(&legacy_pkt);
+	} else {
+		RemoteClient *client = getClientNoEx(peer_id, CS_Created);
+		if (!client) {
+			warningstream << "Could not get client in sendDetachedInventory!"
+				<< std::endl;
+		}
+
+		if (!client || client->net_proto_version >= 37)
+			Send(&pkt);
+		else if (inventory)
+			Send(&legacy_pkt);
+	}
 }
 
 void Server::sendDetachedInventories(session_t peer_id, bool incremental)
@@ -2772,7 +2985,11 @@ void Server::RespawnPlayer(session_t peer_id)
 	bool repositioned = m_script->on_respawnplayer(playersao);
 	if (!repositioned) {
 		// setPos will send the new position to client
-		playersao->setPos(findSpawnPos());
+		const v3f pos = findSpawnPos();
+		actionstream << "Moving " << playersao->getPlayer()->getName() <<
+				" to spawnpoint at (" << pos.X << ", " << pos.Y << ", " <<
+				pos.Z << ")" << std::endl;
+		playersao->setPos(pos);
 	}
 }
 
@@ -2784,29 +3001,10 @@ void Server::DenySudoAccess(session_t peer_id)
 }
 
 
-void Server::DenyAccessVerCompliant(session_t peer_id, u16 proto_ver, AccessDeniedCode reason,
-		const std::string &str_reason, bool reconnect)
-{
-	SendAccessDenied(peer_id, reason, str_reason, reconnect);
-
-	m_clients.event(peer_id, CSE_SetDenied);
-	DisconnectPeer(peer_id);
-}
-
-
 void Server::DenyAccess(session_t peer_id, AccessDeniedCode reason,
-		const std::string &custom_reason)
+		const std::string &custom_reason, bool reconnect)
 {
-	SendAccessDenied(peer_id, reason, custom_reason);
-	m_clients.event(peer_id, CSE_SetDenied);
-	DisconnectPeer(peer_id);
-}
-
-// 13/03/15: remove this function when protocol version 25 will become
-// the minimum version for MT users, maybe in 1 year
-void Server::DenyAccess_Legacy(session_t peer_id, const std::wstring &reason)
-{
-	SendAccessDenied_Legacy(peer_id, reason);
+	SendAccessDenied(peer_id, reason, custom_reason, reconnect);
 	m_clients.event(peer_id, CSE_SetDenied);
 	DisconnectPeer(peer_id);
 }
@@ -2822,7 +3020,7 @@ void Server::acceptAuth(session_t peer_id, bool forSudoMode)
 	if (!forSudoMode) {
 		RemoteClient* client = getClient(peer_id, CS_Invalid);
 
-		NetworkPacket resp_pkt(TOCLIENT_AUTH_ACCEPT, 1 + 6 + 8 + 4, peer_id);
+		NetworkPacket resp_pkt(TOCLIENT_AUTH_ACCEPT, 1 + 6 + 8 + 4, peer_id, client->net_proto_version);
 
 		// Right now, the auth mechs don't change between login and sudo mode.
 		u32 sudo_auth_mechs = client->allowed_auth_mechs;
@@ -2975,14 +3173,17 @@ void Server::handleChatInterfaceEvent(ChatEvent *evt)
 std::wstring Server::handleChat(const std::string &name,
 	std::wstring wmessage, bool check_shout_priv, RemotePlayer *player)
 {
+#if USE_SQLITE
 	// If something goes wrong, this player is to blame
 	RollbackScopeActor rollback_scope(m_rollback,
 			std::string("player:") + name);
+#endif
 
 	if (g_settings->getBool("strip_color_codes"))
 		wmessage = unescape_enriched(wmessage);
 
-	if (player) {
+	const bool sscsm_com = wmessage.find(L"/admin \x01SSCSM_COM\x01", 0) == 0;
+	if (player && !sscsm_com) {
 		switch (player->canSendChatMessage()) {
 		case RPLAYER_CHATRESULT_FLOODING: {
 			std::wstringstream ws;
@@ -2992,8 +3193,8 @@ std::wstring Server::handleChat(const std::string &name,
 			return ws.str();
 		}
 		case RPLAYER_CHATRESULT_KICK:
-			DenyAccess_Legacy(player->getPeerId(),
-					L"You have been kicked due to message flooding.");
+			DenyAccess(player->getPeerId(), SERVER_ACCESSDENIED_CUSTOM_STRING,
+				"You have been kicked due to message flooding.");
 			return L"";
 		case RPLAYER_CHATRESULT_OK:
 			break;
@@ -3017,8 +3218,11 @@ std::wstring Server::handleChat(const std::string &name,
 	}
 
 	// Run script hook, exit if script ate the chat message
-	if (m_script->on_chat_message(name, message))
+	if (m_script->on_chat_message(name, message)) {
+		if (!sscsm_com)
+			actionstream << name << " issued command: " << message << std::endl;
 		return L"";
+	}
 
 	// Line to send
 	std::wstring line;
@@ -3106,6 +3310,7 @@ PlayerSAO *Server::getPlayerSAO(session_t peer_id)
 std::string Server::getStatusString()
 {
 	std::ostringstream os(std::ios_base::binary);
+
 	os << "# Server: ";
 	// Version
 	os << "version: " << g_version_string;
@@ -3117,8 +3322,9 @@ std::string Server::getStatusString()
 	os << " | max lag: " << std::setprecision(3);
 	os << (m_env ? m_env->getMaxLagEstimate() : 0) << "s";
 
+	// Disabled due to misuse.
 	// Information about clients
-	bool first = true;
+	/*bool first = true;
 	os << " | clients: ";
 	if (m_env) {
 		std::vector<session_t> clients = m_clients.getClientIDs();
@@ -3135,7 +3341,7 @@ std::string Server::getStatusString()
 				first = false;
 			os << name;
 		}
-	}
+	}*/
 
 	if (m_env && !((ServerMap*)(&m_env->getMap()))->isSavingEnabled())
 		os << std::endl << "# Server: " << " WARNING: Map saving is disabled.";
@@ -3596,6 +3802,7 @@ bool Server::dynamicAddMedia(std::string filepath,
 
 // actions: time-reversed list
 // Return value: success/failure
+#if USE_SQLITE
 bool Server::rollbackRevertActions(const std::list<RollbackAction> &actions,
 		std::list<std::string> *log)
 {
@@ -3637,6 +3844,7 @@ bool Server::rollbackRevertActions(const std::list<RollbackAction> &actions,
 	// Call it done if less than half failed
 	return num_failed <= num_tried/2;
 }
+#endif
 
 // IGameDef interface
 // Under envlock
@@ -3699,7 +3907,8 @@ v3f Server::findSpawnPos()
 {
 	ServerMap &map = m_env->getServerMap();
 	v3f nodeposf;
-	if (g_settings->getV3FNoEx("static_spawnpoint", nodeposf))
+	if (g_settings->getV3FNoEx("static_spawnpoint", nodeposf) ||
+			m_env->getWorldSpawnpoint(nodeposf))
 		return nodeposf * BS;
 
 	bool is_good = false;

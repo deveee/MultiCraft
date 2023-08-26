@@ -39,6 +39,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 	A cache from texture name to texture path
 */
 MutexedMap<std::string, std::string> g_texturename_to_path_cache;
+bool g_disable_texture_packs = false;
 
 /*
 	Replaces the filename extension.
@@ -1023,13 +1024,8 @@ video::IImage *Align2Npot2(video::IImage *image,
 	unsigned int height = npot2(dim.Height);
 	unsigned int width  = npot2(dim.Width);
 
-	if (dim.Height == height && dim.Width == width)
+	if (dim.Width == width)
 		return image;
-
-	if (dim.Height > height)
-		height *= 2;
-	if (dim.Width > width)
-		width *= 2;
 
 	video::IImage *targetimage =
 			driver->createImage(video::ECF_A8R8G8B8,
@@ -1040,7 +1036,15 @@ video::IImage *Align2Npot2(video::IImage *image,
 	image->drop();
 	return targetimage;
 }
-
+#else
+bool hasNPotSupport()
+{
+#ifdef __IOS__
+	return true; // Irrlicht cares about it on iOS
+#endif
+	static const std::string &driverstring = g_settings->get("video_driver");
+	return (driverstring != "ogles1"); // gles3 has NPot Support and used instead of gles2
+}
 #endif
 
 static std::string unescape_string(const std::string &str, const char esc = '\\')
@@ -1215,8 +1219,13 @@ bool TextureSource::generateImagePart(std::string part_of_name,
 					It is an image with a number of cracking stages
 					horizontally tiled.
 				*/
+#ifndef HAVE_TOUCHSCREENGUI
 				video::IImage *img_crack = m_sourcecache.getOrLoad(
 					"crack_anylength.png");
+#else
+				video::IImage *img_crack = m_sourcecache.getOrLoad(
+					"crack_anylength_touch.png");
+#endif
 
 				if (img_crack) {
 					draw_crack(img_crack, baseimg,
@@ -2332,5 +2341,13 @@ video::ITexture *TextureSource::getShaderFlagsTexture(bool normalmap_present)
 
 std::vector<std::string> getTextureDirs()
 {
+	if (g_disable_texture_packs)
+		return {};
 	return fs::GetRecursiveDirs(g_settings->get("texture_path"));
+}
+
+
+void setDisableTexturePacks(const bool disable_texture_packs)
+{
+	g_disable_texture_packs = disable_texture_packs;
 }

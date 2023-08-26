@@ -138,7 +138,9 @@ const char *GetFilenameFromPath(const char *path);
 bool safeWriteToFile(const std::string &path, const std::string &content);
 
 #ifndef SERVER
-bool extractZipFile(irr::io::IFileSystem *fs, const char *filename, const std::string &destination);
+bool extractZipFile(irr::io::IFileSystem *fs, const char *filename,
+		const std::string &destination, const char *password = "",
+		std::string *errorMessage = nullptr);
 #endif
 
 bool ReadFile(const std::string &path, std::string &out);

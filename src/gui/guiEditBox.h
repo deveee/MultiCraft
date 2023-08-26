@@ -132,6 +132,13 @@ public:
 
 	virtual bool acceptsIME() { return isEnabled() && m_writable; };
 
+	//! Sets the scrollbar texture
+	void setScrollbarStyle(const StyleSpec &style, ISimpleTextureSource *tsrc)
+	{
+		if (m_vscrollbar != nullptr)
+			m_vscrollbar->setStyle(style, tsrc);
+	}
+
 protected:
 	virtual void breakText() = 0;
 
@@ -179,6 +186,7 @@ protected:
 
 	u32 m_blink_start_time = 0;
 	s32 m_cursor_pos = 0;
+	s32 m_cursor_press_pos = 0;
 	s32 m_hscroll_pos = 0;
 	s32 m_vscroll_pos = 0; // scroll position in characters
 	u32 m_max = 0;
@@ -190,9 +198,12 @@ protected:
 	bool m_writable;
 
 	bool m_mouse_marking = false;
+	bool m_long_press = false;
 
 	s32 m_mark_begin = 0;
 	s32 m_mark_end = 0;
+	s32 m_real_mark_begin = 0;
+	s32 m_real_mark_end = 0;
 
 	gui::IGUIFont *m_last_break_font = nullptr;
 	IOSOperator *m_operator = nullptr;
@@ -207,7 +218,7 @@ private:
 
 	bool onKeyUp(const SEvent &event, s32 &mark_begin, s32 &mark_end);
 	bool onKeyDown(const SEvent &event, s32 &mark_begin, s32 &mark_end);
-	void onKeyControlC(const SEvent &event);
+	bool onKeyControlC(const SEvent &event);
 	bool onKeyControlX(const SEvent &event, s32 &mark_begin, s32 &mark_end);
 	bool onKeyControlV(const SEvent &event, s32 &mark_begin, s32 &mark_end);
 	bool onKeyBack(const SEvent &event, s32 &mark_begin, s32 &mark_end);

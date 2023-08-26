@@ -734,6 +734,7 @@ void Channel::UpdateTimers(float dtime)
 			current_packet_successful = 0;
 		}
 
+#if !(defined(__ANDROID__) && defined(__aarch64__))
 		/* dynamic window size */
 		float successful_to_lost_ratio = 0.0f;
 		bool done = false;
@@ -762,6 +763,7 @@ void Channel::UpdateTimers(float dtime)
 				setWindowSize(m_window_size - 50);
 			}
 		}
+#endif
 	}
 
 	if (bpm_counter > 10.0f) {
@@ -960,8 +962,10 @@ void Peer::Drop()
 UDPPeer::UDPPeer(u16 a_id, Address a_address, Connection* connection) :
 	Peer(a_address,a_id,connection)
 {
+#if !(defined(__ANDROID__) && defined(__aarch64__))
 	for (Channel &channel : channels)
 		channel.setWindowSize(START_RELIABLE_WINDOW_SIZE);
+#endif
 }
 
 bool UDPPeer::getAddress(MTProtocols type,Address& toset)

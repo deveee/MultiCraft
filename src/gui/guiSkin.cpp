@@ -29,7 +29,7 @@ GUISkin::GUISkin(EGUI_SKIN_TYPE type, video::IVideoDriver* driver)
 	{
 		Colors[EGDC_3D_DARK_SHADOW]     = video::SColor(101,50,50,50);
 		Colors[EGDC_3D_SHADOW]          = video::SColor(101,130,130,130);
-		Colors[EGDC_3D_FACE]            = video::SColor(220,100,100,100);
+		Colors[EGDC_3D_FACE]            = video::SColor(101,210,210,210);
 		Colors[EGDC_3D_HIGH_LIGHT]      = video::SColor(101,255,255,255);
 		Colors[EGDC_3D_LIGHT]           = video::SColor(101,210,210,210);
 		Colors[EGDC_ACTIVE_BORDER]      = video::SColor(101,16,14,115);
@@ -1003,6 +1003,16 @@ void GUISkin::drawColoredIcon(IGUIElement* element, EGUI_DEFAULT_ICON icon,
 		colors = Colors;
 
 	bool gray = element && !element->isEnabled();
+#if IRRLICHT_VERSION_MAJOR == 1 && IRRLICHT_VERSION_MINOR >= 9
+	if (icon == EGDI_CHECK_BOX_CHECKED) {
+		// Scale checkbox check specifically
+		int radius = getSize(EGDS_CHECK_BOX_WIDTH) * .38;
+		core::recti rect{position.X - radius, position.Y - radius, position.X + radius, position.Y + radius};
+		SpriteBank->draw2DSprite(Icons[icon], rect, 0,
+				&colors[gray ? EGDC_GRAY_WINDOW_SYMBOL : EGDC_WINDOW_SYMBOL], currenttime - starttime, loop);
+		return;
+	}
+#endif
 	SpriteBank->draw2DSprite(Icons[icon], position, clip,
 			colors[gray? EGDC_GRAY_WINDOW_SYMBOL : EGDC_WINDOW_SYMBOL], starttime, currenttime, loop, true);
 }

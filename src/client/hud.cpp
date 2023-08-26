@@ -44,8 +44,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "gui/touchscreengui.h"
 #endif
 
-#define OBJECT_CROSSHAIR_LINE_SIZE 8
-#define CROSSHAIR_LINE_SIZE 10
+#define OBJECT_CROSSHAIR_LINE_SIZE 16
+#define CROSSHAIR_LINE_SIZE 16
 
 Hud::Hud(Client *client, LocalPlayer *player,
 		Inventory *inventory)
@@ -61,6 +61,7 @@ Hud::Hud(Client *client, LocalPlayer *player,
 		RenderingEngine::getDisplayDensity() + 0.5f);
 	m_hotbar_imagesize *= m_hud_scaling;
 	m_padding = m_hotbar_imagesize / 12;
+	m_hud_move_upwards = g_settings->getU16("hud_move_upwards");
 
 	for (auto &hbar_color : hbar_colors)
 		hbar_color = video::SColor(255, 255, 255, 255);
@@ -109,7 +110,7 @@ Hud::Hud(Client *client, LocalPlayer *player,
 
 	if (m_mode == HIGHLIGHT_BOX) {
 		m_selection_material.Thickness =
-			rangelim(g_settings->getS16("selectionbox_width"), 1, 5);
+			rangelim(g_settings->getS16("selectionbox_width"), 1, 6);
 	} else if (m_mode == HIGHLIGHT_HALO) {
 		m_selection_material.setTexture(0, tsrc->getTextureForMesh("halo.png"));
 		m_selection_material.setFlag(video::EMF_BACK_FACE_CULLING, true);
@@ -360,10 +361,12 @@ void Hud::drawLuaElements(const v3s16 &camera_offset)
 				floor(e->pos.Y * (float) m_screensize.Y + 0.5));
 		switch (e->type) {
 			case HUD_ELEM_TEXT: {
-				unsigned int font_size = g_fontengine->getDefaultFontSize();
+				float font_size = g_fontengine->getDefaultFontSize();
 
 				if (e->size.X > 0)
 					font_size *= e->size.X;
+				else if (e->size.Y > 0)
+					 font_size = MYMAX(font_size * (float) e->size.Y / 100, 1.0f);
 
 #ifdef __ANDROID__
 				// The text size on Android is not proportional with the actual scaling
@@ -448,14 +451,19 @@ void Hud::drawLuaElements(const v3s16 &camera_offset)
 				const video::SColor color(255, 255, 255, 255);
 				const video::SColor colors[] = {color, color, color, color};
 				core::dimension2di imgsize(texture->getOriginalSize());
-				v2s32 dstsize(imgsize.Width * e->scale.X * m_scale_factor,
-				              imgsize.Height * e->scale.Y * m_scale_factor);
+				v2s32 dstsize(imgsize.Width * e->scale.X,
+				              imgsize.Height * e->scale.Y);
 				if (e->scale.X < 0)
 					dstsize.X = m_screensize.X * (e->scale.X * -0.01);
 				if (e->scale.Y < 0)
 					dstsize.Y = m_screensize.Y * (e->scale.Y * -0.01);
+				dstsize.X *= m_scale_factor;
+				dstsize.Y *= m_scale_factor;
 				v2s32 offset((e->align.X - 1.0) * dstsize.X / 2,
 				             (e->align.Y - 1.0) * dstsize.Y / 2);
+
+				if ((dstsize.Y + pos.Y + offset.Y + e->offset.Y * m_scale_factor) > m_displaycenter.Y)
+					offset.Y -= m_hud_move_upwards;
 				core::rect<s32> rect(0, 0, dstsize.X, dstsize.Y);
 				rect += pos + offset + v2s32(e->offset.X * m_scale_factor,
 				                             e->offset.Y * m_scale_factor);
@@ -619,25 +627,28 @@ void Hud::drawStatbar(v2s32 pos, u16 corner, u16 drawdir,
 	}
 
 	core::dimension2di srcd(stat_texture->getOriginalSize());
+	core::dimension2di srcd_bg = stat_texture_bg ? core::dimension2di(stat_texture_bg->getOriginalSize()) : srcd;
 	core::dimension2di dstd;
 	if (size == v2s32()) {
 		dstd = srcd;
 		dstd.Height *= m_scale_factor;
 		dstd.Width  *= m_scale_factor;
-		offset.X *= m_scale_factor;
-		offset.Y *= m_scale_factor;
 	} else {
 		dstd.Height = size.Y * m_scale_factor;
 		dstd.Width  = size.X * m_scale_factor;
-		offset.X *= m_scale_factor;
-		offset.Y *= m_scale_factor;
 	}
+
+	offset.X *= m_scale_factor;
+	offset.Y *= m_scale_factor;
 
 	v2s32 p = pos;
 	if (corner & HUD_CORNER_LOWER)
 		p -= dstd.Height;
 
 	p += offset;
+
+	if ((pos.Y + offset.Y) > m_displaycenter.Y)
+		p.Y -= m_hud_move_upwards;
 
 	v2s32 steppos;
 	switch (drawdir) {
@@ -680,7 +691,7 @@ void Hud::drawStatbar(v2s32 pos, u16 corner, u16 drawdir,
 		// Need to draw halves: Calculate rectangles
 		srchalfrect  = calculate_clipping_rect(srcd, steppos);
 		dsthalfrect  = calculate_clipping_rect(dstd, steppos);
-		srchalfrect2 = calculate_clipping_rect(srcd, steppos * -1);
+		srchalfrect2 = calculate_clipping_rect(srcd_bg, steppos * -1);
 		dsthalfrect2 = calculate_clipping_rect(dstd, steppos * -1);
 	}
 
@@ -719,7 +730,7 @@ void Hud::drawStatbar(v2s32 pos, u16 corner, u16 drawdir,
 		else
 			start_offset = count / 2;
 		for (s32 i = start_offset; i < maxcount / 2; i++) {
-			core::rect<s32> srcrect(0, 0, srcd.Width, srcd.Height);
+			core::rect<s32> srcrect(0, 0, srcd_bg.Width, srcd_bg.Height);
 			core::rect<s32> dstrect(0, 0, dstd.Width, dstd.Height);
 
 			dstrect += p;
@@ -731,7 +742,7 @@ void Hud::drawStatbar(v2s32 pos, u16 corner, u16 drawdir,
 
 		if (maxcount % 2 == 1) {
 			draw2DImageFilterScaled(driver, stat_texture_bg,
-					dsthalfrect + p, srchalfrect,
+					dsthalfrect + p, calculate_clipping_rect(srcd_bg, steppos),
 					NULL, colors, true);
 		}
 	}
@@ -750,7 +761,8 @@ void Hud::drawHotbar(u16 playeritem) {
 
 	s32 hotbar_itemcount = player->hud_hotbar_itemcount;
 	s32 width = hotbar_itemcount * (m_hotbar_imagesize + m_padding * 2);
-	v2s32 pos = centerlowerpos - v2s32(width / 2, m_hotbar_imagesize + m_padding * 3);
+	v2s32 pos = centerlowerpos - v2s32(width / 2, m_hotbar_imagesize + m_padding * 2.4);
+	pos.Y -= m_hud_move_upwards;
 
 	const v2u32 &window_size = RenderingEngine::getWindowSize();
 	if ((float) width / (float) window_size.X <=
@@ -777,43 +789,49 @@ void Hud::drawHotbar(u16 playeritem) {
 void Hud::drawCrosshair()
 {
 	if (pointing_at_object) {
+		int obj_crosshair_size = (int) (OBJECT_CROSSHAIR_LINE_SIZE * m_scale_factor);
 		if (use_object_crosshair_image) {
 			video::ITexture *object_crosshair = tsrc->getTexture("object_crosshair.png");
-			v2u32 size  = object_crosshair->getOriginalSize();
-			v2s32 lsize = v2s32(m_displaycenter.X - (size.X / 2),
-					m_displaycenter.Y - (size.Y / 2));
-			driver->draw2DImage(object_crosshair, lsize,
-					core::rect<s32>(0, 0, size.X, size.Y),
-					nullptr, crosshair_argb, true);
+			core::rect<s32> rect(m_displaycenter.X - obj_crosshair_size,
+					m_displaycenter.Y - obj_crosshair_size,
+					m_displaycenter.X + obj_crosshair_size,
+					m_displaycenter.Y + obj_crosshair_size);
+			video::SColor crosshair_color[] = {crosshair_argb, crosshair_argb,
+					crosshair_argb, crosshair_argb};
+			draw2DImageFilterScaled(driver, object_crosshair, rect,
+					core::rect<s32>({0, 0}, object_crosshair->getOriginalSize()),
+					nullptr, crosshair_color, true);
 		} else {
 			driver->draw2DLine(
-					m_displaycenter - v2s32(OBJECT_CROSSHAIR_LINE_SIZE,
-					OBJECT_CROSSHAIR_LINE_SIZE),
-					m_displaycenter + v2s32(OBJECT_CROSSHAIR_LINE_SIZE,
-					OBJECT_CROSSHAIR_LINE_SIZE), crosshair_argb);
+					m_displaycenter - v2s32(obj_crosshair_size, obj_crosshair_size),
+					m_displaycenter + v2s32(obj_crosshair_size, obj_crosshair_size),
+					crosshair_argb);
 			driver->draw2DLine(
-					m_displaycenter + v2s32(OBJECT_CROSSHAIR_LINE_SIZE,
-					-OBJECT_CROSSHAIR_LINE_SIZE),
-					m_displaycenter + v2s32(-OBJECT_CROSSHAIR_LINE_SIZE,
-					OBJECT_CROSSHAIR_LINE_SIZE), crosshair_argb);
+					m_displaycenter + v2s32(obj_crosshair_size, -obj_crosshair_size),
+					m_displaycenter + v2s32(-obj_crosshair_size, obj_crosshair_size),
+					crosshair_argb);
 		}
 
 		return;
 	}
 
+	int crosshair_size = (int) (CROSSHAIR_LINE_SIZE * m_scale_factor);
 	if (use_crosshair_image) {
 		video::ITexture *crosshair = tsrc->getTexture("crosshair.png");
-		v2u32 size  = crosshair->getOriginalSize();
-		v2s32 lsize = v2s32(m_displaycenter.X - (size.X / 2),
-				m_displaycenter.Y - (size.Y / 2));
-		driver->draw2DImage(crosshair, lsize,
-				core::rect<s32>(0, 0, size.X, size.Y),
-				nullptr, crosshair_argb, true);
+		core::rect<s32> rect(m_displaycenter.X - crosshair_size,
+				m_displaycenter.Y - crosshair_size,
+				m_displaycenter.X + crosshair_size,
+				m_displaycenter.Y + crosshair_size);
+		video::SColor crosshair_color[] = {crosshair_argb, crosshair_argb,
+				crosshair_argb, crosshair_argb};
+		draw2DImageFilterScaled(driver, crosshair, rect,
+				core::rect<s32>({0, 0}, crosshair->getOriginalSize()),
+				nullptr, crosshair_color, true);
 	} else {
-		driver->draw2DLine(m_displaycenter - v2s32(CROSSHAIR_LINE_SIZE, 0),
-				m_displaycenter + v2s32(CROSSHAIR_LINE_SIZE, 0), crosshair_argb);
-		driver->draw2DLine(m_displaycenter - v2s32(0, CROSSHAIR_LINE_SIZE),
-				m_displaycenter + v2s32(0, CROSSHAIR_LINE_SIZE), crosshair_argb);
+		driver->draw2DLine(m_displaycenter - v2s32(crosshair_size, 0),
+				m_displaycenter + v2s32(crosshair_size, 0), crosshair_argb);
+		driver->draw2DLine(m_displaycenter - v2s32(0, crosshair_size),
+				m_displaycenter + v2s32(0, crosshair_size), crosshair_argb);
 	}
 }
 

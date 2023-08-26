@@ -964,10 +964,9 @@ void GenericCAO::updateMarker()
 
 void GenericCAO::updateNametag()
 {
-	if (m_is_local_player) // No nametag for local player
-		return;
-
-	if (m_prop.nametag.empty() || m_prop.nametag_color.getAlpha() == 0) {
+	if (m_prop.nametag.empty() || m_prop.nametag_color.getAlpha() == 0 ||
+			(m_is_local_player &&
+			m_client->getCamera()->getCameraMode() == CAMERA_MODE_FIRST)) {
 		// Delete nametag
 		if (m_nametag) {
 			m_client->getCamera()->removeNametag(m_nametag);
@@ -1318,7 +1317,7 @@ void GenericCAO::updateTextures(std::string mod)
 	bool use_bilinear_filter = g_settings->getBool("bilinear_filter");
 	bool use_anisotropic_filter = g_settings->getBool("anisotropic_filter");
 
-	m_previous_texture_modifier = m_current_texture_modifier;
+//	m_previous_texture_modifier = m_current_texture_modifier; // otherwise modifiers will overlap due to function design bug
 	m_current_texture_modifier = mod;
 	m_glow = m_prop.glow;
 
@@ -1692,7 +1691,7 @@ void GenericCAO::processMessage(const std::string &data)
 			player->setZoomFOV(m_prop.zoom_fov);
 		}
 
-		if ((m_is_player && !m_is_local_player) && m_prop.nametag.empty())
+		if (m_is_player && m_prop.nametag.empty())
 			m_prop.nametag = m_name;
 		if (m_is_local_player)
 			m_prop.show_on_minimap = false;
@@ -1852,14 +1851,14 @@ void GenericCAO::processMessage(const std::string &data)
 			{
 				// TODO: Execute defined fast response
 				// As there is no definition, make a smoke puff
-				ClientSimpleObject *simple = createSmokePuff(
+				/*ClientSimpleObject *simple = createSmokePuff(
 						m_smgr, m_env, m_position,
 						v2f(m_prop.visual_size.X, m_prop.visual_size.Y) * BS);
-				m_env->addSimpleObject(simple);
+				m_env->addSimpleObject(simple);*/
 			} else if (m_reset_textures_timer < 0 && !m_prop.damage_texture_modifier.empty()) {
-				m_reset_textures_timer = 0.05;
+				m_reset_textures_timer = 0.1;
 				if(damage >= 2)
-					m_reset_textures_timer += 0.05 * damage;
+					m_reset_textures_timer += 0.25 * damage;
 				// Cap damage overlay to 1 second
 				m_reset_textures_timer = std::min(m_reset_textures_timer, 1.0f);
 				updateTextures(m_current_texture_modifier + m_prop.damage_texture_modifier);
@@ -1912,24 +1911,32 @@ bool GenericCAO::directReportPunch(v3f dir, const ItemStack *punchitem,
 			time_from_last_punch,
 			punchitem->wear);
 
-	if(result.did_punch && result.damage != 0)
+	if (!itemgroup_get(m_armor_groups, "silent")) {
+		SimpleSoundSpec spec;
+		spec.name = "player_punch";
+		spec.gain = 1.0f;
+		m_client->sound()->playSoundAt(spec, false, getPosition());
+	}
+
+	s16 damage = result.damage;
+	if(result.did_punch && damage != 0)
 	{
-		if(result.damage < m_hp)
+		if(damage < m_hp)
 		{
-			m_hp -= result.damage;
+			m_hp -= damage;
 		} else {
 			m_hp = 0;
 			// TODO: Execute defined fast response
 			// As there is no definition, make a smoke puff
-			ClientSimpleObject *simple = createSmokePuff(
+			/*ClientSimpleObject *simple = createSmokePuff(
 					m_smgr, m_env, m_position,
 					v2f(m_prop.visual_size.X, m_prop.visual_size.Y) * BS);
-			m_env->addSimpleObject(simple);
+			m_env->addSimpleObject(simple);*/
 		}
 		if (m_reset_textures_timer < 0 && !m_prop.damage_texture_modifier.empty()) {
-			m_reset_textures_timer = 0.05;
+			m_reset_textures_timer = 0.1;
 			if (result.damage >= 2)
-				m_reset_textures_timer += 0.05 * result.damage;
+				m_reset_textures_timer += 0.25 * result.damage;
 			// Cap damage overlay to 1 second
 			m_reset_textures_timer = std::min(m_reset_textures_timer, 1.0f);
 			updateTextures(m_current_texture_modifier + m_prop.damage_texture_modifier);
@@ -1989,6 +1996,9 @@ void GenericCAO::updateMeshCulling()
 		node->setMaterialFlag(video::EMF_FRONT_FACE_CULLING,
 			false);
 	}
+
+	// Show/hide the nametag
+	updateNametag();
 }
 
 // Prototype

@@ -175,8 +175,6 @@ struct FrameSpec
 
 	u32 texture_id = 0;
 	video::ITexture *texture = nullptr;
-	video::ITexture *normal_texture = nullptr;
-	video::ITexture *flags_texture = nullptr;
 };
 
 #define MAX_TILE_LAYERS 2
@@ -262,11 +260,8 @@ struct TileLayer
 	// Ordered for size, please do not reorder
 
 	video::ITexture *texture = nullptr;
-	video::ITexture *normal_texture = nullptr;
-	video::ITexture *flags_texture = nullptr;
 
 	u32 shader_id = 0;
-
 	u32 texture_id = 0;
 
 	u16 animation_frame_length_ms = 0;
@@ -326,3 +321,5 @@ struct TileSpec
 };
 
 std::vector<std::string> getTextureDirs();
+
+void setDisableTexturePacks(const bool disable_texture_packs);

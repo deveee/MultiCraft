@@ -43,7 +43,9 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "server.h"
 #include "database/database.h"
 #include "database/database-dummy.h"
+#if USE_SQLITE
 #include "database/database-sqlite3.h"
+#endif
 #include "script/scripting_server.h"
 #include <deque>
 #include <queue>
@@ -165,33 +167,49 @@ MapNode Map::getNode(v3s16 p, bool *is_valid_position)
 	return node;
 }
 
-// throws InvalidPositionException if not found
-void Map::setNode(v3s16 p, MapNode & n)
+static void set_node_in_block(MapBlock *block, v3s16 relpos, MapNode n)
 {
-	v3s16 blockpos = getNodeBlockPos(p);
-	MapBlock *block = getBlockNoCreate(blockpos);
-	v3s16 relpos = p - blockpos*MAP_BLOCKSIZE;
 	// Never allow placing CONTENT_IGNORE, it causes problems
 	if(n.getContent() == CONTENT_IGNORE){
+		const NodeDefManager *nodedef = block->getParent()->getNodeDefManager();
+		v3s16 blockpos = block->getPos();
+		v3s16 p = blockpos * MAP_BLOCKSIZE + relpos;
 		bool temp_bool;
-		errorstream<<"Map::setNode(): Not allowing to place CONTENT_IGNORE"
+		errorstream<<"Not allowing to place CONTENT_IGNORE"
 				<<" while trying to replace \""
-				<<m_nodedef->get(block->getNodeNoCheck(relpos, &temp_bool)).name
+				<<nodedef->get(block->getNodeNoCheck(relpos, &temp_bool)).name
 				<<"\" at "<<PP(p)<<" (block "<<PP(blockpos)<<")"<<std::endl;
 		return;
 	}
 	block->setNodeNoCheck(relpos, n);
 }
 
+// throws InvalidPositionException if not found
+void Map::setNode(v3s16 p, MapNode & n)
+{
+	v3s16 blockpos = getNodeBlockPos(p);
+	MapBlock *block = getBlockNoCreate(blockpos);
+	v3s16 relpos = p - blockpos*MAP_BLOCKSIZE;
+	set_node_in_block(block, relpos, n);
+}
+
 void Map::addNodeAndUpdate(v3s16 p, MapNode n,
 		std::map<v3s16, MapBlock*> &modified_blocks,
 		bool remove_metadata)
 {
+#if USE_SQLITE
 	// Collect old node for rollback
 	RollbackNode rollback_oldnode(this, p, m_gamedef);
+#endif
+
+	v3s16 blockpos = getNodeBlockPos(p);
+	MapBlock *block = getBlockNoCreate(blockpos);
+	if (block->isDummy())
+		throw InvalidPositionException();
+	v3s16 relpos = p - blockpos * MAP_BLOCKSIZE;
 
 	// This is needed for updating the lighting
-	MapNode oldnode = getNode(p);
+	MapNode oldnode = block->getNodeUnsafe(relpos);
 
 	// Remove node metadata
 	if (remove_metadata) {
@@ -199,20 +217,32 @@ void Map::addNodeAndUpdate(v3s16 p, MapNode n,
 	}
 
 	// Set the node on the map
-	// Ignore light (because calling voxalgo::update_lighting_nodes)
-	n.setLight(LIGHTBANK_DAY, 0, m_nodedef);
-	n.setLight(LIGHTBANK_NIGHT, 0, m_nodedef);
-	setNode(p, n);
+	const ContentFeatures &cf = m_nodedef->get(n);
+	const ContentFeatures &oldcf = m_nodedef->get(oldnode);
+	if (cf.lightingEquivalent(oldcf)) {
+		// No light update needed, just copy over the old light.
+		n.setLight(LIGHTBANK_DAY, oldnode.getLightRaw(LIGHTBANK_DAY, oldcf), cf);
+		n.setLight(LIGHTBANK_NIGHT, oldnode.getLightRaw(LIGHTBANK_NIGHT, oldcf), cf);
+		set_node_in_block(block, relpos, n);
 
-	// Update lighting
-	std::vector<std::pair<v3s16, MapNode> > oldnodes;
-	oldnodes.emplace_back(p, oldnode);
-	voxalgo::update_lighting_nodes(this, oldnodes, modified_blocks);
+		modified_blocks[blockpos] = block;
+	} else {
+		// Ignore light (because calling voxalgo::update_lighting_nodes)
+		n.setLight(LIGHTBANK_DAY, 0, cf);
+		n.setLight(LIGHTBANK_NIGHT, 0, cf);
+		set_node_in_block(block, relpos, n);
 
-	for (auto &modified_block : modified_blocks) {
-		modified_block.second->expireDayNightDiff();
+		// Update lighting
+		std::vector<std::pair<v3s16, MapNode> > oldnodes;
+		oldnodes.emplace_back(p, oldnode);
+		voxalgo::update_lighting_nodes(this, oldnodes, modified_blocks);
+
+		for (auto &modified_block : modified_blocks) {
+			modified_block.second->expireDayNightDiff();
+		}
 	}
 
+#if USE_SQLITE
 	// Report for rollback
 	if(m_gamedef->rollback())
 	{
@@ -221,6 +251,7 @@ void Map::addNodeAndUpdate(v3s16 p, MapNode n,
 		action.setSetNode(p, rollback_oldnode, rollback_newnode);
 		m_gamedef->rollback()->reportAction(action);
 	}
+#endif
 
 	/*
 		Add neighboring liquid nodes and this node to transform queue.
@@ -766,6 +797,7 @@ void Map::transformLiquids(std::map<v3s16, MapBlock*> &modified_blocks,
 		n0.setLight(LIGHTBANK_DAY, 0, m_nodedef);
 		n0.setLight(LIGHTBANK_NIGHT, 0, m_nodedef);
 
+#if USE_SQLITE
 		// Find out whether there is a suspect for this action
 		std::string suspect;
 		if (m_gamedef->rollback())
@@ -783,7 +815,9 @@ void Map::transformLiquids(std::map<v3s16, MapBlock*> &modified_blocks,
 			RollbackAction action;
 			action.setSetNode(p0, rollback_oldnode, rollback_newnode);
 			m_gamedef->rollback()->reportAction(action);
-		} else {
+		} else
+#endif
+		{
 			// Set node
 			setNode(p0, n0);
 		}
@@ -1194,8 +1228,13 @@ ServerMap::ServerMap(const std::string &savedir, IGameDef *gamedef,
 	Settings conf;
 	bool succeeded = conf.readConfigFile(conf_path.c_str());
 	if (!succeeded || !conf.exists("backend")) {
+#if !defined(__ANDROID__) && !defined(__APPLE__)
 		// fall back to sqlite3
 		conf.set("backend", "sqlite3");
+#else
+		// fall back to leveldb
+		conf.set("backend", "leveldb");
+#endif
 	}
 	std::string backend = conf.get("backend");
 	dbase = createDatabase(backend, savedir, conf);
@@ -1661,8 +1700,10 @@ MapDatabase *ServerMap::createDatabase(
 	const std::string &savedir,
 	Settings &conf)
 {
+#if USE_SQLITE
 	if (name == "sqlite3")
 		return new MapDatabaseSQLite3(savedir);
+#endif
 	if (name == "dummy")
 		return new Database_Dummy();
 	#if USE_LEVELDB
@@ -1681,7 +1722,7 @@ MapDatabase *ServerMap::createDatabase(
 	}
 	#endif
 
-	throw BaseException(std::string("Database backend ") + name + " not supported.");
+	throw ModError(std::string("Database backend ") + name + " not supported.");
 }
 
 void ServerMap::beginSave()

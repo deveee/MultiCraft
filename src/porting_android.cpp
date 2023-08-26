@@ -1,6 +1,8 @@
 /*
 Minetest
 Copyright (C) 2014 celeron55, Perttu Ahola <celeron55@gmail.com>
+Copyright (C) 2014-2022 Maksim Gamarnik [MoNTE48] <Maksym48@pm.me>
+Copyright (C) 2022 Dawid Gan <deveee@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU Lesser General Public License as published by
@@ -21,14 +23,21 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #error This file may only be compiled for android!
 #endif
 
+#include "IrrCompileConfig.h"
+
 #include "util/numeric.h"
 #include "porting.h"
 #include "porting_android.h"
+#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+#include "threading/sdl_thread.h"
+#else
 #include "threading/thread.h"
+#endif
 #include "config.h"
 #include "filesys.h"
 #include "log.h"
 
+#include <atomic>
 #include <sstream>
 #include <exception>
 #include <cstdlib>
@@ -37,94 +46,101 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "prof.h"
 #endif
 
-extern int main(int argc, char *argv[]);
+#include <SDL.h>
 
-void android_main(android_app *app)
+extern int real_main(int argc, char *argv[]);
+extern "C" void external_pause_game();
+
+static std::atomic<bool> ran = {false};
+
+extern "C" int SDL_main(int argc, char *argv[])
 {
-	int retval = 0;
-	porting::app_global = app;
-
-	Thread::setName("Main");
+	if (ran.exchange(true)) {
+		errorstream << "Caught second android_main execution in a process" << std::endl;
+		return 0;
+	}
 
 	try {
 		char *argv[] = {strdup(PROJECT_NAME), nullptr};
-		main(ARRLEN(argv) - 1, argv);
+		real_main(ARRLEN(argv) - 1, argv);
 		free(argv[0]);
 	} catch (std::exception &e) {
 		errorstream << "Uncaught exception in main thread: " << e.what() << std::endl;
-		retval = -1;
+		porting::finishGame(e.what());
 	} catch (...) {
 		errorstream << "Uncaught exception in main thread!" << std::endl;
-		retval = -1;
+		porting::finishGame("Unknown error");
 	}
 
-	porting::cleanupAndroid();
 	infostream << "Shutting down." << std::endl;
-	exit(retval);
+	porting::cleanupAndroid();
+	_Exit(0);
 }
 
-/**
- * Handler for finished message box input
- * Intentionally NOT in namespace porting
- * ToDo: this doesn't work as expected, there's a workaround for it right now
- */
 extern "C" {
-	JNIEXPORT void JNICALL Java_net_minetest_minetest_GameActivity_putMessageBoxResult(
-			JNIEnv *env, jclass thiz, jstring text)
+	JNIEXPORT void JNICALL Java_com_multicraft_game_GameActivity_pauseGame(
+			JNIEnv *env, jclass clazz)
 	{
-		errorstream <<
-			"Java_net_minetest_minetest_GameActivity_putMessageBoxResult got: " <<
-			std::string((const char*) env->GetStringChars(text, nullptr)) << std::endl;
+		external_pause_game();
+	}
+	bool device_has_keyboard = false;
+	JNIEXPORT void JNICALL Java_com_multicraft_game_GameActivity_keyboardEvent(
+			JNIEnv *env, jclass clazz, jboolean hasKeyboard)
+	{
+		device_has_keyboard = hasKeyboard;
 	}
 }
 
 namespace porting {
-android_app *app_global;
 JNIEnv      *jnienv;
-jclass       nativeActivity;
+jclass       activityClass;
+jobject      activityObj;
 
 jclass findClass(const std::string &classname)
 {
 	if (jnienv == nullptr)
 		return nullptr;
 
-	jclass nativeactivity = jnienv->FindClass("android/app/NativeActivity");
+	jclass activity = jnienv->FindClass("android/app/Activity");
+
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return nullptr;
+	}
+
 	jmethodID getClassLoader = jnienv->GetMethodID(
-			nativeactivity, "getClassLoader", "()Ljava/lang/ClassLoader;");
-	jobject cls = jnienv->CallObjectMethod(
-						app_global->activity->clazz, getClassLoader);
+			activity, "getClassLoader", "()Ljava/lang/ClassLoader;");
+	jobject cls = jnienv->CallObjectMethod(activityObj, getClassLoader);
 	jclass classLoader = jnienv->FindClass("java/lang/ClassLoader");
 	jmethodID findClass = jnienv->GetMethodID(classLoader, "loadClass",
 					"(Ljava/lang/String;)Ljava/lang/Class;");
 	jstring strClassName = jnienv->NewStringUTF(classname.c_str());
-	return (jclass) jnienv->CallObjectMethod(cls, findClass, strClassName);
+	jclass result = (jclass) jnienv->CallObjectMethod(cls, findClass, strClassName);
+
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return nullptr;
+	}
+
+	return result;
 }
 
 void initAndroid()
 {
-	porting::jnienv = nullptr;
-	JavaVM *jvm = app_global->activity->vm;
-	JavaVMAttachArgs lJavaVMAttachArgs;
-	lJavaVMAttachArgs.version = JNI_VERSION_1_6;
-	lJavaVMAttachArgs.name = PROJECT_NAME_C "NativeThread";
-	lJavaVMAttachArgs.group = nullptr;
+	porting::jnienv = (JNIEnv*)SDL_AndroidGetJNIEnv();
+	activityObj = (jobject)SDL_AndroidGetActivity();
 
-	if (jvm->AttachCurrentThread(&porting::jnienv, &lJavaVMAttachArgs) == JNI_ERR) {
-		errorstream << "Failed to attach native thread to jvm" << std::endl;
-		exit(-1);
-	}
-
-	nativeActivity = findClass("net/minetest/minetest/GameActivity");
-	if (nativeActivity == nullptr)
+	activityClass = findClass("com/multicraft/game/GameActivity");
+	if (activityClass == nullptr)
 		errorstream <<
-			"porting::initAndroid unable to find java native activity class" <<
+			"porting::initAndroid unable to find Java game activity class" <<
 			std::endl;
 
 #ifdef GPROF
 	// in the start-up code
 	__android_log_print(ANDROID_LOG_ERROR, PROJECT_NAME_C,
 			"Initializing GPROF profiler");
-	monstartup("libMinetest.so");
+	monstartup("libMultiCraft.so");
 #endif
 }
 
@@ -135,159 +151,277 @@ void cleanupAndroid()
 	setenv("CPUPROFILE", (path_user + DIR_DELIM + "gmon.out").c_str(), 1);
 	moncleanup();
 #endif
-
-	JavaVM *jvm = app_global->activity->vm;
-	jvm->DetachCurrentThread();
 }
 
-static std::string javaStringToUTF8(jstring js)
+static std::string readJavaString(jstring j_str)
 {
-	std::string str;
-	// Get string as a UTF-8 c-string
-	const char *c_str = jnienv->GetStringUTFChars(js, nullptr);
+	// Get string as a UTF-8 C string
+	const char *c_str = jnienv->GetStringUTFChars(j_str, nullptr);
 	// Save it
-	str = c_str;
-	// And free the c-string
-	jnienv->ReleaseStringUTFChars(js, c_str);
+	std::string str(c_str);
+	// And free the C string
+	jnienv->ReleaseStringUTFChars(j_str, c_str);
 	return str;
 }
 
-void initializePathsAndroid()
+// Calls static method if obj is NULL
+static std::string getAndroidPath(
+		jclass cls, jobject obj, jmethodID mt_getAbsPath, const char *getter)
 {
-	// Set user and share paths
-	{
-		jmethodID getUserDataPath = jnienv->GetMethodID(nativeActivity,
-				"getUserDataPath", "()Ljava/lang/String;");
-		FATAL_ERROR_IF(getUserDataPath==nullptr,
-				"porting::initializePathsAndroid unable to find Java getUserDataPath method");
-		jobject result = jnienv->CallObjectMethod(app_global->activity->clazz, getUserDataPath);
-		const char *javachars = jnienv->GetStringUTFChars((jstring) result, nullptr);
-		path_user = javachars;
-		path_share = javachars;
-		path_locale  = path_share + DIR_DELIM + "locale";
-		jnienv->ReleaseStringUTFChars((jstring) result, javachars);
-	}
+	// Get getter method
+	jmethodID mt_getter;
+	if (obj)
+		mt_getter = jnienv->GetMethodID(cls, getter, "()Ljava/io/File;");
+	else
+		mt_getter = jnienv->GetStaticMethodID(cls, getter, "()Ljava/io/File;");
 
-	// Set cache path
-	{
-		jmethodID getCachePath = jnienv->GetMethodID(nativeActivity,
-				"getCachePath", "()Ljava/lang/String;");
-		FATAL_ERROR_IF(getCachePath==nullptr,
-				"porting::initializePathsAndroid unable to find Java getCachePath method");
-		jobject result = jnienv->CallObjectMethod(app_global->activity->clazz, getCachePath);
-		const char *javachars = jnienv->GetStringUTFChars((jstring) result, nullptr);
-		path_cache = javachars;
-		jnienv->ReleaseStringUTFChars((jstring) result, javachars);
+	// Call getter
+	jobject ob_file;
+	if (obj)
+		ob_file = jnienv->CallObjectMethod(obj, mt_getter);
+	else
+		ob_file = jnienv->CallStaticObjectMethod(cls, mt_getter);
 
-		migrateCachePath();
-	}
+	// Call getAbsolutePath
+	auto js_path = (jstring) jnienv->CallObjectMethod(ob_file, mt_getAbsPath);
+
+	return readJavaString(js_path);
 }
 
-void showInputDialog(const std::string &acceptButton, const std::string &hint,
-		const std::string &current, int editType)
+void initializePaths()
 {
-	jmethodID showdialog = jnienv->GetMethodID(nativeActivity, "showDialog",
-		"(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V");
+	// Get Environment class
+	jclass cls_Env = jnienv->FindClass("android/os/Environment");
+	// Get File class
+	jclass cls_File = jnienv->FindClass("java/io/File");
+	// Get getAbsolutePath method
+	jmethodID mt_getAbsPath = jnienv->GetMethodID(cls_File,
+				"getAbsolutePath", "()Ljava/lang/String;");
+	std::string path_storage = getAndroidPath(cls_Env, nullptr,
+				mt_getAbsPath, "getExternalStorageDirectory");
+	std::string path_data = getAndroidPath(activityClass, activityObj, mt_getAbsPath,
+				"getFilesDir");
+
+	path_user    = path_storage + DIR_DELIM + "Android/data/com.multicraft.game/files";
+	path_share   = path_data;
+	path_locale  = path_data + DIR_DELIM + "locale";
+	path_cache   = getAndroidPath(activityClass,
+			activityObj, mt_getAbsPath, "getCacheDir");
+}
+
+void showInputDialog(const std::string &hint, const std::string &current, int editType)
+{
+	jmethodID showdialog = jnienv->GetMethodID(activityClass, "showDialog",
+		"(Ljava/lang/String;Ljava/lang/String;I)V");
 
 	FATAL_ERROR_IF(showdialog == nullptr,
-		"porting::showInputDialog unable to find java show dialog method");
+		"porting::showInputDialog unable to find Java show dialog method");
 
-	jstring jacceptButton = jnienv->NewStringUTF(acceptButton.c_str());
 	jstring jhint         = jnienv->NewStringUTF(hint.c_str());
 	jstring jcurrent      = jnienv->NewStringUTF(current.c_str());
 	jint    jeditType     = editType;
 
-	jnienv->CallVoidMethod(app_global->activity->clazz, showdialog,
-			jacceptButton, jhint, jcurrent, jeditType);
+	jnienv->CallVoidMethod(activityObj, showdialog, jhint, jcurrent, jeditType);
 }
 
 void openURIAndroid(const std::string &url)
 {
-	jmethodID url_open = jnienv->GetMethodID(nativeActivity, "openURI",
+	jmethodID url_open = jnienv->GetMethodID(activityClass, "openURI",
 		"(Ljava/lang/String;)V");
 
 	FATAL_ERROR_IF(url_open == nullptr,
-		"porting::openURIAndroid unable to find java openURI method");
+		"porting::openURIAndroid unable to find Java openURI method");
 
 	jstring jurl = jnienv->NewStringUTF(url.c_str());
-	jnienv->CallVoidMethod(app_global->activity->clazz, url_open, jurl);
+	jnienv->CallVoidMethod(activityObj, url_open, jurl);
 }
 
 int getInputDialogState()
 {
-	jmethodID dialogstate = jnienv->GetMethodID(nativeActivity,
+	jmethodID dialogstate = jnienv->GetMethodID(activityClass,
 			"getDialogState", "()I");
 
 	FATAL_ERROR_IF(dialogstate == nullptr,
-		"porting::getInputDialogState unable to find java dialog state method");
+		"porting::getInputDialogState unable to find Java dialog state method");
 
-	return jnienv->CallIntMethod(app_global->activity->clazz, dialogstate);
+	return jnienv->CallIntMethod(activityObj, dialogstate);
 }
 
 std::string getInputDialogValue()
 {
-	jmethodID dialogvalue = jnienv->GetMethodID(nativeActivity,
+	jmethodID dialogvalue = jnienv->GetMethodID(activityClass,
 			"getDialogValue", "()Ljava/lang/String;");
 
 	FATAL_ERROR_IF(dialogvalue == nullptr,
-		"porting::getInputDialogValue unable to find java dialog value method");
+		"porting::getInputDialogValue unable to find Java getDialogValue method");
 
-	jobject result = jnienv->CallObjectMethod(app_global->activity->clazz,
-			dialogvalue);
+	jobject result = jnienv->CallObjectMethod(activityObj, dialogvalue);
+	return readJavaString((jstring) result);
+}
 
-	const char *javachars = jnienv->GetStringUTFChars((jstring) result, nullptr);
-	std::string text(javachars);
-	jnienv->ReleaseStringUTFChars((jstring) result, javachars);
+float getTotalSystemMemory()
+{
+	long pages = sysconf(_SC_PHYS_PAGES);
+	long page_size = sysconf(_SC_PAGE_SIZE);
+	int divisor = 1024 * 1024 * 1024;
+	return (float) (pages * page_size) / (float) divisor;
+}
 
-	return text;
+bool hasRealKeyboard()
+{
+	return device_has_keyboard;
+}
+
+void handleError(const std::string &errType, const std::string &err)
+{
+	jmethodID report_err = jnienv->GetMethodID(activityClass,
+		"handleError", "(Ljava/lang/String;)V");
+
+	FATAL_ERROR_IF(report_err == nullptr,
+		"porting::handleError unable to find Java handleError method");
+
+	std::string errorMessage = errType + ": " + err;
+	jstring jerr = porting::getJniString(errorMessage);
+	jnienv->CallVoidMethod(activityObj, report_err, jerr);
+}
+
+void notifyServerConnect(bool is_multiplayer)
+{
+	jmethodID notifyConnect = jnienv->GetMethodID(activityClass,
+			"notifyServerConnect", "(Z)V");
+
+	FATAL_ERROR_IF(notifyConnect == nullptr,
+		"porting::notifyServerConnect unable to find Java notifyServerConnect method");
+
+	auto param = (jboolean) is_multiplayer;
+
+	jnienv->CallVoidMethod(activityObj, notifyConnect, param);
+}
+
+void notifyExitGame()
+{
+	if (jnienv == nullptr || activityObj == nullptr)
+		return;
+
+	jmethodID notifyExit = jnienv->GetMethodID(activityClass,
+			"notifyExitGame", "()V");
+
+	FATAL_ERROR_IF(notifyExit == nullptr,
+		"porting::notifyExitGame unable to find Java notifyExitGame method");
+
+	jnienv->CallVoidMethod(activityObj, notifyExit);
+
+	if (jnienv->ExceptionOccurred())
+		jnienv->ExceptionClear();
 }
 
 #ifndef SERVER
 float getDisplayDensity()
 {
-	static bool firstrun = true;
+	static bool firstRun = true;
 	static float value = 0;
 
-	if (firstrun) {
-		jmethodID getDensity = jnienv->GetMethodID(nativeActivity,
+	if (firstRun) {
+		jmethodID getDensity = jnienv->GetMethodID(activityClass,
 				"getDensity", "()F");
 
 		FATAL_ERROR_IF(getDensity == nullptr,
-			"porting::getDisplayDensity unable to find java getDensity method");
+			"porting::getDisplayDensity unable to find Java getDensity method");
 
-		value = jnienv->CallFloatMethod(app_global->activity->clazz, getDensity);
-		firstrun = false;
+		value = jnienv->CallFloatMethod(activityObj, getDensity);
+		firstRun = false;
 	}
+
 	return value;
 }
-
-v2u32 getDisplaySize()
-{
-	static bool firstrun = true;
-	static v2u32 retval;
-
-	if (firstrun) {
-		jmethodID getDisplayWidth = jnienv->GetMethodID(nativeActivity,
-				"getDisplayWidth", "()I");
-
-		FATAL_ERROR_IF(getDisplayWidth == nullptr,
-			"porting::getDisplayWidth unable to find java getDisplayWidth method");
-
-		retval.X = jnienv->CallIntMethod(app_global->activity->clazz,
-				getDisplayWidth);
-
-		jmethodID getDisplayHeight = jnienv->GetMethodID(nativeActivity,
-				"getDisplayHeight", "()I");
-
-		FATAL_ERROR_IF(getDisplayHeight == nullptr,
-			"porting::getDisplayHeight unable to find java getDisplayHeight method");
-
-		retval.Y = jnienv->CallIntMethod(app_global->activity->clazz,
-				getDisplayHeight);
-
-		firstrun = false;
-	}
-	return retval;
-}
 #endif // ndef SERVER
+
+void finishGame(const std::string &exc)
+{
+	if (jnienv->ExceptionCheck())
+		jnienv->ExceptionClear();
+
+	jmethodID finishMe;
+	try {
+		finishMe = jnienv->GetMethodID(activityClass,
+			"finishGame", "(Ljava/lang/String;)V");
+	} catch (...) {
+		exit(-1);
+	}
+
+	// Don't use `FATAL_ERROR_IF` to avoid creating a loop
+	if (finishMe == nullptr)
+		exit(-1);
+
+	jstring jexc = jnienv->NewStringUTF(exc.c_str());
+	jnienv->CallVoidMethod(activityObj, finishMe, jexc);
+	exit(0);
+}
+
+jstring getJniString(const std::string &message)
+{
+	int byteCount = message.length();
+	const jbyte *pNativeMessage = (const jbyte*) message.c_str();
+	jbyteArray bytes = jnienv->NewByteArray(byteCount);
+	jnienv->SetByteArrayRegion(bytes, 0, byteCount, pNativeMessage);
+
+	jclass charsetClass = findClass("java/nio/charset/Charset");
+	jmethodID forName = jnienv->GetStaticMethodID(
+			charsetClass, "forName", "(Ljava/lang/String;)Ljava/nio/charset/Charset;");
+	jstring utf8 = jnienv->NewStringUTF("UTF-8");
+	jobject charset = jnienv->CallStaticObjectMethod(charsetClass, forName, utf8);
+
+	jclass stringClass = findClass("java/lang/String");
+	jmethodID ctor = jnienv->GetMethodID(
+			stringClass, "<init>", "([BLjava/nio/charset/Charset;)V");
+
+	jstring jMessage = (jstring) jnienv->NewObject(stringClass, ctor, bytes, charset);
+
+	return jMessage;
+}
+
+void upgrade(const std::string &item)
+{
+	jmethodID upgradeGame = jnienv->GetMethodID(activityClass,
+			"upgrade", "(Ljava/lang/String;)V");
+
+	FATAL_ERROR_IF(upgradeGame == nullptr,
+		"porting::upgrade unable to find Java upgrade method");
+
+	jstring jitem = jnienv->NewStringUTF(item.c_str());
+	jnienv->CallVoidMethod(activityObj, upgradeGame, jitem);
+}
+
+int getRoundScreen()
+{
+	static bool firstRun = true;
+	static int radius = 0;
+
+	if (firstRun) {
+		jmethodID getRadius = jnienv->GetMethodID(activityClass,
+				"getRoundScreen", "()I");
+
+		FATAL_ERROR_IF(getRadius == nullptr,
+			"porting::getRoundScreen unable to find Java getRoundScreen method");
+
+		radius = jnienv->CallIntMethod(activityObj, getRadius);
+		firstRun = false;
+	}
+
+	return radius;
+}
+
+std::string getSecretKey(const std::string &key)
+{
+	jmethodID getKey = jnienv->GetMethodID(activityClass,
+			"getSecretKey", "(Ljava/lang/String;)Ljava/lang/String;");
+
+	FATAL_ERROR_IF(getKey == nullptr,
+		"porting::getSecretKey unable to find Java getSecretKey method");
+
+	jstring jkey = jnienv->NewStringUTF(key.c_str());
+	auto result = (jstring) jnienv->CallObjectMethod(activityObj, getKey, jkey);
+
+	return readJavaString(result);
+}
 }

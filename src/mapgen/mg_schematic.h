@@ -100,6 +100,8 @@ public:
 
 	virtual void resolveNodeNames();
 
+	bool loadSchematicFromStream(std::istream *is, const std::string &filename,
+		const NodeDefManager *ndef, StringMap *replace_names = NULL);
 	bool loadSchematicFromFile(const std::string &filename,
 		const NodeDefManager *ndef, StringMap *replace_names = NULL);
 	bool saveSchematicToFile(const std::string &filename,
@@ -110,7 +112,7 @@ public:
 	bool serializeToMts(std::ostream *os) const;
 	bool serializeToLua(std::ostream *os, bool use_comments, u32 indent_spaces) const;
 
-	void blitToVManip(MMVManip *vm, v3s16 p, Rotation rot, bool force_place);
+	void blitToVManip(MMVManip *vm, v3s16 p, Rotation rot, bool force_place, ServerMap *map = nullptr);
 	bool placeOnVManip(MMVManip *vm, v3s16 p, u32 flags, Rotation rot, bool force_place);
 	void placeOnMap(ServerMap *map, v3s16 p, u32 flags, Rotation rot, bool force_place);
 

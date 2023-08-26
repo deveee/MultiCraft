@@ -37,16 +37,22 @@ struct ChatLine
 	EnrichedString name;
 	// message text
 	EnrichedString text;
+	// Line index in ChatLine buffer
+	int line_index;
 
-	ChatLine(const std::wstring &a_name, const std::wstring &a_text):
+	ChatLine(const std::wstring &a_name, const std::wstring &a_text,
+			int a_line_index):
 		name(a_name),
-		text(a_text)
+		text(a_text),
+		line_index(a_line_index)
 	{
 	}
 
-	ChatLine(const EnrichedString &a_name, const EnrichedString &a_text):
+	ChatLine(const EnrichedString &a_name, const EnrichedString &a_text,
+			int a_line_index):
 		name(a_name),
-		text(a_text)
+		text(a_text),
+		line_index(a_line_index)
 	{
 	}
 };
@@ -69,6 +75,8 @@ struct ChatFormattedLine
 	std::vector<ChatFormattedFragment> fragments;
 	// true if first line of one formatted ChatLine
 	bool first;
+	// Line index in ChatLine buffer
+	int line_index;
 };
 
 class ChatBuffer
@@ -118,6 +126,12 @@ public:
 	bool getLinesModified() const { return m_lines_modified; }
 	void resetLinesModified() { m_lines_modified = false; }
 
+	s32 getScrollPos() { return m_scroll; }
+	u32 getColsCount() { return m_cols; }
+
+	u32 getDelFormatted() const { return m_del_formatted; }
+	void resetDelFormatted() { m_del_formatted = 0; }
+
 	// Format a chat line for the given number of columns.
 	// Appends the formatted lines to the destination array and
 	// returns the number of formatted lines.
@@ -126,7 +140,6 @@ public:
 
 	void resize(u32 scrollback);
 
-protected:
 	s32 getTopScrollPos() const;
 	s32 getBottomScrollPos() const;
 
@@ -147,15 +160,20 @@ private:
 	// Empty formatted line, for error returns
 	ChatFormattedLine m_empty_formatted_line;
 
-	// Enable clickable chat weblinks
-	bool m_cache_clickable_chat_weblinks;
-	// Color of clickable chat weblinks
-	irr::video::SColor m_cache_chat_weblink_color;
-
 	// Whether the lines were modified since last markLinesUnchanged()
 	// Is always set to true when m_unformatted is modified, because that's what
 	// determines the output of getLineCount() and getLine()
 	bool m_lines_modified = true;
+
+	// How many formatted lines have been deleted
+	u32 m_del_formatted = 0;
+
+	int m_current_line_index = 0;
+
+	// Enable clickable chat weblinks
+	bool m_cache_clickable_chat_weblinks;
+	// Color of clickable chat weblinks
+	irr::video::SColor m_cache_chat_weblink_color;
 };
 
 class ChatPrompt
@@ -197,6 +215,8 @@ public:
 	std::wstring getVisiblePortion() const;
 	// Get cursor position (relative to visible portion). -1 if invalid
 	s32 getVisibleCursorPosition() const;
+	// Get view position (absolute value)
+	s32 getViewPosition() const { return m_view; }
 	// Get length of cursor selection
 	s32 getCursorLength() const { return m_cursor_len; }
 
@@ -232,6 +252,14 @@ public:
 	//     deletes the word to the left of the cursor.
 	void cursorOperation(CursorOp op, CursorOpDir dir, CursorOpScope scope);
 
+	void setCursorPos(int cursor_pos);
+	void setViewPosition(int view);
+
+	// Functions for keeping track of whether the line was modified by any
+	// preceding operations
+	bool getLineModified() const { return m_line_modified; }
+	void resetLineModified() { m_line_modified = false; }
+
 protected:
 	// set m_view to ensure that 0 <= m_view <= m_cursor < m_view + m_cols
 	// if line can be fully shown, set m_view to zero
@@ -263,6 +291,9 @@ private:
 	s32 m_nick_completion_start = 0;
 	// Last nick completion start (index into m_line)
 	s32 m_nick_completion_end = 0;
+
+	// True if line was modified
+	bool m_line_modified = true;
 };
 
 class ChatBackend

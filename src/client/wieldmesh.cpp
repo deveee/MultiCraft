@@ -41,6 +41,16 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define MIN_EXTRUSION_MESH_RESOLUTION 16
 #define MAX_EXTRUSION_MESH_RESOLUTION 512
 
+/*!
+ * Applies overlays, textures and materials to the given mesh and
+ * extracts tile colors for colorization.
+ * \param colors returns the colors of the mesh buffers in the mesh.
+ */
+static void postProcessCubeMesh(scene::SMesh *mesh, const ContentFeatures &f,
+	IShaderSource *shader_source, std::string const &shader_name,
+	std::vector<ItemPartColor> *colors);
+
+
 static scene::IMesh *createExtrusionMesh(int resolution_x, int resolution_y)
 {
 	const f32 r = 0.5;
@@ -237,18 +247,6 @@ WieldMeshSceneNode::~WieldMeshSceneNode()
 		g_extrusion_mesh_cache = nullptr;
 }
 
-void WieldMeshSceneNode::setCube(const ContentFeatures &f,
-			v3f wield_scale)
-{
-	scene::IMesh *cubemesh = g_extrusion_mesh_cache->createCube();
-	scene::SMesh *copy = cloneMesh(cubemesh);
-	cubemesh->drop();
-	postProcessNodeMesh(copy, f, false, true, &m_material_type, &m_colors, true);
-	changeToMesh(copy);
-	copy->drop();
-	m_meshnode->setScale(wield_scale * WIELD_SCALE_FACTOR);
-}
-
 void WieldMeshSceneNode::setExtruded(const std::string &imagename,
 	const std::string &overlay_name, v3f wield_scale, ITextureSource *tsrc,
 	u8 num_frames)
@@ -310,7 +308,7 @@ void WieldMeshSceneNode::setExtruded(const std::string &imagename,
 }
 
 static scene::SMesh *createSpecialNodeMesh(Client *client, MapNode n,
-	std::vector<ItemPartColor> *colors, const ContentFeatures &f)
+	std::vector<ItemPartColor> *colors, const ContentFeatures &f, std::string const shader_name = {})
 {
 	MeshMakeData mesh_make_data(client, false);
 	MeshCollector collector;
@@ -333,6 +331,7 @@ static scene::SMesh *createSpecialNodeMesh(Client *client, MapNode n,
 	}
 	gen.renderSingle(n.getContent(), n.getParam2());
 
+	IShaderSource *shader_source = shader_name.empty() ? nullptr : client->getShaderSource();
 	colors->clear();
 	scene::SMesh *mesh = new scene::SMesh();
 	for (auto &prebuffers : collector.prebuffers)
@@ -340,14 +339,20 @@ static scene::SMesh *createSpecialNodeMesh(Client *client, MapNode n,
 			if (p.layer.material_flags & MATERIAL_FLAG_ANIMATION) {
 				const FrameSpec &frame = (*p.layer.frames)[0];
 				p.layer.texture = frame.texture;
-				p.layer.normal_texture = frame.normal_texture;
 			}
 			for (video::S3DVertex &v : p.vertices) {
 				v.Color.setAlpha(255);
 			}
 			scene::SMeshBuffer *buf = new scene::SMeshBuffer();
 			buf->Material.setTexture(0, p.layer.texture);
-			p.layer.applyMaterialOptions(buf->Material);
+			if (!shader_name.empty()) {
+				auto shader_id = shader_source->getShader(shader_name, (MaterialType)p.layer.material_type, f.drawtype);
+				buf->Material.MaterialType = shader_source->getShaderInfo(shader_id).material;
+				p.layer.applyMaterialOptionsWithShaders(buf->Material);
+			} else {
+				p.layer.applyMaterialOptions(buf->Material);
+			}
+			buf->Material.MaterialTypeParam = 0.0f;
 			mesh->addMeshBuffer(buf);
 			buf->append(&p.vertices[0], p.vertices.size(),
 					&p.indices[0], p.indices.size());
@@ -430,15 +435,22 @@ void WieldMeshSceneNode::setItem(const ItemStack &item, Client *client, bool che
 		}
 		case NDT_NORMAL:
 		case NDT_ALLFACES:
-		case NDT_LIQUID:
-			setCube(f, def.wield_scale);
-			break;
+		case NDT_LIQUID: {
+			scene::IMesh *cubemesh = g_extrusion_mesh_cache->createCube();
+			scene::SMesh *copy = cloneMesh(cubemesh);
+			cubemesh->drop();
+			postProcessCubeMesh(copy, f, shdrsrc, "object_shader", &m_colors);
+			changeToMesh(copy);
+			copy->drop();
+			m_meshnode->setScale(def.wield_scale * WIELD_SCALE_FACTOR);
+ 			break;
+		}
 		default: {
 			// Render non-trivial drawtypes like the actual node
 			MapNode n(id);
 			n.setParam2(def.place_param2);
 
-			mesh = createSpecialNodeMesh(client, n, &m_colors, f);
+			mesh = createSpecialNodeMesh(client, id, &m_colors, f, "object_shader");
 			changeToMesh(mesh);
 			mesh->drop();
 			m_meshnode->setScale(
@@ -451,8 +463,6 @@ void WieldMeshSceneNode::setItem(const ItemStack &item, Client *client, bool che
 		u32 material_count = m_meshnode->getMaterialCount();
 		for (u32 i = 0; i < material_count; ++i) {
 			video::SMaterial &material = m_meshnode->getMaterial(i);
-			material.MaterialType = m_material_type;
-			material.MaterialTypeParam = 0.5f;
 			material.setFlag(video::EMF_BACK_FACE_CULLING, cull_backface);
 			material.setFlag(video::EMF_BILINEAR_FILTER, m_bilinear_filter);
 			material.setFlag(video::EMF_TRILINEAR_FILTER, m_trilinear_filter);
@@ -546,6 +556,7 @@ void WieldMeshSceneNode::changeToMesh(scene::IMesh *mesh)
 		m_shadow->addNodeToShadowList(m_meshnode);
 }
 
+// Only used for inventory images
 void getItemMesh(Client *client, const ItemStack &item, ItemMesh *result)
 {
 	ITextureSource *tsrc = client->getTextureSource();
@@ -593,8 +604,7 @@ void getItemMesh(Client *client, const ItemStack &item, ItemMesh *result)
 			} else
 				scaleMesh(mesh, v3f(1.2, 1.2, 1.2));
 			// add overlays
-			postProcessNodeMesh(mesh, f, false, false, nullptr,
-				&result->buffer_colors, true);
+			postProcessCubeMesh(mesh, f, nullptr, {}, &result->buffer_colors);
 			if (f.drawtype == NDT_ALLFACES)
 				scaleMesh(mesh, v3f(f.visual_scale));
 			break;
@@ -692,9 +702,9 @@ scene::SMesh *getExtrudedMesh(ITextureSource *tsrc,
 	return mesh;
 }
 
-void postProcessNodeMesh(scene::SMesh *mesh, const ContentFeatures &f,
-	bool use_shaders, bool set_material, const video::E_MATERIAL_TYPE *mattype,
-	std::vector<ItemPartColor> *colors, bool apply_scale)
+static void postProcessCubeMesh(scene::SMesh *mesh, const ContentFeatures &f,
+	IShaderSource *shader_source, std::string const &shader_name,
+	std::vector<ItemPartColor> *colors)
 {
 	u32 mc = mesh->getMeshBufferCount();
 	// Allocate colors for existing buffers
@@ -721,28 +731,21 @@ void postProcessNodeMesh(scene::SMesh *mesh, const ContentFeatures &f,
 				(*colors)[i] = ItemPartColor(layer->has_color, layer->color);
 			}
 			video::SMaterial &material = buf->getMaterial();
-			if (set_material)
+			if (shader_source && !shader_name.empty()) {
+				auto shader_id = shader_source->getShader(shader_name, (MaterialType)layer->material_type, NDT_ALLFACES);
+				material.MaterialType = shader_source->getShaderInfo(shader_id).material;
+				layer->applyMaterialOptionsWithShaders(material);
+			} else {
 				layer->applyMaterialOptions(material);
-			if (mattype) {
-				material.MaterialType = *mattype;
 			}
+			material.MaterialTypeParam = 0.0f;
 			if (layer->animation_frame_count > 1) {
 				const FrameSpec &animation_frame = (*layer->frames)[0];
 				material.setTexture(0, animation_frame.texture);
 			} else {
 				material.setTexture(0, layer->texture);
 			}
-			if (use_shaders) {
-				if (layer->normal_texture) {
-					if (layer->animation_frame_count > 1) {
-						const FrameSpec &animation_frame = (*layer->frames)[0];
-						material.setTexture(1, animation_frame.normal_texture);
-					} else
-						material.setTexture(1, layer->normal_texture);
-				}
-				material.setTexture(2, layer->flags_texture);
-			}
-			if (apply_scale && tile->world_aligned) {
+			if (tile->world_aligned) {
 				u32 n = buf->getVertexCount();
 				for (u32 k = 0; k != n; ++k)
 					buf->getTCoords(k) /= layer->scale;

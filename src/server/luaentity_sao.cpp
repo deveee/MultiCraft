@@ -131,9 +131,10 @@ void LuaEntitySAO::step(float dtime, bool send_recommended)
 	if(!m_properties_sent)
 	{
 		m_properties_sent = true;
-		std::string str = getPropertyPacket();
+		std::string str = getPropertyPacket(37);
+		std::string legacy_str = getPropertyPacket(32);
 		// create message and add to list
-		m_messages_out.emplace(getId(), true, str);
+		m_messages_out.emplace(getId(), true, str, legacy_str);
 	}
 
 	// If attached, check that our parent is still there. If it isn't, detach.
@@ -238,19 +239,26 @@ std::string LuaEntitySAO::getClientInitializationData(u16 protocol_version)
 	os << serializeString16(""); // name
 	writeU8(os, 0); // is_player
 	writeU16(os, getId()); //id
-	writeV3F32(os, m_base_position);
-	writeV3F32(os, m_rotation);
+	writeV3F(os, m_base_position, protocol_version);
+	if (protocol_version >= 37)
+		writeV3F32(os, m_rotation);
+	else
+		writeF1000(os, m_rotation.Y);
 	writeU16(os, m_hp);
 
 	std::ostringstream msg_os(std::ios::binary);
-	msg_os << serializeString32(getPropertyPacket()); // message 1
+	msg_os << serializeString32(getPropertyPacket(
+		protocol_version)); // message 1
 	msg_os << serializeString32(generateUpdateArmorGroupsCommand()); // 2
-	msg_os << serializeString32(generateUpdateAnimationCommand()); // 3
+	msg_os << serializeString32(generateUpdateAnimationCommand(
+		protocol_version)); // 3
 	for (const auto &bone_pos : m_bone_position) {
 		msg_os << serializeString32(generateUpdateBonePositionCommand(
-			bone_pos.first, bone_pos.second.X, bone_pos.second.Y)); // 3 + N
+			bone_pos.first, bone_pos.second.X, bone_pos.second.Y,
+			protocol_version)); // 3 + N
 	}
-	msg_os << serializeString32(generateUpdateAttachmentCommand()); // 4 + m_bone_position.size
+	msg_os << serializeString32(generateUpdateAttachmentCommand(
+		protocol_version)); // 4 + m_bone_position.size
 
 	int message_count = 4 + m_bone_position.size();
 
@@ -484,9 +492,9 @@ std::string LuaEntitySAO::getName()
 	return m_init_name;
 }
 
-std::string LuaEntitySAO::getPropertyPacket()
+std::string LuaEntitySAO::getPropertyPacket(const u16 protocol_version)
 {
-	return generateSetPropertiesCommand(m_prop);
+	return generateSetPropertiesCommand(m_prop, protocol_version);
 }
 
 void LuaEntitySAO::sendPosition(bool do_interpolate, bool is_movement_end)
@@ -515,10 +523,23 @@ void LuaEntitySAO::sendPosition(bool do_interpolate, bool is_movement_end)
 		m_rotation,
 		do_interpolate,
 		is_movement_end,
-		update_interval
+		update_interval,
+		37
 	);
+
+	std::string legacy_str = generateUpdatePositionCommand(
+		m_base_position,
+		m_velocity,
+		m_acceleration,
+		m_rotation,
+		do_interpolate,
+		is_movement_end,
+		update_interval,
+		32
+	);
+
 	// create message and add to list
-	m_messages_out.emplace(getId(), false, str);
+	m_messages_out.emplace(getId(), false, str, legacy_str);
 }
 
 bool LuaEntitySAO::getCollisionBox(aabb3f *toset) const

@@ -27,6 +27,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "map.h"
 #include "client.h"
 #include "content_cao.h"
+#include "client/joystick_controller.h"
+#include "gui/touchscreengui.h"
 
 /*
 	LocalPlayer
@@ -172,11 +174,13 @@ void LocalPlayer::move(f32 dtime, Environment *env, f32 pos_max_d,
 	if (!collision_info || collision_info->empty())
 		m_standing_node = floatToInt(m_position, BS);
 
+#if 0
 	// Temporary option for old move code
 	if (!physics_override_new_move) {
 		old_move(dtime, env, pos_max_d, collision_info);
 		return;
 	}
+#endif
 
 	Map *map = &env->getMap();
 	const NodeDefManager *nodemgr = m_client->ndef();
@@ -291,6 +295,11 @@ void LocalPlayer::move(f32 dtime, Environment *env, f32 pos_max_d,
 	// /src/script/common/c_content.cpp and /src/content_sao.cpp
 	float player_stepheight = (m_cao == nullptr) ? 0.0f :
 		(touching_ground ? m_cao->getStepHeight() : (0.2f * BS));
+
+#ifdef HAVE_TOUCHSCREENGUI
+	if (TouchScreenGUI::isActive() && touching_ground)
+		player_stepheight += (0.6f * BS);
+#endif
 
 	v3f accel_f;
 	const v3f initial_position = position;
@@ -423,7 +432,7 @@ void LocalPlayer::move(f32 dtime, Environment *env, f32 pos_max_d,
 		m_client->getEventManager()->put(new SimpleTriggerEvent(MtEvent::PLAYER_REGAIN_GROUND));
 
 		// Set camera impact value to be used for view bobbing
-		camera_impact = getSpeed().Y * -1;
+		camera_impact = -initial_speed.Y;
 	}
 
 	{
@@ -627,6 +636,18 @@ void LocalPlayer::applyControl(float dtime, Environment *env)
 
 	speedH *= control.movement_speed; /* Apply analog input */
 
+	if (!free_move && !in_liquid && !in_liquid_stable && !getParent() && (physics_override_speed != 0)) {
+		if (!m_sneak_offset && control.sneak) {
+			eye_offset_first.Y -= 3.0f;
+			eye_offset_third.Y -= 3.0f;
+			m_sneak_offset = true;
+		} else if (m_sneak_offset && !control.sneak) {
+			eye_offset_first.Y += 3.0f;
+			eye_offset_third.Y += 3.0f;
+			m_sneak_offset = false;
+		}
+	}
+
 	// Acceleration increase
 	f32 incH = 0.0f; // Horizontal (X, Z)
 	f32 incV = 0.0f; // Vertical (Y)
@@ -646,11 +667,18 @@ void LocalPlayer::applyControl(float dtime, Environment *env)
 	}
 
 	float slip_factor = 1.0f;
-	if (!free_move && !in_liquid && !in_liquid_stable)
+	float speed_factor = 1.0f;
+	if (!free_move && !in_liquid && !in_liquid_stable) {
 		slip_factor = getSlipFactor(env, speedH);
+		speed_factor = getSpeedFactor(env);
+	}
 
-	// Don't sink when swimming in pitch mode
-	if (pitch_move && in_liquid) {
+	// Apply speed factor
+	speedH *= speed_factor;
+	speedV *= speed_factor;
+
+	// Don't sink when swimming
+	if (in_liquid) {
 		v3f controlSpeed = speedH + speedV;
 		if (controlSpeed.getLength() > 0.01f)
 			swimming_pitch = true;
@@ -751,6 +779,7 @@ void LocalPlayer::accelerate(const v3f &target_speed, const f32 max_increase_H,
 	m_speed += d;
 }
 
+#if 0
 // Temporary option for old move code
 void LocalPlayer::old_move(f32 dtime, Environment *env, f32 pos_max_d,
 	std::vector<CollisionInfo> *collision_info)
@@ -888,6 +917,11 @@ void LocalPlayer::old_move(f32 dtime, Environment *env, f32 pos_max_d,
 	// TODO: This shouldn't be hardcoded but decided by the server
 	float player_stepheight = touching_ground ? (BS * 0.6f) : (BS * 0.2f);
 
+#ifdef HAVE_TOUCHSCREENGUI
+	if (TouchScreenGUI::isActive())
+		player_stepheight += (0.6 * BS);
+#endif
+
 	v3f accel_f;
 	const v3f initial_position = position;
 	const v3f initial_speed = m_speed;
@@ -953,7 +987,7 @@ void LocalPlayer::old_move(f32 dtime, Environment *env, f32 pos_max_d,
 				std::fabs(player_p2df.Y - node_p2df.Y));
 
 			if (distance_f > min_distance_f ||
-					max_axis_distance_f > 0.5f * BS + sneak_max + 0.1f * BS)
+					max_axis_distance_f > 0.5f * BS + sneak_max + 0.05f * BS)
 				continue;
 
 			// The node to be sneaked on has to be walkable
@@ -1065,6 +1099,7 @@ void LocalPlayer::old_move(f32 dtime, Environment *env, f32 pos_max_d,
 	// Autojump
 	handleAutojump(dtime, env, result, initial_position, initial_speed, pos_max_d);
 }
+#endif
 
 float LocalPlayer::getSlipFactor(Environment *env, const v3f &speedH)
 {
@@ -1085,12 +1120,53 @@ float LocalPlayer::getSlipFactor(Environment *env, const v3f &speedH)
 	return 1.0f;
 }
 
+float LocalPlayer::getSpeedFactor(Environment *env)
+{
+	int speed_below = 0, speed_above = 0;
+	v3s16 pos = getStandingNodePos();
+	const NodeDefManager *nodemgr = env->getGameDef()->ndef();
+	Map *map = &env->getMap();
+
+	const ContentFeatures &f = nodemgr->get(map->getNode(pos));
+	if (f.walkable)
+		speed_below = itemgroup_get(f.groups, "speed");
+
+	const ContentFeatures &f2 = nodemgr->get(map->getNode(
+		pos + v3s16(0, 1, 0)));
+	speed_above = itemgroup_get(f2.groups, "speed");
+
+	if (speed_above == 0) {
+		const ContentFeatures &f3 = nodemgr->get(map->getNode(
+			pos + v3s16(0, 2, 0)));
+		speed_above = itemgroup_get(f3.groups, "speed");
+	}
+
+	int speed = speed_below + speed_above;
+	if (speed != 0)
+		return core::clamp(1.0f + f32(speed) / 100.f, 0.01f, 10.f);
+
+	return 1.0f;
+}
+
 void LocalPlayer::handleAutojump(f32 dtime, Environment *env,
 	const collisionMoveResult &result, const v3f &initial_position,
 	const v3f &initial_speed, f32 pos_max_d)
 {
+#ifdef HAVE_TOUCHSCREENGUI
+	// Touchscreen uses player_stepheight for autojump
+	if (TouchScreenGUI::isActive())
+		return;
+#endif
+
 	PlayerSettings &player_settings = getPlayerSettings();
-	if (!player_settings.autojump)
+	bool autojump_enabled = player_settings.autojump;
+
+#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
+	// Force autojump on gamepad
+	autojump_enabled |= SDLGameController::isActive();
+#endif
+
+	if (!autojump_enabled)
 		return;
 
 	if (m_autojump)

@@ -213,7 +213,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define LATEST_PROTOCOL_VERSION_STRING TOSTRING(LATEST_PROTOCOL_VERSION)
 
 // Server's supported network protocol range
-#define SERVER_PROTOCOL_VERSION_MIN 37
+#define SERVER_PROTOCOL_VERSION_MIN 25
+#define SERVER_PROTOCOL_VERSION_MIN_NOCOMPAT 37
 #define SERVER_PROTOCOL_VERSION_MAX LATEST_PROTOCOL_VERSION
 
 // Client's supported network protocol range
@@ -228,7 +229,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define PASSWORD_SIZE 28       // Maximum password length. Allows for
                                // base64-encoded SHA-1 (27+\0).
 
-// See also: Formspec Version History in doc/lua_api.txt
+// See also formspec [Version History] in doc/lua_api.txt
 #define FORMSPEC_API_VERSION 5
 
 #define TEXTURENAME_ALLOWED_CHARS "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-"
@@ -1001,7 +1002,7 @@ enum AuthMechanism
 	AUTH_MECHANISM_FIRST_SRP = 1 << 2,
 };
 
-enum AccessDeniedCode {
+enum AccessDeniedCode : u8 {
 	SERVER_ACCESSDENIED_WRONG_PASSWORD,
 	SERVER_ACCESSDENIED_UNEXPECTED_DATA,
 	SERVER_ACCESSDENIED_SINGLEPLAYER,
@@ -1024,18 +1025,18 @@ enum NetProtoCompressionMode {
 
 const static std::string accessDeniedStrings[SERVER_ACCESSDENIED_MAX] = {
 	"Invalid password",
-	"Your client sent something the server didn't expect.  Try reconnecting or updating your client",
+	"Your client sent something the server didn't expect.  Try reconnecting or updating your client.",
 	"The server is running in simple singleplayer mode.  You cannot connect.",
-	"Your client's version is not supported.\nPlease contact server administrator.",
-	"Player name contains disallowed characters.",
-	"Player name not allowed.",
-	"Too many users.",
+	"Your client's version is not supported.\nPlease contact the server administrator.",
+	"Player name contains disallowed characters",
+	"Player name not allowed",
+	"Too many users",
 	"Empty passwords are disallowed.  Set a password and try again.",
 	"Another client is connected with this name.  If your client closed unexpectedly, try again in a minute.",
-	"Server authentication failed.  This is likely a server error.",
+	"Internal server error",
 	"",
-	"Server shutting down.",
-	"This server has experienced an internal error. You will now be disconnected."
+	"Server shutting down",
+	"The server has experienced an internal error.  You will now be disconnected."
 };
 
 enum PlayerListModifer : u8

@@ -20,6 +20,11 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #include <cstdlib>
 #include "modalMenu.h"
+#include "client/guiscalingfilter.h"
+#include "client/joystick_controller.h"
+#include "client/renderingengine.h"
+#include "client/tile.h"
+#include "filesys.h"
 #include "gettext.h"
 #include "porting.h"
 #include "settings.h"
@@ -29,13 +34,17 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "client/renderingengine.h"
 #endif
 
+#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+#include <SDL.h>
+#endif
+
 // clang-format off
 GUIModalMenu::GUIModalMenu(gui::IGUIEnvironment* env, gui::IGUIElement* parent,
 	s32 id, IMenuManager *menumgr, bool remap_dbl_click) :
 		IGUIElement(gui::EGUIET_ELEMENT, env, parent, id,
 				core::rect<s32>(0, 0, 100, 100)),
-#ifdef __ANDROID__
-		m_jni_field_name(""),
+#if defined(__ANDROID__) || defined(__IOS__)
+		m_jni_field_name(),
 #endif
 		m_menumgr(menumgr),
 		m_remap_dbl_click(remap_dbl_click)
@@ -59,6 +68,10 @@ GUIModalMenu::GUIModalMenu(gui::IGUIEnvironment* env, gui::IGUIElement* parent,
 
 GUIModalMenu::~GUIModalMenu()
 {
+#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+	if (porting::hasRealKeyboard() && SDL_IsTextInputActive())
+		SDL_StopTextInput();
+#endif
 	m_menumgr->deletingMenu(this);
 }
 
@@ -85,7 +98,53 @@ void GUIModalMenu::draw()
 	}
 
 	drawMenu();
+
+#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
+	if (SDLGameController::isActive() && SDLGameController::isCursorVisible())
+		drawCursor();
+#endif
 }
+
+#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
+void GUIModalMenu::drawCursor()
+{
+	video::IVideoDriver *driver = Environment->getVideoDriver();
+	irr::IrrlichtDevice *device = RenderingEngine::get_raw_device();
+	v2s32 pointer = device->getCursorControl()->getPosition();
+
+	v3f crosshair_color = g_settings->getV3F("crosshair_color");
+	u32 cross_r = rangelim(myround(crosshair_color.X), 0, 255);
+	u32 cross_g = rangelim(myround(crosshair_color.Y), 0, 255);
+	u32 cross_b = rangelim(myround(crosshair_color.Z), 0, 255);
+	u32 cross_a = rangelim(g_settings->getS32("crosshair_alpha"), 0, 255);
+	video::SColor crosshair_argb = video::SColor(cross_a, cross_r, cross_g, cross_b);
+
+	const int cursor_line_size = 16;
+	float hud_scaling = g_settings->getFloat("hud_scaling");
+	float scale_factor = hud_scaling * RenderingEngine::getDisplayDensity();
+	int cursor_size = (int)(cursor_line_size * scale_factor);
+
+	std::string sprite_path = porting::path_share + DIR_DELIM + "textures" +
+				  DIR_DELIM + "base" + DIR_DELIM + "pack" + DIR_DELIM +
+				  "cursor.png";
+	video::ITexture *cursor = driver->getTexture(sprite_path.c_str());
+
+	if (cursor) {
+		core::rect<s32> rect(pointer.X - cursor_size, pointer.Y - cursor_size,
+				pointer.X + cursor_size, pointer.Y + cursor_size);
+		video::SColor crosshair_color[] = {crosshair_argb, crosshair_argb,
+				crosshair_argb, crosshair_argb};
+		draw2DImageFilterScaled(driver, cursor, rect,
+				core::rect<s32>({0, 0}, cursor->getOriginalSize()),
+				nullptr, crosshair_color, true);
+	} else {
+		driver->draw2DLine(pointer - v2s32(cursor_size, 0),
+				pointer + v2s32(cursor_size, 0), crosshair_argb);
+		driver->draw2DLine(pointer - v2s32(0, cursor_size),
+				pointer + v2s32(0, cursor_size), crosshair_argb);
+	}
+}
+#endif
 
 /*
 	This should be called when the menu wants to quit.
@@ -101,9 +160,19 @@ void GUIModalMenu::quitMenu()
 	// This removes Environment's grab on us
 	Environment->removeFocus(this);
 	m_menumgr->deletingMenu(this);
+	this->grab();
 	this->remove();
+
+#if IRRLICHT_VERSION_MAJOR == 1 && IRRLICHT_VERSION_MINOR >= 9
+	// Force update hovered elements, so that GUI Environment drops previously
+	// grabbed elements that are not hovered anymore
+	Environment->forceUpdateHoveredElement();
+#endif
+
+	this->drop();
+
 #ifdef HAVE_TOUCHSCREENGUI
-	if (g_touchscreengui && m_touchscreen_visible)
+	if (g_touchscreengui && g_touchscreengui->isActive() && m_touchscreen_visible)
 		g_touchscreengui->show();
 #endif
 }
@@ -186,10 +255,10 @@ static bool isChild(gui::IGUIElement *tocheck, gui::IGUIElement *parent)
 
 #ifdef HAVE_TOUCHSCREENGUI
 
-bool GUIModalMenu::simulateMouseEvent(
-		gui::IGUIElement *target, ETOUCH_INPUT_EVENT touch_event)
+bool GUIModalMenu::convertToMouseEvent(
+		SEvent &mouse_event, ETOUCH_INPUT_EVENT touch_event) const noexcept
 {
-	SEvent mouse_event{}; // value-initialized, not unitialized
+	mouse_event = {};
 	mouse_event.EventType = EET_MOUSE_INPUT_EVENT;
 	mouse_event.MouseInput.X = m_pointer.X;
 	mouse_event.MouseInput.Y = m_pointer.Y;
@@ -209,11 +278,7 @@ bool GUIModalMenu::simulateMouseEvent(
 	default:
 		return false;
 	}
-	if (preprocessEvent(mouse_event))
-		return true;
-	if (!target)
-		return false;
-	return target->OnEvent(mouse_event);
+	return true;
 }
 
 void GUIModalMenu::enter(gui::IGUIElement *hovered)
@@ -246,8 +311,26 @@ void GUIModalMenu::leave()
 
 bool GUIModalMenu::preprocessEvent(const SEvent &event)
 {
-#ifdef __ANDROID__
 	// clang-format off
+#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+	// Enable text input events when edit box is focused
+	if (event.EventType == EET_GUI_EVENT) {
+		if (event.GUIEvent.EventType == irr::gui::EGET_ELEMENT_FOCUSED &&
+			event.GUIEvent.Caller &&
+			event.GUIEvent.Caller->getType() == irr::gui::EGUIET_EDIT_BOX) {
+			if (porting::hasRealKeyboard())
+				SDL_StartTextInput();
+		}
+		else if (event.GUIEvent.EventType == irr::gui::EGET_ELEMENT_FOCUS_LOST &&
+			event.GUIEvent.Caller &&
+			event.GUIEvent.Caller->getType() == irr::gui::EGUIET_EDIT_BOX) {
+			if (porting::hasRealKeyboard() && SDL_IsTextInputActive())
+				SDL_StopTextInput();
+		}
+	}
+#endif
+
+#if defined(__ANDROID__) || defined(__IOS__)
 	// display software keyboard when clicking edit boxes
 	if (event.EventType == EET_MOUSE_INPUT_EVENT &&
 			event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN) {
@@ -261,17 +344,10 @@ bool GUIModalMenu::preprocessEvent(const SEvent &event)
 
 			std::string field_name = getNameByID(hovered->getID());
 			// read-only field
-			if (field_name.empty())
+			if (field_name.empty() || porting::hasRealKeyboard())
 				return retval;
 
 			m_jni_field_name = field_name;
-			/*~ Imperative, as in "Enter/type in text".
-			Don't forget the space. */
-			std::string message = gettext("Enter ");
-			std::string label = wide_to_utf8(getLabelByID(hovered->getID()));
-			if (label.empty())
-				label = "text";
-			message += strgettext(label) + ":";
 
 			// single line text input
 			int type = 2;
@@ -284,7 +360,7 @@ bool GUIModalMenu::preprocessEvent(const SEvent &event)
 			if (((gui::IGUIEditBox *)hovered)->isPasswordBox())
 				type = 3;
 
-			porting::showInputDialog(gettext("OK"), "",
+			porting::showInputDialog(wide_to_utf8(getLabelByID(hovered->getID())),
 				wide_to_utf8(((gui::IGUIEditBox *)hovered)->getText()), type);
 			return retval;
 		}
@@ -301,7 +377,7 @@ bool GUIModalMenu::preprocessEvent(const SEvent &event)
 			if (event.TouchInput.Event == ETIE_PRESSED_DOWN || event.TouchInput.Event == ETIE_MOVED)
 				m_pointer = v2s32(event.TouchInput.X, event.TouchInput.Y);
 			if (event.TouchInput.Event == ETIE_PRESSED_DOWN)
-				m_down_pos = m_pointer;
+				m_old_pointer = m_pointer;
 			gui::IGUIElement *hovered = Environment->getRootGUIElement()->getElementFromPoint(core::position2d<s32>(m_pointer));
 			if (event.TouchInput.Event == ETIE_PRESSED_DOWN)
 				Environment->setFocus(hovered);
@@ -310,11 +386,25 @@ bool GUIModalMenu::preprocessEvent(const SEvent &event)
 				enter(hovered);
 			}
 			gui::IGUIElement *focused = Environment->getFocus();
-			bool ret = simulateMouseEvent(focused, event.TouchInput.Event);
-			if (!ret && m_hovered != focused)
-				ret = simulateMouseEvent(m_hovered.get(), event.TouchInput.Event);
-			if (event.TouchInput.Event == ETIE_LEFT_UP)
+#if defined(__ANDROID__) || defined(__IOS__)
+			if (event.TouchInput.Event == ETIE_PRESSED_LONG) {
+				if (focused->getType() == irr::gui::EGUIET_EDIT_BOX)
+					focused->OnEvent(event);
+				return true;
+			}
+#endif
+			SEvent mouse_event;
+			if (!convertToMouseEvent(mouse_event, event.TouchInput.Event))
+				return false;
+			bool ret = preprocessEvent(mouse_event);
+			if (!ret && focused)
+				ret = focused->OnEvent(mouse_event);
+			if (!ret && m_hovered && m_hovered != focused)
+				ret = m_hovered->OnEvent(mouse_event);
+			if (event.TouchInput.Event == ETIE_LEFT_UP) {
+				m_pointer = v2s32(0, 0);
 				leave();
+			}
 			return ret;
 		}
 		case 2: {
@@ -355,24 +445,3 @@ bool GUIModalMenu::preprocessEvent(const SEvent &event)
 	}
 	return false;
 }
-
-#ifdef __ANDROID__
-bool GUIModalMenu::hasAndroidUIInput()
-{
-	// no dialog shown
-	if (m_jni_field_name.empty())
-		return false;
-
-	// still waiting
-	if (porting::getInputDialogState() == -1)
-		return true;
-
-	// no value abort dialog processing
-	if (porting::getInputDialogState() != 0) {
-		m_jni_field_name.clear();
-		return false;
-	}
-
-	return true;
-}
-#endif

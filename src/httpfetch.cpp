@@ -391,7 +391,7 @@ const HTTPFetchResult * HTTPFetchOngoing::complete(CURLcode res)
 	}
 
 	if (res != CURLE_OK) {
-		errorstream << "HTTPFetch for " << request.url << " failed ("
+		warningstream << "HTTPFetch for " << request.url << " failed ("
 			<< curl_easy_strerror(res) << ")" << std::endl;
 	} else if (result.response_code >= 400) {
 		errorstream << "HTTPFetch for " << request.url

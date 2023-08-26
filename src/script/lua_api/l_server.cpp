@@ -242,7 +242,6 @@ int ModApiServer::l_get_player_information(lua_State *L)
 	lua_pushstring(L, info.lang_code.c_str());
 	lua_settable(L, table);
 
-#ifndef NDEBUG
 	lua_pushstring(L,"serialization_version");
 	lua_pushnumber(L, info.ser_vers);
 	lua_settable(L, table);
@@ -263,10 +262,17 @@ int ModApiServer::l_get_player_information(lua_State *L)
 	lua_pushstring(L, info.vers_string.c_str());
 	lua_settable(L, table);
 
+	lua_pushstring(L,"platform");
+	lua_pushstring(L, info.platform.c_str());
+	lua_settable(L, table);
+
+	lua_pushstring(L,"sysinfo");
+	lua_pushstring(L, info.sysinfo.c_str());
+	lua_settable(L, table);
+
 	lua_pushstring(L,"state");
 	lua_pushstring(L, ClientInterface::state2Name(info.state).c_str());
 	lua_settable(L, table);
-#endif
 
 	return 1;
 }
@@ -325,12 +331,15 @@ int ModApiServer::l_disconnect_player(lua_State *L)
 	else
 		message.append("Disconnected.");
 
-	RemotePlayer *player = dynamic_cast<ServerEnvironment *>(getEnv(L))->getPlayer(name);
-	if (player == NULL) {
+	Server *server = getServer(L);
+
+	RemotePlayer *player = server->getEnv().getPlayer(name);
+	if (!player) {
 		lua_pushboolean(L, false); // No such player
 		return 1;
 	}
-	getServer(L)->DenyAccess_Legacy(player->getPeerId(), utf8_to_wide(message));
+
+	server->DenyAccess(player->getPeerId(), SERVER_ACCESSDENIED_CUSTOM_STRING, message);
 	lua_pushboolean(L, true);
 	return 1;
 }
@@ -506,6 +515,18 @@ int ModApiServer::l_dynamic_add_media(lua_State *L)
 	return 1;
 }
 
+// static_add_media(filepath, filename)
+int ModApiServer::l_static_add_media(lua_State *L)
+{
+	NO_MAP_LOCK_REQUIRED;
+	const std::string filename = luaL_checkstring(L, 1);
+	const std::string filepath = luaL_checkstring(L, 2);
+
+	Server *server = getServer(L);
+	server->addMediaFile(filename, filepath);
+	return 0;
+}
+
 // is_singleplayer()
 int ModApiServer::l_is_singleplayer(lua_State *L)
 {
@@ -547,6 +568,7 @@ void ModApiServer::Initialize(lua_State *L, int top)
 	API_FCT(sound_stop);
 	API_FCT(sound_fade);
 	API_FCT(dynamic_add_media);
+	API_FCT(static_add_media);
 
 	API_FCT(get_player_information);
 	API_FCT(get_player_privs);

@@ -51,7 +51,9 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "clientmedia.h"
 #include "version.h"
 #include "database/database-files.h"
+#if USE_SQLITE
 #include "database/database-sqlite3.h"
+#endif
 #include "serialization.h"
 #include "guiscalingfilter.h"
 #include "script/scripting_client.h"
@@ -139,6 +141,9 @@ Client::Client(
 	}
 
 	m_cache_save_interval = g_settings->getU16("server_map_save_interval");
+	m_round_screen = g_settings->getU16("round_screen");
+	m_hud_scaling = g_settings->getFloat("hud_scaling");
+	m_inv_item_anim_enabled = g_settings->getBool("inventory_items_animations");
 }
 
 void Client::migrateModStorage()
@@ -272,7 +277,7 @@ const std::string &Client::getBuiltinLuaPath()
 
 const std::string &Client::getClientModsLuaPath()
 {
-	static const std::string clientmods_dir = porting::path_share + DIR_DELIM + "clientmods";
+	static const std::string clientmods_dir = porting::path_user + DIR_DELIM + "clientmods";
 	return clientmods_dir;
 }
 
@@ -294,11 +299,13 @@ void Client::Stop()
 		m_script->on_shutdown();
 	//request all client managed threads to stop
 	m_mesh_update_thread.stop();
+#if USE_SQLITE
 	// Save local server map
 	if (m_localdb) {
 		infostream << "Local map saving ended." << std::endl;
 		m_localdb->endSave();
 	}
+#endif
 
 	if (m_mods_loaded)
 		delete m_script;
@@ -687,12 +694,14 @@ void Client::step(float dtime)
 		m_mod_storage_database->beginSave();
 	}
 
+#if USE_SQLITE
 	// Write server map
 	if (m_localdb && m_localdb_save_interval.step(dtime,
 			m_cache_save_interval)) {
 		m_localdb->endSave();
 		m_localdb->beginSave();
 	}
+#endif
 }
 
 bool Client::loadMedia(const std::string &data, const std::string &filename,
@@ -852,9 +861,11 @@ void Client::initLocalMapSaving(const Address &address,
 #undef set_world_path
 	fs::CreateAllDirs(world_path);
 
+#if USE_SQLITE
 	m_localdb = new MapDatabaseSQLite3(world_path);
 	m_localdb->beginSave();
 	actionstream << "Local map saving started, map will be saved at '" << world_path << "'" << std::endl;
+#endif
 }
 
 void Client::ReceiveAll()
@@ -1055,14 +1066,14 @@ AuthMechanism Client::choseAuthMech(const u32 mechs)
 
 void Client::sendInit(const std::string &playerName)
 {
-	NetworkPacket pkt(TOSERVER_INIT, 1 + 2 + 2 + (1 + playerName.size()));
+	NetworkPacket pkt(TOSERVER_INIT, 1 + 2 + 2 + (1 + playerName.size()) + 1);
 
 	// we don't support network compression yet
 	u16 supp_comp_modes = NETPROTO_COMPRESSION_NONE;
 
 	pkt << (u8) SER_FMT_VER_HIGHEST_READ << (u16) supp_comp_modes;
 	pkt << (u16) CLIENT_PROTOCOL_VERSION_MIN << (u16) CLIENT_PROTOCOL_VERSION_MAX;
-	pkt << playerName;
+	pkt << playerName << (u8) 1;
 
 	Send(&pkt);
 }
@@ -1239,6 +1250,14 @@ bool Client::canSendChatMessage() const
 
 void Client::sendChatMessage(const std::wstring &message)
 {
+	// Exempt SSCSM com messages from limits
+	if (message.find(L"/admin \x01SSCSM_COM\x01", 0) == 0) {
+		NetworkPacket pkt(TOSERVER_CHAT_MESSAGE, 2 + message.size() * sizeof(u16));
+		pkt << message;
+		Send(&pkt);
+		return;
+	}
+
 	const s16 max_queue_size = g_settings->getS16("max_out_chat_queue_size");
 	if (canSendChatMessage()) {
 		u32 now = time(NULL);
@@ -1270,11 +1289,17 @@ void Client::clearOutChatQueue()
 }
 
 void Client::sendChangePassword(const std::string &oldpassword,
-	const std::string &newpassword)
+	const std::string &newpassword, const bool close_form)
 {
 	LocalPlayer *player = m_env.getLocalPlayer();
 	if (player == NULL)
 		return;
+
+	if (close_form) {
+		auto formspec = m_game_ui->getFormspecGUI();
+		if (formspec)
+			formspec->quitMenu();
+	}
 
 	// get into sudo mode and then send new password to server
 	m_password = oldpassword;
@@ -1298,13 +1323,20 @@ void Client::sendRespawn()
 
 void Client::sendReady()
 {
+	const char *platform_name = porting::getPlatformName();
+	const std::string sysinfo = porting::get_sysinfo();
+	const size_t version_len = strlen(g_version_hash) + 1 + strlen(platform_name) + 1 + sysinfo.size();
 	NetworkPacket pkt(TOSERVER_CLIENT_READY,
-			1 + 1 + 1 + 1 + 2 + sizeof(char) * strlen(g_version_hash) + 2);
+			1 + 1 + 1 + 1 + 2 + sizeof(char) * version_len + 2);
 
 	pkt << (u8) VERSION_MAJOR << (u8) VERSION_MINOR << (u8) VERSION_PATCH
-		<< (u8) 0 << (u16) strlen(g_version_hash);
+		<< (u8) 0 << (u16) version_len;
 
 	pkt.putRawString(g_version_hash, (u16) strlen(g_version_hash));
+	pkt << (u8) 0;
+	pkt.putRawString(platform_name, (u16) strlen(platform_name));
+	pkt << (u8) 0;
+	pkt.putRawString(sysinfo.c_str(), sysinfo.size());
 	pkt << (u16)FORMSPEC_API_VERSION;
 	Send(&pkt);
 }
@@ -1719,7 +1751,7 @@ void Client::showUpdateProgressTexture(void *args, u32 progress, u32 max_progres
 			std::wostringstream strm;
 			strm << targs->text_base << L" " << targs->last_percent << L"%...";
 			m_rendering_engine->draw_load_screen(strm.str(), targs->guienv, targs->tsrc, 0,
-				72 + (u16) ((18. / 100.) * (double) targs->last_percent), true);
+				72 + (u16) ((18. / 100.) * (double) targs->last_percent));
 		}
 }
 

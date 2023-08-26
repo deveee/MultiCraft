@@ -143,9 +143,10 @@ void Server::handleCommand_Init(NetworkPacket* pkt)
 
 	client->net_proto_version = net_proto_version;
 
+	const u16 server_proto_ver_min = g_settings->getBool("enable_protocol_compat") ? SERVER_PROTOCOL_VERSION_MIN : SERVER_PROTOCOL_VERSION_MIN_NOCOMPAT;
 	if ((g_settings->getBool("strict_protocol_version_checking") &&
 			net_proto_version != LATEST_PROTOCOL_VERSION) ||
-			net_proto_version < SERVER_PROTOCOL_VERSION_MIN ||
+			net_proto_version < server_proto_ver_min ||
 			net_proto_version > SERVER_PROTOCOL_VERSION_MAX) {
 		actionstream << "Server: A mismatched client tried to connect from " <<
 			addr_s << " proto_max=" << (int)max_net_proto_version << std::endl;
@@ -189,8 +190,8 @@ void Server::handleCommand_Init(NetworkPacket* pkt)
 
 	std::string legacyPlayerNameCasing = playerName;
 
-	if (!isSingleplayer() && strcasecmp(playername, "singleplayer") == 0) {
-		actionstream << "Server: Player with the name \"singleplayer\" tried "
+	if (!isSingleplayer() && strcasecmp(playername, "Player") == 0) {
+		actionstream << "Server: Player with the name \"Player\" tried "
 			"to connect from " << addr_s << std::endl;
 		DenyAccess(peer_id, SERVER_ACCESSDENIED_WRONG_NAME);
 		return;
@@ -227,7 +228,7 @@ void Server::handleCommand_Init(NetworkPacket* pkt)
 		Compose auth methods for answer
 	*/
 	std::string encpwd; // encrypted Password field for the user
-	bool has_auth = m_script->getAuth(playername, &encpwd, NULL);
+	bool has_auth = m_script->getAuth(playername, &encpwd, nullptr);
 	u32 auth_mechs = 0;
 
 	client->chosen_mech = AUTH_MECHANISM_NONE;
@@ -335,7 +336,7 @@ void Server::handleCommand_Init2(NetworkPacket* pkt)
 	sendDetachedInventories(peer_id, false);
 
 	// Send player movement settings
-	SendMovement(peer_id);
+	SendMovement(peer_id, protocol_version);
 
 	// Send time of day
 	u16 time = m_env->getTimeOfDay();
@@ -466,7 +467,7 @@ void Server::handleCommand_GotBlocks(NetworkPacket* pkt)
 void Server::process_PlayerPos(RemotePlayer *player, PlayerSAO *playersao,
 	NetworkPacket *pkt)
 {
-	if (pkt->getRemainingBytes() < 12 + 12 + 4 + 4 + 4 + 1 + 1)
+	if (pkt->getRemainingBytes() < 12 + 12 + 4 + 4)
 		return;
 
 	v3s32 ps, ss;
@@ -485,10 +486,14 @@ void Server::process_PlayerPos(RemotePlayer *player, PlayerSAO *playersao,
 	f32 fov = 0;
 	u8 wanted_range = 0;
 
-	*pkt >> keyPressed;
-	*pkt >> f32fov;
-	fov = (f32)f32fov / 80.0f;
-	*pkt >> wanted_range;
+	if (pkt->getRemainingBytes() >= 4)
+		*pkt >> keyPressed;
+	if (pkt->getRemainingBytes() >= 1) {
+		*pkt >> f32fov;
+		fov = (f32)f32fov / 80.0f;
+		if (pkt->getRemainingBytes() >= 1)
+			*pkt >> wanted_range;
+	}
 
 	v3f position((f32)ps.X / 100.0f, (f32)ps.Y / 100.0f, (f32)ps.Z / 100.0f);
 	v3f speed((f32)ss.X / 100.0f, (f32)ss.Y / 100.0f, (f32)ss.Z / 100.0f);
@@ -782,9 +787,6 @@ void Server::handleCommand_ChatMessage(NetworkPacket* pkt)
 
 void Server::handleCommand_Damage(NetworkPacket* pkt)
 {
-	u16 damage;
-
-	*pkt >> damage;
 
 	session_t peer_id = pkt->getPeerId();
 	RemotePlayer *player = m_env->getPlayer(peer_id);
@@ -795,6 +797,17 @@ void Server::handleCommand_Damage(NetworkPacket* pkt)
 			peer_id << " disconnecting peer!" << std::endl;
 		DisconnectPeer(peer_id);
 		return;
+	}
+
+	u16 damage;
+
+	// Minetest 0.4 uses 8-bit integers for damage.
+	if (player->protocol_version >= 37) {
+		*pkt >> damage;
+	} else {
+		u8 raw_damage;
+		*pkt >> raw_damage;
+		damage = raw_damage;
 	}
 
 	PlayerSAO *playersao = player->getPlayerSAO();
@@ -851,15 +864,6 @@ void Server::handleCommand_PlayerItem(NetworkPacket* pkt)
 	u16 item;
 
 	*pkt >> item;
-
-	if (item >= player->getHotbarItemcount()) {
-		actionstream << "Player: " << player->getName()
-			<< " tried to access item=" << item
-			<< " out of hotbar_itemcount="
-			<< player->getHotbarItemcount()
-			<< "; ignoring." << std::endl;
-		return;
-	}
 
 	playersao->getPlayer()->setWieldIndex(item);
 }
@@ -983,16 +987,6 @@ void Server::handleCommand_Interact(NetworkPacket *pkt)
 	v3f player_pos = playersao->getLastGoodPosition();
 
 	// Update wielded item
-
-	if (item_i >= player->getHotbarItemcount()) {
-		actionstream << "Player: " << player->getName()
-			<< " tried to access item=" << item_i
-			<< " out of hotbar_itemcount="
-			<< player->getHotbarItemcount()
-			<< "; ignoring." << std::endl;
-		return;
-	}
-
 	playersao->getPlayer()->setWieldIndex(item_i);
 
 	// Get pointed to object (NULL if not POINTEDTYPE_OBJECT)
@@ -1348,21 +1342,26 @@ void Server::handleCommand_RemovedSounds(NetworkPacket* pkt)
 	}
 }
 
-void Server::handleCommand_NodeMetaFields(NetworkPacket* pkt)
+static bool pkt_read_formspec_fields(NetworkPacket *pkt, StringMap &fields)
 {
-	v3s16 p;
-	std::string formname;
-	u16 num;
+	u16 field_count;
+	*pkt >> field_count;
 
-	*pkt >> p >> formname >> num;
-
-	StringMap fields;
-	for (u16 k = 0; k < num; k++) {
+	u64 length = 0;
+	for (u16 k = 0; k < field_count; k++) {
 		std::string fieldname;
 		*pkt >> fieldname;
 		fields[fieldname] = pkt->readLongString();
-	}
 
+		length += fieldname.size();
+		length += fields[fieldname].size();
+	}
+	// 640K ought to be enough for anyone
+	return length < 640 * 1024;
+}
+
+void Server::handleCommand_NodeMetaFields(NetworkPacket* pkt)
+{
 	session_t peer_id = pkt->getPeerId();
 	RemotePlayer *player = m_env->getPlayer(peer_id);
 
@@ -1383,15 +1382,30 @@ void Server::handleCommand_NodeMetaFields(NetworkPacket* pkt)
 		return;
 	}
 
+	v3s16 p;
+	std::string formname;
+	StringMap fields;
+
+	*pkt >> p >> formname;
+
+	if (!pkt_read_formspec_fields(pkt, fields)) {
+		warningstream << "Too large formspec fields! Ignoring for pos="
+			<< PP(p) << ", player=" << player->getName() << std::endl;
+		return;
+	}
+
+#if USE_SQLITE
 	// If something goes wrong, this player is to blame
 	RollbackScopeActor rollback_scope(m_rollback,
 			std::string("player:")+player->getName());
 
 	// Check the target node for rollback data; leave others unnoticed
 	RollbackNode rn_old(&m_env->getMap(), p, this);
+#endif
 
 	m_script->node_on_receive_fields(p, formname, fields, playersao);
 
+#if USE_SQLITE
 	// Report rollback data
 	RollbackNode rn_new(&m_env->getMap(), p, this);
 	if (rollback() && rn_new != rn_old) {
@@ -1399,22 +1413,11 @@ void Server::handleCommand_NodeMetaFields(NetworkPacket* pkt)
 		action.setSetNode(p, rn_old, rn_new);
 		rollback()->reportAction(action);
 	}
+#endif
 }
 
 void Server::handleCommand_InventoryFields(NetworkPacket* pkt)
 {
-	std::string client_formspec_name;
-	u16 num;
-
-	*pkt >> client_formspec_name >> num;
-
-	StringMap fields;
-	for (u16 k = 0; k < num; k++) {
-		std::string fieldname;
-		*pkt >> fieldname;
-		fields[fieldname] = pkt->readLongString();
-	}
-
 	session_t peer_id = pkt->getPeerId();
 	RemotePlayer *player = m_env->getPlayer(peer_id);
 
@@ -1432,6 +1435,17 @@ void Server::handleCommand_InventoryFields(NetworkPacket* pkt)
 			"Server::ProcessData(): Canceling: No player object for peer_id=" <<
 			peer_id << " disconnecting peer!" << std::endl;
 		DisconnectPeer(peer_id);
+		return;
+	}
+
+	std::string client_formspec_name;
+	StringMap fields;
+
+	*pkt >> client_formspec_name;
+
+	if (!pkt_read_formspec_fields(pkt, fields)) {
+		warningstream << "Too large formspec fields! Ignoring for formname=\""
+			<< client_formspec_name << "\", player=" << player->getName() << std::endl;
 		return;
 	}
 
@@ -1470,11 +1484,9 @@ void Server::handleCommand_FirstSrp(NetworkPacket* pkt)
 	session_t peer_id = pkt->getPeerId();
 	RemoteClient *client = getClient(peer_id, CS_Invalid);
 	ClientState cstate = client->getState();
+	const std::string playername = client->getName();
 
-	std::string playername = client->getName();
-
-	std::string salt;
-	std::string verification_key;
+	std::string salt, verification_key;
 
 	std::string addr_s = getPeerAddress(peer_id).serializeString();
 	u8 is_empty;
@@ -1483,6 +1495,9 @@ void Server::handleCommand_FirstSrp(NetworkPacket* pkt)
 
 	verbosestream << "Server: Got TOSERVER_FIRST_SRP from " << addr_s
 		<< ", with is_empty=" << (is_empty == 1) << std::endl;
+
+	const bool empty_disallowed = !isSingleplayer() && is_empty == 1 &&
+		g_settings->getBool("disallow_empty_password");
 
 	// Either this packet is sent because the user is new or to change the password
 	if (cstate == CS_HelloSent) {
@@ -1494,9 +1509,7 @@ void Server::handleCommand_FirstSrp(NetworkPacket* pkt)
 			return;
 		}
 
-		if (!isSingleplayer() &&
-				g_settings->getBool("disallow_empty_password") &&
-				is_empty == 1) {
+		if (empty_disallowed) {
 			actionstream << "Server: " << playername
 					<< " supplied empty password from " << addr_s << std::endl;
 			DenyAccess(peer_id, SERVER_ACCESSDENIED_EMPTY_PASSWORD);
@@ -1504,8 +1517,19 @@ void Server::handleCommand_FirstSrp(NetworkPacket* pkt)
 		}
 
 		std::string initial_ver_key;
-
 		initial_ver_key = encode_srp_verifier(verification_key, salt);
+
+		// It is possible for multiple connections to get this far with the same
+		// player name. In the end only one player with a given name will be emerged
+		// (see Server::StateTwoClientInit) but we still have to be careful here.
+		if (m_script->getAuth(playername, nullptr, nullptr)) {
+			// Another client beat us to it
+			actionstream << "Server: Client from " << addr_s
+				<< " tried to register " << playername << " a second time."
+				<< std::endl;
+			DenyAccess(peer_id, SERVER_ACCESSDENIED_ALREADY_CONNECTED);
+			return;
+		}
 		m_script->createAuth(playername, initial_ver_key);
 		m_script->on_authplayer(playername, addr_s, true);
 
@@ -1518,6 +1542,15 @@ void Server::handleCommand_FirstSrp(NetworkPacket* pkt)
 			return;
 		}
 		m_clients.event(peer_id, CSE_SudoLeave);
+
+		if (empty_disallowed) {
+			actionstream << "Server: " << playername
+					<< " supplied empty password" << std::endl;
+			SendChatMessage(peer_id, ChatMessage(CHATMESSAGE_TYPE_SYSTEM,
+				L"Changing to an empty password is not allowed."));
+			return;
+		}
+
 		std::string pw_db_field = encode_srp_verifier(verification_key, salt);
 		bool success = m_script->setPassword(playername, pw_db_field);
 		if (success) {
@@ -1539,14 +1572,14 @@ void Server::handleCommand_SrpBytesA(NetworkPacket* pkt)
 	RemoteClient *client = getClient(peer_id, CS_Invalid);
 	ClientState cstate = client->getState();
 
-	bool wantSudo = (cstate == CS_Active);
-
 	if (!((cstate == CS_HelloSent) || (cstate == CS_Active))) {
 		actionstream << "Server: got SRP _A packet in wrong state " << cstate <<
 			" from " << getPeerAddress(peer_id).serializeString() <<
 			". Ignoring." << std::endl;
 		return;
 	}
+
+	const bool wantSudo = (cstate == CS_Active);
 
 	if (client->chosen_mech != AUTH_MECHANISM_NONE) {
 		actionstream << "Server: got SRP _A packet, while auth is already "
@@ -1594,8 +1627,7 @@ void Server::handleCommand_SrpBytesA(NetworkPacket* pkt)
 
 	client->chosen_mech = chosen;
 
-	std::string salt;
-	std::string verifier;
+	std::string salt, verifier;
 
 	if (based_on == 0) {
 
@@ -1627,6 +1659,7 @@ void Server::handleCommand_SrpBytesA(NetworkPacket* pkt)
 			<< std::endl;
 		if (wantSudo) {
 			DenySudoAccess(peer_id);
+			client->resetChosenMech();
 			return;
 		}
 
@@ -1644,10 +1677,10 @@ void Server::handleCommand_SrpBytesM(NetworkPacket* pkt)
 	session_t peer_id = pkt->getPeerId();
 	RemoteClient *client = getClient(peer_id, CS_Invalid);
 	ClientState cstate = client->getState();
-	std::string addr_s = getPeerAddress(pkt->getPeerId()).serializeString();
-	std::string playername = client->getName();
+	const std::string addr_s = client->getAddress().serializeString();
+	const std::string playername = client->getName();
 
-	bool wantSudo = (cstate == CS_Active);
+	const bool wantSudo = (cstate == CS_Active);
 
 	verbosestream << "Server: Received TOSERVER_SRP_BYTES_M." << std::endl;
 
@@ -1693,6 +1726,7 @@ void Server::handleCommand_SrpBytesM(NetworkPacket* pkt)
 				<< " tried to change their password, but supplied wrong"
 				<< " (SRP) password for authentication." << std::endl;
 			DenySudoAccess(peer_id);
+			client->resetChosenMech();
 			return;
 		}
 
@@ -1706,8 +1740,7 @@ void Server::handleCommand_SrpBytesM(NetworkPacket* pkt)
 	if (client->create_player_on_auth_success) {
 		m_script->createAuth(playername, client->enc_pwd);
 
-		std::string checkpwd; // not used, but needed for passing something
-		if (!m_script->getAuth(playername, &checkpwd, NULL)) {
+		if (!m_script->getAuth(playername, nullptr, nullptr)) {
 			errorstream << "Server: " << playername <<
 				" cannot be authenticated (auth handler does not work?)" <<
 				std::endl;

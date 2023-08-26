@@ -239,13 +239,6 @@ video::SColor StaticText::getOverrideColor() const
 	return ColoredText.getDefaultColor();
 }
 
-#if IRRLICHT_VERSION_MAJOR == 1 && IRRLICHT_VERSION_MINOR > 8
-video::SColor StaticText::getActiveColor() const
-{
-	return getOverrideColor();
-}
-#endif
-
 //! Sets if the static text should use the overide color or the
 //! color in the gui skin.
 void StaticText::enableOverrideColor(bool enable)
@@ -253,6 +246,10 @@ void StaticText::enableOverrideColor(bool enable)
 	// TODO
 }
 
+video::SColor StaticText::getActiveColor() const
+{
+	return ColoredText.getDefaultColor();
+}
 
 bool StaticText::isOverrideColorEnabled() const
 {

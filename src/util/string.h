@@ -761,3 +761,10 @@ std::string sanitizeDirName(const std::string &str, const std::string &optional_
  * brackets (e.g. "a\x1eb" -> "a<1e>b").
  */
 void safe_print_string(std::ostream &os, const std::string &str);
+
+/**
+* @param formspec The version 1 formspec string
+ * @param prepend The formspec prepend
+ * @return A copy of \p formspec with \p prepend added if possible.
+ */
+std::string insert_formspec_prepend(const std::string &formspec, const std::string &prepend);

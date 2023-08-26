@@ -19,6 +19,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #include "client/tile.h" // ITextureSource
 #include "client/fontengine.h"
+#include "client/renderingengine.h"
 #include "debug.h"
 #include "irrlichttypes_extrabloated.h"
 #include "util/string.h"
@@ -45,6 +46,7 @@ public:
 		BGIMG_PRESSED, // Note: Deprecated property
 		FGIMG,
 		FGIMG_HOVERED, // Note: Deprecated property
+		FGIMG_MIDDLE,
 		FGIMG_PRESSED, // Note: Deprecated property
 		ALPHA,
 		CONTENT_OFFSET,
@@ -57,6 +59,12 @@ public:
 		SOUND,
 		SPACING,
 		SIZE,
+		SCROLLBAR_BGIMG,
+		SCROLLBAR_THUMB_IMG,
+		SCROLLBAR_UP_IMG,
+		SCROLLBAR_DOWN_IMG,
+		SCROLLBAR_THUMB_TOP_IMG,
+		SCROLLBAR_THUMB_BOTTOM_IMG,
 		NUM_PROPERTIES,
 		NONE
 	};
@@ -68,6 +76,32 @@ public:
 		NUM_STATES = 1 << 2,
 		STATE_INVALID = 1 << 3,
 	};
+
+	// Used in guiConfirmRegistration.cpp, guiKeyChangeMenu.cpp and guiVolumeChange.h
+	static std::array<StyleSpec, NUM_STATES> getButtonStyle(const std::string texture_path = "", std::string color = "") {
+		std::array<StyleSpec, NUM_STATES> ret;
+		color = color != "" ? "_" + color : "";
+
+		const bool high_dpi = RenderingEngine::isHighDpi();
+		const std::string x2 = high_dpi ? ".x2" : "";
+		StyleSpec btn_spec;
+		btn_spec.set(BGIMG, texture_path + "gui/gui_button" + color + x2 + ".png");
+		btn_spec.set(BGIMG_MIDDLE, high_dpi ? "48" : "32");
+		btn_spec.set(BORDER, "false");
+		btn_spec.set(PADDING, high_dpi ? "-30" : "-20");
+
+		ret[STATE_DEFAULT] = btn_spec;
+
+		StyleSpec hovered_spec;
+		hovered_spec.set(BGIMG, texture_path + "gui/gui_button" + color + "_hovered" + x2 + ".png");
+		ret[STATE_HOVERED] = hovered_spec;
+
+		StyleSpec pressed_spec;
+		pressed_spec.set(BGIMG, texture_path + "gui/gui_button" + color + "_pressed" + x2 + ".png");
+		ret[STATE_PRESSED] = pressed_spec;
+
+		return ret;
+	}
 
 private:
 	std::array<bool, NUM_PROPERTIES> property_set{};
@@ -101,6 +135,8 @@ public:
 			return FGIMG;
 		} else if (name == "fgimg_hovered") {
 			return FGIMG_HOVERED;
+		} else if (name == "fgimg_middle") {
+			return FGIMG_MIDDLE;
 		} else if (name == "fgimg_pressed") {
 			return FGIMG_PRESSED;
 		} else if (name == "alpha") {
@@ -125,6 +161,18 @@ public:
 			return SPACING;
 		} else if (name == "size") {
 			return SIZE;
+		} else if (name == "scrollbar_bgimg") {
+			return SCROLLBAR_BGIMG;
+		} else if (name == "scrollbar_thumb_img") {
+			return SCROLLBAR_THUMB_IMG;
+		} else if (name == "scrollbar_up_img") {
+			return SCROLLBAR_UP_IMG;
+		} else if (name == "scrollbar_down_img") {
+			return SCROLLBAR_DOWN_IMG;
+		} else if (name == "scrollbar_thumb_top_img") {
+			return SCROLLBAR_THUMB_TOP_IMG;
+		} else if (name == "scrollbar_thumb_bottom_img") {
+			return SCROLLBAR_THUMB_BOTTOM_IMG;
 		} else {
 			return NONE;
 		}
@@ -176,9 +224,14 @@ public:
 	{
 		StyleSpec temp = styles[StyleSpec::STATE_DEFAULT];
 		temp.state_map = state;
+#ifdef HAVE_TOUCHSCREENGUI
+		// always render pressed as hovered on touchscreen
+		if (state & STATE_PRESSED)
+			state = State(state | STATE_HOVERED);
+#endif
 		for (int i = StyleSpec::STATE_DEFAULT + 1; i <= state; i++) {
 			if ((state & i) != 0) {
-				temp = temp | styles[i];
+				temp |= styles[i];
 			}
 		}
 

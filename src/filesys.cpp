@@ -316,11 +316,12 @@ bool IsDirDelimiter(char c)
 
 bool RecursiveDelete(const std::string &path)
 {
+	infostream<<"Removing \""<<path<<"\""<<std::endl;
+
+#if 0
 	/*
 		Execute the 'rm' command directly, by fork() and execve()
 	*/
-
-	infostream<<"Removing \""<<path<<"\""<<std::endl;
 
 	pid_t child_pid = fork();
 
@@ -356,6 +357,28 @@ bool RecursiveDelete(const std::string &path)
 		}while(tpid != child_pid);
 		return (child_status == 0);
 	}
+#else
+	/*
+		Executing fork() and execve() is unsafe and unavailable on some platforms
+	*/
+
+	bool success = true;
+	std::vector<std::string> paths;
+	paths.push_back(path);
+	fs::GetRecursiveSubPaths(path, paths, true, {});
+
+	// Go backwards to successfully delete the output of GetRecursiveSubPaths
+	for (int i = paths.size() - 1; i >= 0; i--) {
+		const std::string &p = paths[i];
+		bool did = DeleteSingleFileOrEmptyDirectory(p);
+		if (!did) {
+			errorstream << "Failed to delete " << p << std::endl;
+			success = false;
+		}
+	}
+
+	return success;
+#endif
 }
 
 bool DeleteSingleFileOrEmptyDirectory(const std::string &path)
@@ -387,7 +410,7 @@ std::string TempPath()
 		configuration hardcodes mkstemp("/tmp/lua_XXXXXX").
 	*/
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__APPLE__)
 	return porting::path_cache;
 #else
 	return DIR_DELIM "tmp";
@@ -796,7 +819,8 @@ bool safeWriteToFile(const std::string &path, const std::string &content)
 }
 
 #ifndef SERVER
-bool extractZipFile(io::IFileSystem *fs, const char *filename, const std::string &destination)
+bool extractZipFile(io::IFileSystem *fs, const char *filename,
+		const std::string &destination, const char *password, std::string *errorMessage)
 {
 	// Be careful here not to touch the global file hierarchy in Irrlicht
 	// since this function needs to be thread-safe!
@@ -814,6 +838,13 @@ bool extractZipFile(io::IFileSystem *fs, const char *filename, const std::string
 	}
 
 	irr_ptr<io::IFileArchive> opened_zip(zip_loader->createArchive(filename, false, false));
+	if (opened_zip.get() == nullptr) {
+		if (errorMessage != nullptr)
+			*errorMessage = "failed to open zip file";
+		return false;
+	}
+
+	opened_zip->Password = core::stringc(password);
 	const io::IFileList* files_in_zip = opened_zip->getFileList();
 
 	for (u32 i = 0; i < files_in_zip->getFileCount(); i++) {
@@ -828,6 +859,14 @@ bool extractZipFile(io::IFileSystem *fs, const char *filename, const std::string
 			return false;
 
 		irr_ptr<io::IReadFile> toread(opened_zip->createAndOpenFile(i));
+
+		if (toread.get() == nullptr) {
+			// Wrong password
+			fs->removeFileArchive(fs->getFileArchiveCount()-1);
+			if (errorMessage != nullptr)
+				*errorMessage = "invalid password";
+			return false;
+		}
 
 		std::ofstream os(fullpath.c_str(), std::ios::binary);
 		if (!os.good())

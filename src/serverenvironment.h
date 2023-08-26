@@ -25,6 +25,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "settings.h"
 #include "server/activeobjectmgr.h"
 #include "util/numeric.h"
+#include <algorithm>
 #include <set>
 #include <random>
 
@@ -373,13 +374,31 @@ public:
 	AuthDatabase *getAuthDatabase() { return m_auth_database; }
 	static bool migrateAuthDatabase(const GameParams &game_params,
 			const Settings &cmd_args);
-private:
+
+	const bool isCompatPlayerModel(const std::string &model_name);
+	inline bool getCompatSendOriginalModel() { return m_compat_send_original_model; }
 
 	/**
 	 * called if env_meta.txt doesn't exist (e.g. new world)
 	 */
 	void loadDefaultMeta();
 
+	bool getWorldSpawnpoint(v3f &spawnpoint) {
+		if (m_has_world_spawnpoint)
+			spawnpoint = m_world_spawnpoint;
+		return m_has_world_spawnpoint;
+	}
+
+	void setWorldSpawnpoint(const v3f &spawnpoint) {
+		m_world_spawnpoint = spawnpoint;
+		m_has_world_spawnpoint = true;
+	}
+
+	void resetWorldSpawnpoint() {
+		m_has_world_spawnpoint = false;
+	}
+
+private:
 	static PlayerDatabase *openPlayerDatabase(const std::string &name,
 			const std::string &savedir, const Settings &conf);
 	static AuthDatabase *openAuthDatabase(const std::string &name,
@@ -486,6 +505,12 @@ private:
 	IntervalLimiter m_particle_management_interval;
 	std::unordered_map<u32, float> m_particle_spawners;
 	std::unordered_map<u32, u16> m_particle_spawner_attachments;
+
+	std::vector<std::string> m_compat_player_models;
+	bool m_compat_send_original_model;
+
+	v3f m_world_spawnpoint = v3f(0.f, 0.f, 0.f);
+	bool m_has_world_spawnpoint = false;
 
 	ServerActiveObject* createSAO(ActiveObjectType type, v3f pos, const std::string &data);
 };

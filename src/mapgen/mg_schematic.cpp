@@ -121,7 +121,7 @@ void Schematic::resolveNodeNames()
 }
 
 
-void Schematic::blitToVManip(MMVManip *vm, v3s16 p, Rotation rot, bool force_place)
+void Schematic::blitToVManip(MMVManip *vm, v3s16 p, Rotation rot, bool force_place, ServerMap *map)
 {
 	assert(schemdata && slice_probs);
 	sanity_check(m_ndef != NULL);
@@ -197,6 +197,10 @@ void Schematic::blitToVManip(MMVManip *vm, v3s16 p, Rotation rot, bool force_pla
 
 				if (rot)
 					vm->m_data[vi].rotateAlongYAxis(m_ndef, rot);
+
+				// Wipe metadata if a map object was specified
+				if (map != nullptr && (force_place || force_place_node))
+					map->removeNodeMetadata(pos);
 			}
 		}
 		y_map++;
@@ -265,7 +269,7 @@ void Schematic::placeOnMap(ServerMap *map, v3s16 p, u32 flags,
 	MMVManip vm(map);
 	vm.initialEmerge(bp1, bp2);
 
-	blitToVManip(&vm, p, rot, force_place);
+	blitToVManip(&vm, p, rot, force_place, map);
 
 	voxalgo::blit_back_with_light(map, &vm, &modified_blocks);
 
@@ -484,20 +488,14 @@ bool Schematic::serializeToLua(std::ostream *os, bool use_comments,
 }
 
 
-bool Schematic::loadSchematicFromFile(const std::string &filename,
-	const NodeDefManager *ndef, StringMap *replace_names)
+bool Schematic::loadSchematicFromStream(std::istream *is,
+	const std::string &filename, const NodeDefManager *ndef,
+	StringMap *replace_names)
 {
-	std::ifstream is(filename.c_str(), std::ios_base::binary);
-	if (!is.good()) {
-		errorstream << __FUNCTION__ << ": unable to open file '"
-			<< filename << "'" << std::endl;
-		return false;
-	}
-
 	if (!m_ndef)
 		m_ndef = ndef;
 
-	if (!deserializeFromMts(&is))
+	if (!deserializeFromMts(is))
 		return false;
 
 	name = filename;
@@ -514,6 +512,19 @@ bool Schematic::loadSchematicFromFile(const std::string &filename,
 		m_ndef->pendNodeResolve(this);
 
 	return true;
+}
+
+
+bool Schematic::loadSchematicFromFile(const std::string &filename,
+	const NodeDefManager *ndef, StringMap *replace_names)
+{
+	std::ifstream is(filename.c_str(), std::ios_base::binary);
+	if (!is.good()) {
+		errorstream << __FUNCTION__ << ": unable to open file '"
+		<< filename << "'" << std::endl;
+		return false;
+	}
+	return loadSchematicFromStream(&is, filename, ndef, replace_names);
 }
 
 

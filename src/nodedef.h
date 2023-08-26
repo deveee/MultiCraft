@@ -432,6 +432,7 @@ struct ContentFeatures
 	void reset();
 	void serialize(std::ostream &os, u16 protocol_version) const;
 	void deSerialize(std::istream &is);
+	void serializeOld(std::ostream &os, u16 protocol_version) const;
 
 	/*
 		Some handy methods
@@ -476,6 +477,12 @@ struct ContentFeatures
 	bool sameLiquid(const ContentFeatures &f) const{
 		if(!isLiquid() || !f.isLiquid()) return false;
 		return (liquid_alternative_flowing_id == f.liquid_alternative_flowing_id);
+	}
+
+	bool lightingEquivalent(const ContentFeatures &other) const {
+		return light_propagates == other.light_propagates
+				&& sunlight_propagates == other.sunlight_propagates
+				&& light_source == other.light_source;
 	}
 
 	int getGroup(const std::string &group) const

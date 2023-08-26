@@ -56,6 +56,7 @@ public:
 	static const VideoDriverInfo &getVideoDriverInfo(irr::video::E_DRIVER_TYPE type);
 	static float getDisplayDensity();
 	static v2u32 getDisplaySize();
+	static bool isHighDpi();
 
 	bool setupTopLevelWindow(const std::string &name);
 	void setupTopLevelXorgWindow(const std::string &name);
@@ -106,9 +107,11 @@ public:
 
 	void draw_load_screen(const std::wstring &text,
 			gui::IGUIEnvironment *guienv, ITextureSource *tsrc,
-			float dtime = 0, int percent = 0, bool clouds = true);
+			float dtime = 0, int percent = 0, bool clouds = false);
 
-	void draw_menu_scene(gui::IGUIEnvironment *guienv, float dtime, bool clouds);
+ 	void draw_menu_scene(
+			gui::IGUIEnvironment *guienv, ITextureSource *tsrc,
+			float dtime, bool clouds = false);
 	void draw_scene(video::SColor skycolor, bool show_hud,
 			bool show_minimap, bool draw_wield_tool, bool draw_crosshair);
 

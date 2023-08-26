@@ -32,7 +32,9 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <iomanip>
 #include <unordered_map>
 
-#ifndef _WIN32
+#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+	#include <SDL.h>
+#elif !defined(_WIN32)
 	#include <iconv.h>
 #else
 	#define _WIN32_WINNT 0x0501
@@ -49,7 +51,56 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 	#define BSD_ICONV_USED
 #endif
 
-#ifndef _WIN32
+#if defined(__ANDROID__) || defined(__APPLE__)
+// On Android iconv disagrees how big a wchar_t is for whatever reason
+const char *DEFAULT_ENCODING = "UTF-32LE";
+#else
+const char *DEFAULT_ENCODING = "WCHAR_T";
+#endif
+
+#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+
+std::wstring utf8_to_wide(const std::string &input)
+{
+#if defined(__ANDROID__) || defined(__APPLE__)
+	SANITY_CHECK(sizeof(wchar_t) == 4);
+#endif
+
+	const char *inbuf = input.c_str();
+	size_t inbuf_size = input.size() + 1;
+
+	char *outbuf = SDL_iconv_string(DEFAULT_ENCODING, "UTF-8", inbuf, inbuf_size);
+
+	if (!outbuf)
+		return L"";
+
+	std::wstring out((wchar_t*)outbuf);
+	SDL_free(outbuf);
+
+	return out;
+}
+
+std::string wide_to_utf8(const std::wstring &input)
+{
+#if defined(__ANDROID__) || defined(__APPLE__)
+	SANITY_CHECK(sizeof(wchar_t) == 4);
+#endif
+
+	const char *inbuf = (const char*)(input.c_str());
+	size_t inbuf_size = (input.size() + 1) * sizeof(wchar_t);
+
+	char *outbuf = SDL_iconv_string("UTF-8", DEFAULT_ENCODING, inbuf, inbuf_size);
+
+	if (!outbuf)
+		return "";
+
+	std::string out(outbuf);
+	SDL_free(outbuf);
+
+	return out;
+}
+
+#elif !defined(_WIN32)
 
 static bool convert(const char *to, const char *from, char *outbuf,
 		size_t *outbuf_size, char *inbuf, size_t inbuf_size)
@@ -80,21 +131,6 @@ static bool convert(const char *to, const char *from, char *outbuf,
 	*outbuf_size = old_outbuf_size - *outbuf_size;
 	return true;
 }
-
-#ifdef __ANDROID__
-// On Android iconv disagrees how big a wchar_t is for whatever reason
-const char *DEFAULT_ENCODING = "UTF-32LE";
-#elif defined(__NetBSD__)
-	// NetBSD does not allow "WCHAR_T" as a charset input to iconv.
-	#include <sys/endian.h>
-	#if BYTE_ORDER == BIG_ENDIAN
-	const char *DEFAULT_ENCODING = "UTF-32BE";
-	#else
-	const char *DEFAULT_ENCODING = "UTF-32LE";
-	#endif
-#else
-const char *DEFAULT_ENCODING = "WCHAR_T";
-#endif
 
 std::wstring utf8_to_wide(const std::string &input)
 {
@@ -902,4 +938,37 @@ void safe_print_string(std::ostream &os, const std::string &str)
 		}
 	}
 	os.setf(flags);
+}
+
+std::string insert_formspec_prepend(const std::string &formspec, const std::string &prepend) {
+	size_t pos = 0;
+	size_t pos2;
+	while ((pos2 = formspec.find('[', pos)) != std::string::npos) {
+		const std::string element_type = trim(formspec.substr(pos, pos2 - pos));
+
+		// If a no_prepend[] is found then don't insert the prepend
+		if (element_type == "no_prepend")
+			return formspec;
+
+		// Insert the prepend before this element if it isn't size, position,
+		// or anchor.
+		if (element_type != "size" && element_type != "position" &&
+				element_type != "anchor") {
+			break;
+		}
+
+		// Search for the closing ] and continue iterating
+		// Valid size, position, and anchor elements only have numbers so
+		// escaping doesn't have to be accounted for here.
+		pos = formspec.find(']', pos2);
+		if (pos == std::string::npos)
+			return formspec;
+		pos++;
+	}
+
+	// Make a copy of the const string and insert the formspec prepend in the
+	// correct location.
+	std::string prepended_fs = formspec;
+	prepended_fs.insert(pos, prepend);
+	return prepended_fs;
 }

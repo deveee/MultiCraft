@@ -19,6 +19,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #pragma once
 
+#include "StyleSpec.h"
 #include <vector>
 #include <list>
 #include <unordered_map>
@@ -202,7 +203,7 @@ public:
 	GUIHyperText(const wchar_t *text, gui::IGUIEnvironment *environment,
 			gui::IGUIElement *parent, s32 id,
 			const core::rect<s32> &rectangle, Client *client,
-			ISimpleTextureSource *tsrc);
+			ISimpleTextureSource *tsrc, const StyleSpec &style);
 
 	//! destructor
 	virtual ~GUIHyperText();

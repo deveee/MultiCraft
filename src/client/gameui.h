@@ -63,7 +63,7 @@ public:
 		bool show_profiler_graph = false;
 	};
 
-	void init();
+	void init(Client *client);
 	void update(const RunStats &stats, Client *client, MapDrawControl *draw_control,
 			const CameraOrientation &cam, const PointedThing &pointed_old,
 			const GUIChatConsole *chat_console, float dtime);
@@ -124,6 +124,9 @@ private:
 	video::SColor m_statustext_initial_color;
 
 	gui::IGUIStaticText *m_guitext_chat = nullptr; // Chat text
+	EnrichedString m_chat_text;
+	bool m_chat_text_needs_update = false;
+	int m_space_count = 0;
 	u32 m_recent_chat_count = 0;
 	core::rect<s32> m_current_chat_size{0, 0, 0, 0};
 

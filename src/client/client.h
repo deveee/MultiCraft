@@ -242,7 +242,7 @@ public:
 	void sendChatMessage(const std::wstring &message);
 	void clearOutChatQueue();
 	void sendChangePassword(const std::string &oldpassword,
-		const std::string &newpassword);
+		const std::string &newpassword, const bool close_form = false);
 	void sendDamage(u16 damage);
 	void sendRespawn();
 	void sendReady();
@@ -439,6 +439,10 @@ public:
 	{
 		return m_env.getLocalPlayer()->formspec_prepend;
 	}
+
+	const u16 getRoundScreen() { return m_round_screen; }
+	const f32 getHudScaling() { return m_hud_scaling; }
+	const bool getInvItemAnimEnabled() { return m_inv_item_anim_enabled; }
 private:
 	void loadMods();
 
@@ -605,4 +609,8 @@ private:
 	u32 m_csm_restriction_noderange = 8;
 
 	std::unique_ptr<ModChannelMgr> m_modchannel_mgr;
+
+	u16 m_round_screen;
+	f32 m_hud_scaling;
+	bool m_inv_item_anim_enabled;
 };

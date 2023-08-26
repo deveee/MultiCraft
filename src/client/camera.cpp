@@ -595,12 +595,11 @@ void Camera::updateViewingRange()
 	m_cameranode->setNearValue(0.1f * BS);
 #endif
 
-	m_draw_control.wanted_range = std::fmin(adjustDist(viewing_range, getFovMax()), 4000);
-	if (m_draw_control.range_all) {
-		m_cameranode->setFarValue(100000.0);
-		return;
-	}
-	m_cameranode->setFarValue((viewing_range < 2000) ? 2000 * BS : viewing_range * BS);
+	if (m_draw_control.extended_range)
+		viewing_range *= 3;
+	viewing_range = std::fmin(adjustDist(viewing_range, getFovMax()), 4000);
+	m_draw_control.wanted_range = viewing_range;
+	m_cameranode->setFarValue(m_draw_control.range_all ? 100000.0 : std::max(2000.0f, viewing_range) * BS);
 }
 
 void Camera::setDigging(s32 button)
@@ -609,15 +608,20 @@ void Camera::setDigging(s32 button)
 		m_digging_button = button;
 }
 
-void Camera::wield(const ItemStack &item)
+void Camera::wield(const ItemStack &item, const bool no_change_anim)
 {
 	if (item.name != m_wield_item_next.name ||
 			item.metadata != m_wield_item_next.metadata) {
 		m_wield_item_next = item;
-		if (m_wield_change_timer > 0)
+		if (no_change_anim) {
+			// Change items immediately
+			m_wieldnode->setItem(item, m_client);
+			m_wield_change_timer = 0.125f;
+		} else if (m_wield_change_timer > 0) {
 			m_wield_change_timer = -m_wield_change_timer;
-		else if (m_wield_change_timer == 0)
+		} else if (m_wield_change_timer == 0) {
 			m_wield_change_timer = -0.001;
+		}
 	}
 }
 

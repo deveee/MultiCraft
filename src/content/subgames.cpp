@@ -37,9 +37,10 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 namespace
 {
 
-bool getGameMinetestConfig(const std::string &game_path, Settings &conf)
+bool getGameMinetestConfig(
+		const std::string &game_path, Settings &conf, const std::string &file)
 {
-	std::string conf_path = game_path + DIR_DELIM + "minetest.conf";
+	std::string conf_path = game_path + DIR_DELIM + file;
 	return conf.readConfigFile(conf_path.c_str());
 }
 
@@ -136,13 +137,17 @@ SubgameSpec findSubgame(const std::string &id)
 	if (conf.exists("release"))
 		game_release = conf.getS32("release");
 
+	bool moddable = true;
+	if (conf.exists("moddable"))
+		moddable = conf.getBool("moddable");
+
 	std::string menuicon_path;
 #ifndef SERVER
 	menuicon_path = getImagePath(
 			game_path + DIR_DELIM + "menu" + DIR_DELIM + "icon.png");
 #endif
 	return SubgameSpec(id, game_path, gamemod_path, mods_paths, game_name,
-			menuicon_path, game_author, game_release);
+			menuicon_path, game_author, game_release, moddable);
 }
 
 SubgameSpec findWorldSubgame(const std::string &world_path)
@@ -341,7 +346,8 @@ void loadGameConfAndInitWorld(const std::string &path, const std::string &name,
 		game_settings = Settings::createLayer(SL_GAME);
 	}
 
-	getGameMinetestConfig(gamespec.path, *game_settings);
+	getGameMinetestConfig(gamespec.path, *game_settings, "minetest.conf");
+	getGameMinetestConfig(gamespec.path, *game_settings, "multicraft.conf");
 	game_settings->removeSecureSettings();
 
 	infostream << "Initializing world at " << final_path << std::endl;
@@ -355,10 +361,17 @@ void loadGameConfAndInitWorld(const std::string &path, const std::string &name,
 
 		conf.set("world_name", name);
 		conf.set("gameid", gamespec.id);
+#if !defined(__ANDROID__) && !defined(__APPLE__)
 		conf.set("backend", "sqlite3");
 		conf.set("player_backend", "sqlite3");
 		conf.set("auth_backend", "sqlite3");
 		conf.set("mod_storage_backend", "sqlite3");
+#else
+		conf.set("backend", "leveldb");
+		conf.set("player_backend", "leveldb");
+		conf.set("auth_backend", "leveldb");
+		conf.set("mod_storage_backend", "leveldb");
+#endif
 		conf.setBool("creative_mode", g_settings->getBool("creative_mode"));
 		conf.setBool("enable_damage", g_settings->getBool("enable_damage"));
 

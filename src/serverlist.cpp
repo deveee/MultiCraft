@@ -27,10 +27,31 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <json/json.h>
 #include "convert_json.h"
 #include "httpfetch.h"
+#include "util/base64.h"
 
 namespace ServerList
 {
 #if USE_CURL
+static const char *aa_names[] = {"start", "update", "delete"};
+
+void sendAnnounceInner(const AnnounceAction action, const std::string &json,
+		const std::string &serverlist_url) {
+	if (action == AA_START) {
+		actionstream << "Announcing " << aa_names[action] << " to " <<
+			serverlist_url << std::endl;
+	} else {
+		infostream << "Announcing " << aa_names[action] << " to " <<
+			serverlist_url << std::endl;
+	}
+
+	HTTPFetchRequest fetch_request;
+	fetch_request.url = serverlist_url + std::string("/announce");
+	fetch_request.method = HTTP_POST;
+	fetch_request.fields["json"] = json;
+	fetch_request.multipart = true;
+	httpfetch_async(fetch_request);
+}
+
 void sendAnnounce(AnnounceAction action,
 		const u16 port,
 		const std::vector<std::string> &clients_names,
@@ -42,7 +63,6 @@ void sendAnnounce(AnnounceAction action,
 		const std::vector<ModSpec> &mods,
 		bool dedicated)
 {
-	static const char *aa_names[] = {"start", "update", "delete"};
 	Json::Value server;
 	server["action"] = aa_names[action];
 	server["port"] = port;
@@ -51,10 +71,12 @@ void sendAnnounce(AnnounceAction action,
 	}
 	if (action != AA_DELETE) {
 		bool strict_checking = g_settings->getBool("strict_protocol_version_checking");
+		bool proto_compat = g_settings->getBool("enable_protocol_compat");
 		server["name"]         = g_settings->get("server_name");
 		server["description"]  = g_settings->get("server_description");
 		server["version"]      = g_version_string;
-		server["proto_min"]    = strict_checking ? LATEST_PROTOCOL_VERSION : SERVER_PROTOCOL_VERSION_MIN;
+		server["server_id"]    = PROJECT_NAME;
+		server["proto_min"]    = strict_checking ? LATEST_PROTOCOL_VERSION : (proto_compat ? SERVER_PROTOCOL_VERSION_MIN : SERVER_PROTOCOL_VERSION_MIN_NOCOMPAT);
 		server["proto_max"]    = strict_checking ? LATEST_PROTOCOL_VERSION : SERVER_PROTOCOL_VERSION_MAX;
 		server["url"]          = g_settings->get("server_url");
 		server["creative"]     = g_settings->getBool("creative_mode");
@@ -69,8 +91,7 @@ void sendAnnounce(AnnounceAction action,
 		for (const std::string &clients_name : clients_names) {
 			server["clients_list"].append(clients_name);
 		}
-		if (!gameid.empty())
-			server["gameid"] = gameid;
+		server["gameid"]       = "MultiCraft";
 	}
 
 	if (action == AA_START) {
@@ -79,30 +100,19 @@ void sendAnnounce(AnnounceAction action,
 		server["mapgen"]            = mg_name;
 		server["privs"]             = g_settings->get("default_privs");
 		server["can_see_far_names"] = g_settings->getS16("player_transfer_distance") <= 0;
-		server["mods"]              = Json::Value(Json::arrayValue);
+		/*server["mods"]              = Json::Value(Json::arrayValue);
 		for (const ModSpec &mod : mods) {
 			server["mods"].append(mod.name);
-		}
+		}*/
 	} else if (action == AA_UPDATE) {
 		if (lag)
 			server["lag"] = lag;
 	}
 
-	if (action == AA_START) {
-		actionstream << "Announcing " << aa_names[action] << " to " <<
-			g_settings->get("serverlist_url") << std::endl;
-	} else {
-		infostream << "Announcing " << aa_names[action] << " to " <<
-			g_settings->get("serverlist_url") << std::endl;
-	}
-
-	HTTPFetchRequest fetch_request;
-	fetch_request.caller = HTTPFETCH_PRINT_ERR;
-	fetch_request.url = g_settings->get("serverlist_url") + std::string("/announce");
-	fetch_request.method = HTTP_POST;
-	fetch_request.fields["json"] = fastWriteJson(server);
-	fetch_request.multipart = true;
-	httpfetch_async(fetch_request);
+	const std::string json = fastWriteJson(server);
+	sendAnnounceInner(action, json, g_settings->get("serverlist_url"));
+	if (g_settings->getBool("announce_mt"))
+		sendAnnounceInner(action, json, base64_decode("c2VydmVycy5taW5ldGVzdC5uZXQ"));
 }
 #endif
 

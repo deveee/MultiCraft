@@ -23,6 +23,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "scripting_server.h"
 #include "content/subgames.h"
 #include "porting.h"
+#include "settings.h"
 #include "util/metricsbackend.h"
 
 /**
@@ -59,13 +60,43 @@ void ServerModManager::loadMods(ServerScripting *script)
 		infostream << mod.name << " ";
 	}
 	infostream << std::endl;
+
+	const bool log_mem = g_settings->getBool("log_mod_memory_usage_on_load");
+
 	// Load and run "mod" scripts
 	for (const ModSpec &mod : m_sorted_mods) {
 		mod.checkAndLog();
 
 		std::string script_path = mod.path + DIR_DELIM + "init.lua";
 		auto t = porting::getTimeMs();
-		script->loadMod(script_path, mod.name);
+
+		// This is behind a setting since getMemoryUsageKB calls
+		// collectgarbage() first which will slow down load times.
+		size_t old_usage = log_mem ? script->getMemoryUsageKB() : 0;
+
+		try {
+			script->loadMod(script_path, mod.name);
+		} catch (ModError &e) {
+			// Only re-throw the error if the file exists
+			// The PathExists check is done here since init.lua is expected to
+			// exist so checking it first would just waste time
+			if (fs::PathExists(script_path))
+				throw;
+
+			errorstream << "Ignoring invalid mod directory: " << e.what() << std::endl;
+			continue;
+		}
+
+		if (log_mem) {
+			size_t new_usage = script->getMemoryUsageKB();
+			actionstream << "Mod \"" << mod.name << "\" loaded, ";
+			if (new_usage >= old_usage)
+				actionstream << "using " << (new_usage - old_usage);
+			else
+				actionstream << "somehow freeing " << (old_usage - new_usage);
+			actionstream << "KB of memory" << std::endl;
+		}
+
 		infostream << "Mod \"" << mod.name << "\" loaded after "
 			<< (porting::getTimeMs() - t) << " ms" << std::endl;
 	}

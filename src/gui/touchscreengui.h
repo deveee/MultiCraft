@@ -25,6 +25,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <IrrlichtDevice.h>
 
 #include <map>
+#include <memory>
 #include <vector>
 
 #include "client/tile.h"
@@ -37,23 +38,24 @@ using namespace irr::gui;
 typedef enum
 {
 	jump_id = 0,
-	crunch_id,
-	zoom_id,
-	aux1_id,
-	after_last_element_id,
-	settings_starter_id,
-	rare_controls_starter_id,
-	fly_id,
-	noclip_id,
-	fast_id,
-	debug_id,
-	camera_id,
-	range_id,
-	minimap_id,
-	toggle_chat_id,
-	chat_id,
-	inventory_id,
 	drop_id,
+	crunch_id,
+	//zoom_id,
+	aux1_id,
+	inventory_id,
+	escape_id,
+	minimap_id,
+	range_id,
+	camera_id,
+	chat_id,
+	after_last_element_id,
+	// settings_starter_id,
+	// rare_controls_starter_id,
+	// fly_id,
+	// noclip_id,
+	// fast_id,
+	// debug_id,
+	// toggle_chat_id,
 	forward_id,
 	backward_id,
 	left_id,
@@ -81,15 +83,12 @@ typedef enum
 } autohide_button_bar_dir;
 
 #define MIN_DIG_TIME_MS 500
-#define BUTTON_REPEAT_DELAY 0.2f
+#define BUTTON_REPEAT_DELAY 1.0f
 #define SETTINGS_BAR_Y_OFFSET 5
 #define RARE_CONTROLS_BAR_Y_OFFSET 5
 
-// Very slow button repeat frequency
-#define SLOW_BUTTON_REPEAT 1.0f
-
-extern const char **button_imagenames;
-extern const char **joystick_imagenames;
+extern const char *button_imagenames[];
+extern const char *joystick_imagenames[];
 
 struct button_info
 {
@@ -101,7 +100,7 @@ struct button_info
 	bool immediate_release;
 
 	// 0: false, 1: (true) first texture, 2: (true) second texture
-	int togglable = 0;
+	s32 togglable = 0;
 	std::vector<const char *> textures;
 };
 
@@ -110,7 +109,7 @@ class AutoHideButtonBar
 public:
 	AutoHideButtonBar(IrrlichtDevice *device, IEventReceiver *receiver);
 
-	void init(ISimpleTextureSource *tsrc, const char *starter_img, int button_id,
+	void init(ISimpleTextureSource *tsrc, const char *starter_img, s32 button_id,
 			const v2s32 &UpperLeft, const v2s32 &LowerRight,
 			autohide_button_bar_dir dir, float timeout);
 
@@ -121,8 +120,8 @@ public:
 			const char *btn_image);
 
 	// add toggle button to be shown
-	void addToggleButton(touch_gui_button_id id, const wchar_t *caption,
-			const char *btn_image_1, const char *btn_image_2);
+	/*void addToggleButton(touch_gui_button_id id, const wchar_t *caption,
+			const char *btn_image_1, const char *btn_image_2);*/
 
 	// detect settings bar button events
 	bool isButton(const SEvent &event);
@@ -145,7 +144,7 @@ private:
 	IGUIEnvironment *m_guienv;
 	IEventReceiver *m_receiver;
 	button_info m_starter;
-	std::vector<button_info *> m_buttons;
+	std::vector<std::shared_ptr<button_info>> m_buttons;
 
 	v2s32 m_upper_left;
 	v2s32 m_lower_right;
@@ -153,6 +152,7 @@ private:
 	// show settings bar
 	bool m_active = false;
 
+	// is the gui visible
 	bool m_visible = true;
 
 	// settings bar timeout
@@ -179,7 +179,12 @@ public:
 		return res;
 	}
 
-	double getPitch() { return m_camera_pitch; }
+	double getPitchChange()
+	{
+		double res = m_camera_pitch;
+		m_camera_pitch = 0;
+		return res;
+	}
 
 	/*
 	 * Returns a line which describes what the player is pointing at.
@@ -193,11 +198,20 @@ public:
 
 	void step(float dtime);
 	void resetHud();
-	void registerHudItem(int index, const rect<s32> &rect);
+	void registerHudItem(s32 index, const rect<s32> &rect);
 	void Toggle(bool visible);
 
 	void hide();
 	void show();
+
+	// handle all buttons
+	void handleReleaseAll();
+
+	// returns true if device is active
+	static bool isActive() { return m_active; }
+
+	// set device active state
+	static void setActive(bool active) { m_active = active; }
 
 private:
 	IrrlichtDevice *m_device;
@@ -207,9 +221,11 @@ private:
 	v2u32 m_screensize;
 	s32 button_size;
 	double m_touchscreen_threshold;
+	double m_touch_sensitivity;
 	std::map<int, rect<s32>> m_hud_rects;
 	std::map<size_t, irr::EKEY_CODE> m_hud_ids;
 	bool m_visible; // is the gui visible
+	bool m_buttons_initialized = false;
 
 	// value in degree
 	double m_camera_yaw_change = 0.0;
@@ -217,7 +233,7 @@ private:
 
 	// forward, backward, left, right
 	touch_gui_button_id m_joystick_names[5] = {
-			forward_id, backward_id, left_id, right_id, aux1_id};
+			forward_id, backward_id, left_id, right_id, /*aux1_id*/};
 	bool m_joystick_status[5] = {false, false, false, false, false};
 
 	/*
@@ -240,9 +256,9 @@ private:
 	bool m_joystick_has_really_moved = false;
 	bool m_fixed_joystick = false;
 	bool m_joystick_triggers_aux1 = false;
-	button_info *m_joystick_btn_off = nullptr;
-	button_info *m_joystick_btn_bg = nullptr;
-	button_info *m_joystick_btn_center = nullptr;
+	std::shared_ptr<button_info> m_joystick_btn_off = nullptr;
+	std::shared_ptr<button_info> m_joystick_btn_bg = nullptr;
+	std::shared_ptr<button_info> m_joystick_btn_center = nullptr;
 
 	button_info m_buttons[after_last_element_id];
 
@@ -261,15 +277,21 @@ private:
 			float repeat_delay = BUTTON_REPEAT_DELAY);
 
 	// initialize a joystick button
-	button_info *initJoystickButton(touch_gui_button_id id,
-			const rect<s32> &button_rect, int texture_id,
+	std::shared_ptr<button_info> initJoystickButton(touch_gui_button_id id,
+			const rect<s32> &button_rect, s32 texture_id,
 			bool visible = true);
+
+	rect<s32> getButtonRect(touch_gui_button_id id);
+
+	void updateButtons();
+
+	void moveJoystick(const SEvent &event, float dx, float dy);
 
 	struct id_status
 	{
 		size_t id;
-		int X;
-		int Y;
+		s32 X;
+		s32 Y;
 	};
 
 	// vector to store known ids and their initial touch positions
@@ -281,8 +303,8 @@ private:
 	// handle pressed hud buttons
 	bool isHUDButton(const SEvent &event);
 
-	// handle double taps
-	bool doubleTapDetection();
+	// handle quick taps
+	bool quickTapDetection();
 
 	// handle release event
 	void handleReleaseEvent(size_t evt_id);
@@ -290,7 +312,7 @@ private:
 	// apply joystick status
 	void applyJoystickStatus();
 
-	// double-click detection variables
+	// long-click detection variables
 	struct key_event
 	{
 		u64 down_time;
@@ -301,7 +323,7 @@ private:
 	// array for saving last known position of a pointer
 	std::map<size_t, v2s32> m_pointerpos;
 
-	// array for double tap detection
+	// array for long-click detection
 	key_event m_key_events[2];
 
 	// settings bar
@@ -309,6 +331,9 @@ private:
 
 	// rare controls bar
 	AutoHideButtonBar m_rarecontrolsbar;
+
+	// device active state
+	static bool m_active;
 };
 
 extern TouchScreenGUI *g_touchscreengui;

@@ -40,6 +40,10 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "constants.h"
 #include "gettime.h"
 
+#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+#include <SDL.h>
+#endif
+
 #ifdef _MSC_VER
 	#define SWPRINTF_CHARSTRING L"%S"
 #else
@@ -95,7 +99,9 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 	defined(__APPLE__)   ||                           \
 	defined(__sun)       || defined(sun)           || \
 	defined(__QNX__)     || defined(__QNXNTO__)
-	#define HAVE_STRLCPY
+	#ifndef HAVE_STRLCPY
+		#define HAVE_STRLCPY
+	#endif
 #endif
 
 // So we need to define our own.
@@ -160,12 +166,6 @@ extern std::string path_cache;
 	Example: "stone.png" -> "../data/stone.png"
 */
 std::string getDataPath(const char *subpath);
-
-/*
-	Move cache folder from path_user to the
-	system cache location if possible.
-*/
-void migrateCachePath();
 
 /*
 	Initialize path_*.
@@ -282,7 +282,7 @@ inline u64 getDeltaMs(u64 old_time_ms, u64 new_time_ms)
 inline const char *getPlatformName()
 {
 	return
-#if defined(ANDROID)
+#if defined(__ANDROID__)
 	"Android"
 #elif defined(__linux__)
 	"Linux"
@@ -292,10 +292,10 @@ inline const char *getPlatformName()
 		defined(__NetBSD__) || defined(__OpenBSD__)
 	"BSD"
 #elif defined(__APPLE__) && defined(__MACH__)
-	#if TARGET_OS_MAC
-		"OSX"
-	#elif TARGET_OS_IPHONE
+	#if TARGET_OS_IPHONE
 		"iOS"
+	#elif TARGET_OS_MAC
+		"OSX"
 	#else
 		"Apple"
 	#endif
@@ -324,6 +324,9 @@ inline const char *getPlatformName()
 #endif
 	;
 }
+
+// Touchscreen device specific function
+bool hasRealKeyboard();
 
 bool secure_rand_fill_buf(void *buf, size_t len);
 
@@ -356,4 +359,8 @@ bool open_directory(const std::string &path);
 
 #ifdef __ANDROID__
 #include "porting_android.h"
+#endif
+
+#ifdef __IOS__
+#include "porting_ios.h"
 #endif

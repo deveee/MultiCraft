@@ -47,6 +47,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "client/clientlauncher.h"
 #include "gui/guiEngine.h"
 #include "gui/mainmenumanager.h"
+#include "translation.h"
 #endif
 #ifdef HAVE_TOUCHSCREENGUI
 	#include "gui/touchscreengui.h"
@@ -118,13 +119,21 @@ FileLogOutput file_log_output;
 
 static OptionList allowed_options;
 
+#if defined(__ANDROID__) || defined(__IOS__)
+int real_main(int argc, char *argv[])
+#else
 int main(int argc, char *argv[])
+#endif
 {
 	int retval;
 	debug_set_exception_handler();
 
 	g_logger.registerThread("Main");
+#ifdef NDEBUG
 	g_logger.addOutputMaxLevel(&stderr_output, LL_ACTION);
+#else
+	g_logger.addOutputMaxLevel(&stderr_output, LL_INFO);
+#endif
 
 	Settings cmd_args;
 	bool cmd_args_ok = get_cmdline_opts(argc, argv, &cmd_args);
@@ -151,10 +160,8 @@ int main(int argc, char *argv[])
 
 #ifdef __ANDROID__
 	porting::initAndroid();
-	porting::initializePathsAndroid();
-#else
-	porting::initializePaths();
 #endif
+	porting::initializePaths();
 
 	if (!create_userdata_path()) {
 		errorstream << "Cannot create user data directory" << std::endl;
@@ -192,7 +199,6 @@ int main(int argc, char *argv[])
 	if (g_settings->getBool("enable_console"))
 		porting::attachOrCreateConsole();
 
-#ifndef __ANDROID__
 	// Run unit tests
 	if (cmd_args.getFlag("run-unittests")) {
 #if BUILD_UNITTESTS
@@ -204,7 +210,6 @@ int main(int argc, char *argv[])
 		return 1;
 #endif
 	}
-#endif
 
 	GameStartData game_params;
 #ifdef SERVER
@@ -241,6 +246,14 @@ int main(int argc, char *argv[])
 
 	return retval;
 }
+
+#ifdef WIN32
+int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
+		LPSTR lpCmdLine, int nCmdShow)
+{
+	return main(__argc, __argv);
+}
+#endif
 
 
 /*****************************************************************************
@@ -468,13 +481,9 @@ static bool setup_log_params(const Settings &cmd_args)
 static bool create_userdata_path()
 {
 	bool success;
-
-#ifdef __ANDROID__
-	if (!fs::PathExists(porting::path_user)) {
-		success = fs::CreateDir(porting::path_user);
-	} else {
+#if defined(__ANDROID__) || defined(__IOS__)
+	if (fs::PathExists(porting::path_user))
 		success = true;
-	}
 #else
 	// Create user data directory
 	success = fs::CreateDir(porting::path_user);
@@ -482,6 +491,15 @@ static bool create_userdata_path()
 
 	return success;
 }
+
+#if !defined(_MSC_VER) && !defined(SERVER)
+static void language_setting_changed(const std::string &name, void *userdata)
+{
+	init_gettext(porting::path_locale.c_str(),
+		g_settings->get("language"), 0, nullptr);
+	g_client_translations->clear();
+}
+#endif
 
 static bool init_common(const Settings &cmd_args, int argc, char *argv[])
 {
@@ -510,6 +528,9 @@ static bool init_common(const Settings &cmd_args, int argc, char *argv[])
 
 	init_gettext(porting::path_locale.c_str(),
 		g_settings->get("language"), argc, argv);
+#if !defined(_MSC_VER) && !defined(SERVER)
+	g_settings->registerChangedCallback("language", language_setting_changed, nullptr);
+#endif
 
 	return true;
 }
@@ -548,16 +569,16 @@ static bool read_config_file(const Settings &cmd_args)
 		g_settings_path = cmd_args.get("config");
 	} else {
 		std::vector<std::string> filenames;
-		filenames.push_back(porting::path_user + DIR_DELIM + "minetest.conf");
+		filenames.push_back(porting::path_user + DIR_DELIM + "multicraft.conf");
 		// Legacy configuration file location
 		filenames.push_back(porting::path_user +
-				DIR_DELIM + ".." + DIR_DELIM + "minetest.conf");
+				DIR_DELIM + ".." + DIR_DELIM + "multicraft.conf");
 
 #if RUN_IN_PLACE
 		// Try also from a lower level (to aid having the same configuration
 		// for many RUN_IN_PLACE installs)
 		filenames.push_back(porting::path_user +
-				DIR_DELIM + ".." + DIR_DELIM + ".." + DIR_DELIM + "minetest.conf");
+				DIR_DELIM + ".." + DIR_DELIM + ".." + DIR_DELIM + "multicraft.conf");
 #endif
 
 		for (const std::string &filename : filenames) {
@@ -812,7 +833,7 @@ static bool determine_subgame(GameParams *game_params)
 			gamespec = findSubgame(g_settings->get("default_game"));
 			infostream << "Using default gameid [" << gamespec.id << "]" << std::endl;
 			if (!gamespec.isValid()) {
-				errorstream << "Game specified in default_game ["
+				warningstream << "Game specified in default_game ["
 				            << g_settings->get("default_game")
 				            << "] is invalid." << std::endl;
 				return false;
@@ -905,7 +926,7 @@ static bool run_dedicated_server(const GameParams &game_params, const Settings &
 		if (!name_ok) {
 			if (admin_nick.empty()) {
 				errorstream << "No name given for admin. "
-					<< "Please check your minetest.conf that it "
+					<< "Please check your multicraft.conf that it "
 					<< "contains a 'name = ' to your main admin account."
 					<< std::endl;
 			} else {

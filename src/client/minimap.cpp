@@ -193,12 +193,18 @@ Minimap::Minimap(Client *client)
 
 	// Initialize minimap modes
 	addMode(MINIMAP_TYPE_OFF);
+#if !defined(__ANDROID__) && !defined(__IOS__)
 	addMode(MINIMAP_TYPE_SURFACE, 256);
 	addMode(MINIMAP_TYPE_SURFACE, 128);
+#endif
 	addMode(MINIMAP_TYPE_SURFACE, 64);
+#if !defined(__ANDROID__) && !defined(__IOS__)
 	addMode(MINIMAP_TYPE_RADAR,   512);
 	addMode(MINIMAP_TYPE_RADAR,   256);
 	addMode(MINIMAP_TYPE_RADAR,   128);
+#else
+	addMode(MINIMAP_TYPE_RADAR,   64);
+#endif
 
 	// Initialize minimap data
 	data = new MinimapData;
@@ -356,6 +362,9 @@ void Minimap::addMode(MinimapModeDef mode)
 		porting::mt_snprintf(label_buf, sizeof(label_buf),
 			mode.label.c_str(), zoom);
 		mode.label = label_buf;
+#if defined(__ANDROID__) || defined(__IOS__)
+		mode.label = mode.label.substr(0, mode.label.find(", "));
+#endif
 	}
 
 	m_modes.push_back(mode);
@@ -458,7 +467,7 @@ void Minimap::blitMinimapPixelsToImageSurface(
 
 		map_image->setPixel(x, data->mode.map_size - z - 1, tilecolor);
 
-		u32 h = mmpixel->height;
+		const u32 h = 255; // full bright
 		heightmap_image->setPixel(x,data->mode.map_size - z - 1,
 			video::SColor(255, h, h, h));
 	}
@@ -518,8 +527,13 @@ video::ITexture *Minimap::getMinimapTexture()
 	if (minimap_mask) {
 		for (s16 y = 0; y < MINIMAP_MAX_SY; y++)
 		for (s16 x = 0; x < MINIMAP_MAX_SX; x++) {
-			const video::SColor &mask_col = minimap_mask->getPixel(x, y);
+			video::SColor mask_col = minimap_mask->getPixel(x, y);
+#if IRRLICHT_VERSION_MAJOR == 1 && IRRLICHT_VERSION_MINOR >= 9
+			// Irrlicht 1.9 has some problem with alpha
+			if (mask_col.getRed() != 255)
+#else
 			if (!mask_col.getAlpha())
+#endif
 				minimap_image->setPixel(x, y, video::SColor(0,0,0,0));
 		}
 	}
@@ -579,10 +593,11 @@ void Minimap::drawMinimap()
 	// Non hud managed minimap drawing (legacy minimap)
 	v2u32 screensize = RenderingEngine::getWindowSize();
 	const u32 size = 0.25 * screensize.Y;
+	const u32 padding = 10 * RenderingEngine::getDisplayDensity();
 
 	drawMinimap(core::rect<s32>(
-		screensize.X - size - 10, 10,
-		screensize.X - 10, size + 10));
+		screensize.X - size - padding, padding,
+		screensize.X - padding, size + padding));
 }
 
 void Minimap::drawMinimap(core::rect<s32> rect) {
@@ -611,7 +626,7 @@ void Minimap::drawMinimap(core::rect<s32> rect) {
 	material.setFlag(video::EMF_TRILINEAR_FILTER, true);
 	material.Lighting = false;
 	material.TextureLayer[0].Texture = minimap_texture;
-	material.TextureLayer[1].Texture = data->heightmap_texture;
+	material.TextureLayer[1].Texture = data->mode.type == MINIMAP_TYPE_RADAR ? 0 : data->heightmap_texture;
 
 	if (m_enable_shaders && data->mode.type == MINIMAP_TYPE_SURFACE) {
 		u16 sid = m_shdrsrc->getShader("minimap_shader", TILE_MATERIAL_ALPHA);

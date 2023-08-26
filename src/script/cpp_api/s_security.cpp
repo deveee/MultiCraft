@@ -79,6 +79,7 @@ void ScriptApiSecurity::initializeSecurity()
 		"core",
 		"collectgarbage",
 		"DIR_DELIM",
+		"PLATFORM",
 		"error",
 		"getfenv",
 		"getmetatable",
@@ -107,7 +108,8 @@ void ScriptApiSecurity::initializeSecurity()
 		"string",
 		"table",
 		"math",
-		"bit"
+		"utf8",
+		"bit",
 	};
 	static const char *io_whitelist[] = {
 		"close",
@@ -277,6 +279,7 @@ void ScriptApiSecurity::initializeSecurityClient()
 		"core",
 		"collectgarbage",
 		"DIR_DELIM",
+		"PLATFORM",
 		"error",
 		"getfenv",
 		"ipairs",
@@ -298,10 +301,12 @@ void ScriptApiSecurity::initializeSecurityClient()
 		"_VERSION",
 		"xpcall",
 		// Completely safe libraries
+		"chacha",
 		"coroutine",
 		"string",
 		"table",
 		"math",
+		"utf8",
 		"bit",
 	};
 	static const char *os_whitelist[] = {
@@ -413,6 +418,12 @@ void ScriptApiSecurity::setLuaEnv(lua_State *L, int thread)
 
 bool ScriptApiSecurity::isSecure(lua_State *L)
 {
+#ifndef SERVER
+	auto script = ModApiBase::getScriptApiBase(L);
+	// CSM keeps no globals backup but is always secure
+	if (script->getType() == ScriptingType::Client)
+		return true;
+#endif
 	lua_rawgeti(L, LUA_REGISTRYINDEX, CUSTOM_RIDX_GLOBALS_BACKUP);
 	bool secure = !lua_isnil(L, -1);
 	lua_pop(L, 1);

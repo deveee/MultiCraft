@@ -77,14 +77,12 @@ GUITable::GUITable(gui::IGUIEnvironment *env,
 	setTabStop(true);
 	setTabOrder(-1);
 	updateAbsolutePosition();
-#ifdef HAVE_TOUCHSCREENGUI
-	float density = 1; // dp scaling is applied by the skin
-#else
 	float density = RenderingEngine::getDisplayDensity();
-#endif
+	float gui_scaling = g_settings->getFloat("gui_scaling");
+	scale = density * gui_scaling;
 	core::rect<s32> relative_rect = m_scrollbar->getRelativePosition();
-	s32 width = (relative_rect.getWidth() / (2.0 / 3.0)) * density *
-			g_settings->getFloat("gui_scaling");
+	s32 width = (relative_rect.getWidth() / (2.0 / 3.0)) *
+			gui_scaling;
 	m_scrollbar->setRelativePosition(core::rect<s32>(
 			relative_rect.LowerRightCorner.X-width,relative_rect.UpperLeftCorner.Y,
 			relative_rect.LowerRightCorner.X,relative_rect.LowerRightCorner.Y
@@ -387,7 +385,7 @@ void GUITable::setTable(const TableOptions &options,
 					image = m_images[row->content_index];
 
 				// Get content width and update xmax
-				row->content_width = image ? image->getOriginalSize().Width : 0;
+				row->content_width = image ? image->getOriginalSize().Width * scale : 0;
 				row->content_width = MYMAX(row->content_width, width);
 				s32 row_xmax = row->x + padding + row->content_width;
 				xmax = MYMAX(xmax, row_xmax);
@@ -759,17 +757,21 @@ void GUITable::drawCell(const Cell *cell, video::SColor color,
 			core::rect<s32> source_rect(
 					core::position2d<s32>(0, 0),
 					image->getOriginalSize());
-			s32 imgh = source_rect.LowerRightCorner.Y;
+			s32 imgh = source_rect.LowerRightCorner.Y * scale;
 			s32 rowh = row_rect.getHeight();
 			if (imgh < rowh)
 				dest_pos.Y += (rowh - imgh) / 2;
 			else
 				source_rect.LowerRightCorner.Y = rowh;
 
-			video::SColor color(255, 255, 255, 255);
+			video::SColor colors[] = {color, color, color, color};
 
-			driver->draw2DImage(image, dest_pos, source_rect,
-					&client_clip, color, true);
+			core::rect<s32> image_pos(dest_pos.X, dest_pos.Y,
+						dest_pos.X + (image->getOriginalSize().Width * scale),
+						dest_pos.Y + (image->getOriginalSize().Height * scale));
+
+			draw2DImageFilterScaled(driver, image, image_pos, source_rect,
+					&client_clip, colors, true);
 		}
 	}
 }

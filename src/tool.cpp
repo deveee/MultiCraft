@@ -59,9 +59,11 @@ void ToolCapabilities::serialize(std::ostream &os, u16 protocol_version) const
 {
 	if (protocol_version >= 38)
 		writeU8(os, 5);
-	else
+	else if (protocol_version == 37)
 		writeU8(os, 4); // proto == 37
-	writeF32(os, full_punch_interval);
+	else
+		writeU8(os, 2); // proto >= 18
+	writeF(os, full_punch_interval, protocol_version);
 	writeS16(os, max_drop_level);
 	writeU32(os, groupcaps.size());
 	for (const auto &groupcap : groupcaps) {
@@ -73,7 +75,7 @@ void ToolCapabilities::serialize(std::ostream &os, u16 protocol_version) const
 		writeU32(os, cap->times.size());
 		for (const auto &time : cap->times) {
 			writeS16(os, time.first);
-			writeF32(os, time.second);
+			writeF(os, time.second, protocol_version);
 		}
 	}
 
@@ -380,4 +382,3 @@ f32 getToolRange(const ItemDefinition &def_selected, const ItemDefinition &def_h
 
 	return max_d;
 }
-
