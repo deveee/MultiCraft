@@ -140,6 +140,15 @@ local function parse_range_str(player_name, str)
 	return p1, p2
 end
 
+-- Chatcommand aliases (by @luk3yx)
+local function register_chatcommand_alias(new, old)
+	local def = assert(core.registered_chatcommands[old])
+	assert(not core.registered_chatcommands[new])
+
+	core.registered_chatcommands[new] = def
+end
+core.register_chatcommand_alias = register_chatcommand_alias
+
 --
 -- Chat commands
 --
@@ -607,6 +616,7 @@ core.register_chatcommand("teleport", {
 		return false
 	end,
 })
+register_chatcommand_alias("tp", "teleport")
 
 core.register_chatcommand("set", {
 	params = S("([-n] <name> <value>) | <name>"),
@@ -616,6 +626,7 @@ core.register_chatcommand("set", {
 		local arg, setname, setvalue = string.match(param, "(-[n]) ([^ ]+) (.+)")
 		if arg and arg == "-n" and setname and setvalue then
 			core.settings:set(setname, setvalue)
+			core.settings:write()
 			return true, setname .. " = " .. setvalue
 		end
 
@@ -740,7 +751,7 @@ core.register_chatcommand("fixlight", {
 core.register_chatcommand("mods", {
 	params = "",
 	description = S("List mods installed on the server"),
-	privs = {},
+	privs = {server = true},
 	func = function(name, param)
 		local mods = core.get_modnames()
 		if #mods == 0 then
@@ -754,6 +765,18 @@ core.register_chatcommand("mods", {
 local function handle_give_command(cmd, giver, receiver, stackstring)
 	core.log("action", giver .. " invoked " .. cmd
 			.. ', stackstring="' .. stackstring .. '"')
+	local ritems = core.registered_items
+	if not stackstring:match(":") and not ritems[stackstring] then
+		local modslist = core.get_modnames()
+		table.insert(modslist, 1, "default")
+		for _, modname in pairs(modslist) do
+			local namecheck = modname .. ":" .. stackstring:match("%S*")
+			if ritems[namecheck] then
+				stackstring = modname .. ":" .. stackstring
+				break
+			end
+		end
+	end
 	local itemstack = ItemStack(stackstring)
 	if itemstack:is_empty() then
 		return false, S("Cannot give an empty item.")
@@ -1054,6 +1077,7 @@ core.register_chatcommand("time", {
 		return true, S("Time of day changed.")
 	end,
 })
+register_chatcommand_alias("settime", "time")
 
 core.register_chatcommand("days", {
 	description = S("Show day count since world creation"),
@@ -1193,7 +1217,7 @@ core.register_chatcommand("clearobjects", {
 				.. options.mode .. " mode).")
 		if options.mode == "full" then
 			core.chat_send_all(S("Clearing all objects. This may take a long time. "
-				.. "You may experience a timeout. (by @1)", name))
+				.. "You may experience a timeout."))
 		end
 		core.clear_objects(options)
 		core.log("action", "Object clearing done.")
@@ -1204,7 +1228,7 @@ core.register_chatcommand("clearobjects", {
 
 core.register_chatcommand("msg", {
 	params = S("<name> <message>"),
-	description = S("Send a direct message to a player"),
+	description = S("Send a private message to a player"),
 	privs = {shout=true},
 	func = function(name, param)
 		local sendto, message = param:match("^(%S+)%s(.+)$")
@@ -1214,12 +1238,15 @@ core.register_chatcommand("msg", {
 		if not core.get_player_by_name(sendto) then
 			return false, S("The player @1 is not online.", sendto)
 		end
-		core.log("action", "DM from " .. name .. " to " .. sendto
+		core.log("action", "PM from " .. name .. " to " .. sendto
 				.. ": " .. message)
-		core.chat_send_player(sendto, S("DM from @1: @2", name, message))
+		core.chat_send_player(sendto, core.colorize("green",
+				S("PM from @1: @2", name, message)))
 		return true, S("Message sent.")
 	end,
 })
+register_chatcommand_alias("m", "msg")
+register_chatcommand_alias("pm", "msg")
 
 core.register_chatcommand("last-login", {
 	params = S("[<name>]"),
@@ -1282,7 +1309,7 @@ local function handle_kill_command(killer, victim)
 			return false, S("@1 is already dead.", victim)
 		end
 	end
-	if not killer == victim then
+	if killer ~= victim then
 		core.log("action", string.format("%s killed %s", killer, victim))
 	end
 	-- Kill victim
@@ -1297,4 +1324,48 @@ core.register_chatcommand("kill", {
 	func = function(name, param)
 		return handle_kill_command(name, param == "" and name or param)
 	end,
+})
+
+core.register_chatcommand("spawn", {
+	description = "Teleport to the spawn point",
+	func = function(name)
+		local player = core.get_player_by_name(name)
+		if not player then
+			return false
+		end
+		local spawnpoint = core.setting_get_pos("static_spawnpoint") or
+			core.get_world_spawnpoint()
+		if spawnpoint then
+			player:set_pos(spawnpoint)
+			return true, "Teleporting to spawn..."
+		else
+			return false, "The spawn point is not set!"
+		end
+	end
+})
+
+core.register_chatcommand("setspawn", {
+	description = "Sets the spawn point to your current position",
+	privs = {server = true},
+	func = function(name)
+		local player = core.get_player_by_name(name)
+		if not player then
+			return false
+		end
+
+		-- Round the player's position to one decimal place
+		local pos = vector.apply(player:get_pos(), function(dir)
+			return math.floor(dir * 10 + 0.5) / 10
+		end)
+
+		-- Remove the static_spawnpoint setting if it exists
+		if core.settings:get("static_spawnpoint") then
+			core.settings:remove("static_spawnpoint")
+			core.settings:write()
+		end
+
+		core.set_world_spawnpoint(pos)
+
+		return true, "The spawn point has been set to " .. core.pos_to_string(pos)
+	end
 })

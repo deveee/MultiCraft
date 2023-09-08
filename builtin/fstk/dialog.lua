@@ -3,7 +3,7 @@
 --
 --This program is free software; you can redistribute it and/or modify
 --it under the terms of the GNU Lesser General Public License as published by
---the Free Software Foundation; either version 2.1 of the License, or
+--the Free Software Foundation; either version 3.0 of the License, or
 --(at your option) any later version.
 --
 --this program is distributed in the hope that it will be useful,
@@ -50,7 +50,8 @@ local dialog_metatable = {
 }
 dialog_metatable.__index = dialog_metatable
 
-function dialog_create(name,get_formspec,buttonhandler,eventhandler)
+local bg = defaulttexturedir_esc .. "bg_common.png"
+function dialog_create(name, get_formspec, buttonhandler, eventhandler, add_background)
 	local self = {}
 
 	self.name = name
@@ -58,7 +59,19 @@ function dialog_create(name,get_formspec,buttonhandler,eventhandler)
 	self.hidden = true
 	self.data = {}
 
-	self.formspec      = get_formspec
+	if add_background then
+		function self.formspec(data)
+			return ([[
+				size[12,5.4]
+				bgcolor[#0000]
+				background9[0,0;0,0;%s;true;40]
+				%s
+			]]):format(bg, get_formspec(data))
+		end
+	else
+		self.formspec = get_formspec
+	end
+
 	self.buttonhandler = buttonhandler
 	self.user_eventhandler  = eventhandler
 
@@ -72,11 +85,12 @@ function messagebox(name, message)
 	return dialog_create(name,
 			function()
 				return ([[
-					formspec_version[3]
-					size[8,3]
-					textarea[0.375,0.375;7.25,1.2;;;%s]
-					button[3,1.825;2,0.8;ok;%s]
-				]]):format(message, fgettext("OK"))
+					set_focus[ok;true]
+					style[msg;font_size=+1;content_offset=0]
+					image_button[1,0;10,4;;msg;%s;false;false]
+					%s
+					button[5,4.5;2,0.8;ok;%s]
+				]]):format(message, btn_style("ok"), fgettext("OK"))
 			end,
 			function(this, fields)
 				if fields.ok then
@@ -84,5 +98,5 @@ function messagebox(name, message)
 					return true
 				end
 			end,
-			nil)
+			nil, true)
 end

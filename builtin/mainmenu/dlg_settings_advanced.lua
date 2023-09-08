@@ -3,7 +3,7 @@
 --
 --This program is free software; you can redistribute it and/or modify
 --it under the terms of the GNU Lesser General Public License as published by
---the Free Software Foundation; either version 2.1 of the License, or
+--the Free Software Foundation; either version 3.0 of the License, or
 --(at your option) any later version.
 --
 --This program is distributed in the hope that it will be useful,
@@ -404,6 +404,36 @@ local function parse_config_file(read_all, parse_mods)
 				file:close()
 			end
 		end
+
+		-- Parse client mods
+		local clientmods_category_initialized = false
+		local clientmods = {}
+		get_mods(core.get_clientmodpath(), clientmods)
+		for _, mod in ipairs(clientmods) do
+			local path = mod.path .. DIR_DELIM .. FILENAME
+			local file = io.open(path, "r")
+			if file then
+				if not clientmods_category_initialized then
+					fgettext_ne("Client Mods") -- not used, but needed for xgettext
+					table.insert(settings, {
+						name = "Client Mods",
+						level = 0,
+						type = "category",
+					})
+					clientmods_category_initialized = true
+				end
+
+				table.insert(settings, {
+					name = mod.name,
+					level = 1,
+					type = "category",
+				})
+
+				parse_single_file(file, path, read_all, settings, 2, false)
+
+				file:close()
+			end
+		end
 	end
 
 	return settings
@@ -486,6 +516,8 @@ local full_settings = parse_config_file(false, true)
 local search_string = ""
 local settings = full_settings
 local selected_setting = 1
+local languages, lang_idx, language_name_list = get_language_list()
+local language_dropdown = table.concat(language_name_list, ",")
 
 local function get_current_value(setting)
 	local value = core.settings:get(setting.name)
@@ -549,7 +581,14 @@ local function create_change_setting_formspec(dialogdata)
 	local formspec = ""
 
 	-- Setting-specific formspec elements
-	if setting.type == "bool" then
+	if setting.name == "language" then
+		-- Special case for the change language setting
+		-- The first option is empty (so lang_idx is offset by 1)
+		formspec = "dropdown[3," .. height .. ";4,1;dd_language;,"
+				.. language_dropdown .. ";" .. lang_idx + 1 .. ";true]"
+		height = height + 1.25
+
+	elseif setting.type == "bool" then
 		local selected_index = 1
 		if core.is_yes(get_current_value(setting)) then
 			selected_index = 2
@@ -583,7 +622,8 @@ local function create_change_setting_formspec(dialogdata)
 		end
 		formspec = "field[0.28," .. height + 0.15 .. ";8,1;te_setting_value;;"
 				.. core.formspec_escape(current_value) .. "]"
-				.. "button[8," .. height - 0.15 .. ";2,1;btn_browser_"
+				.. btn_style("btn_browser_" .. setting.type)
+				.. "button[8," .. height - 0.2 .. ";2,1;btn_browser_"
 				.. setting.type .. ";" .. fgettext("Browse") .. "]"
 		height = height + 1.15
 
@@ -787,20 +827,50 @@ local function create_change_setting_formspec(dialogdata)
 	end
 
 	return (
-		"size[" .. width .. "," .. height + 0.25 .. ",true]" ..
+		"size[" .. width .. "," .. height + 0.25 .. "]" ..
+		"bgcolor[#0000]" ..
+		"background9[0,0;0,0;" .. defaulttexturedir_esc .. "bg_common.png;true;40]" ..
 		create_textfield(description_box, setting_name, comment_text) ..
 		formspec ..
+		btn_style("btn_done") ..
 		"button[" .. width / 2 - 2.5 .. "," .. height - 0.4 .. ";2.5,1;btn_done;" ..
 			fgettext("Save") .. "]" ..
+		btn_style("btn_cancel") ..
 		"button[" .. width / 2 .. "," .. height - 0.4 .. ";2.5,1;btn_cancel;" ..
 			fgettext("Cancel") .. "]"
 	)
 end
 
+-- Reload the main menu so that everything uses the new language
+local function reload_main_menu()
+	dofile(core.get_builtin_path() .. "init.lua")
+
+	-- Open a new advanced settings dialog
+	local maintab = ui.find_by_name("maintab")
+	local adv_settings_dlg = create_adv_settings_dlg(search_string,
+		settings, selected_setting)
+	adv_settings_dlg:set_parent(maintab)
+	maintab:hide()
+	adv_settings_dlg:show()
+end
+
 local function handle_change_setting_buttons(this, fields)
 	local setting = settings[selected_setting]
 	if fields["btn_done"] or fields["key_enter"] then
-		if setting.type == "bool" then
+		if setting.name == "language" then
+			local new_idx = tonumber(fields["dd_language"]) - 1
+			if lang_idx ~= new_idx then
+				if languages[new_idx] then
+					core.settings:set("language", languages[new_idx])
+				else
+					core.settings:remove("language")
+				end
+
+				reload_main_menu()
+				return true
+			end
+
+		elseif setting.type == "bool" then
 			local new_value = fields["dd_setting_value"]
 			-- Note: new_value is the actual (translated) value shown in the dropdown
 			core.settings:set_bool(setting.name, new_value == fgettext("Enabled"))
@@ -949,13 +1019,16 @@ local function handle_change_setting_buttons(this, fields)
 end
 
 local function create_settings_formspec(tabview, _, tabdata)
-	local formspec = "size[12,5.4;true]" ..
+	local formspec =
 			"tablecolumns[color;tree;text,width=28;text]" ..
 			"tableoptions[background=#00000000;border=false]" ..
-			"field[0.3,0.1;10.2,1;search_string;;" .. core.formspec_escape(search_string) .. "]" ..
-			"field_close_on_enter[search_string;false]" ..
-			"button[10.2,-0.2;2,1;search;" .. fgettext("Search") .. "]" ..
-			"table[0,0.8;12,3.5;list_settings;"
+			"formspec_version[3]" ..
+			"image[-0.04,-0.13;14.9,0.8;" .. defaulttexturedir_esc .. "field_bg.png;32]" ..
+			"style[Dsearch_string;border=false;bgcolor=transparent]" ..
+			"field[0.3,0.15;12.0,0.9;Dsearch_string;;" .. core.formspec_escape(search_string) .. "]" ..
+			"field_close_on_enter[Dsearch_string;false]" ..
+			scrollbar_style("list_settings") ..
+			"table[0,0.8;11.8,3.5;list_settings;"
 
 	local current_level = 0
 	for _, entry in ipairs(settings) do
@@ -987,6 +1060,10 @@ local function create_settings_formspec(tabview, _, tabdata)
 			formspec = formspec .. "," .. (current_level + 1) .. "," .. core.formspec_escape(name) .. ","
 					.. core.formspec_escape(get_current_np_group_as_string(entry)) .. ","
 
+		elseif entry.name == "language" then
+			formspec = formspec .. "," .. (current_level + 1) .. "," .. core.formspec_escape(name) .. ","
+					.. (language_name_list[lang_idx] or "") .. ","
+
 		else
 			formspec = formspec .. "," .. (current_level + 1) .. "," .. core.formspec_escape(name) .. ","
 					.. core.formspec_escape(get_current_value(entry)) .. ","
@@ -997,9 +1074,12 @@ local function create_settings_formspec(tabview, _, tabdata)
 		formspec = formspec:sub(1, -2) -- remove trailing comma
 	end
 	formspec = formspec .. ";" .. selected_setting .. "]" ..
+			btn_style("btn_back") ..
 			"button[0,4.9;4,1;btn_back;".. fgettext("< Back to Settings page") .. "]" ..
-			"button[10,4.9;2,1;btn_edit;" .. fgettext("Edit") .. "]" ..
-			"button[7,4.9;3,1;btn_restore;" .. fgettext("Restore Default") .. "]" ..
+			btn_style("btn_restore") ..
+			"button[5.5,4.9;4,1;btn_restore;" .. fgettext("Restore Default") .. "]" ..
+			btn_style("btn_edit") ..
+			"button[9.5,4.9;2.5,1;btn_edit;" .. fgettext("Edit") .. "]" ..
 			"checkbox[0,4.3;cb_tech_settings;" .. fgettext("Show technical names") .. ";"
 					.. dump(core.settings:get_bool("main_menu_technical_settings")) .. "]"
 
@@ -1026,8 +1106,10 @@ local function handle_settings_buttons(this, fields, tabname, tabdata)
 		end
 	end
 
-	if fields.search or fields.key_enter_field == "search_string" then
-		if search_string == fields.search_string then
+	if (fields.Dsearch_string or fields.key_enter_field == "Dsearch_string") and
+			not (fields["btn_edit"] or list_enter or fields["btn_restore"] or
+			fields["btn_back"] or fields["cb_tech_settings"]) then
+		if search_string == fields.Dsearch_string then
 			if selected_setting > 0 then
 				-- Go to next result on enter press
 				local i = selected_setting + 1
@@ -1049,7 +1131,7 @@ local function handle_settings_buttons(this, fields, tabname, tabdata)
 			end
 		else
 			-- Search for setting
-			search_string = fields.search_string
+			search_string = fields.Dsearch_string
 			settings, selected_setting = filter_settings(full_settings, search_string)
 			core.update_formspec(this:get_formspec())
 		end
@@ -1073,7 +1155,10 @@ local function handle_settings_buttons(this, fields, tabname, tabdata)
 		if setting and setting.type ~= "category" then
 			core.settings:remove(setting.name)
 			core.settings:write()
-			core.update_formspec(this:get_formspec())
+
+			if setting.name == "language" then
+				reload_main_menu()
+			end
 		end
 		return true
 	end
@@ -1093,16 +1178,20 @@ local function handle_settings_buttons(this, fields, tabname, tabdata)
 	return false
 end
 
-function create_adv_settings_dlg()
+function create_adv_settings_dlg(new_search_string, new_settings, new_selected_setting)
+	search_string = new_search_string or search_string
+	settings = new_settings or settings
+	selected_setting = new_selected_setting or selected_setting
+
 	local dlg = dialog_create("settings_advanced",
 				create_settings_formspec,
 				handle_settings_buttons,
-				nil)
+				nil, true)
 
-				return dlg
+	return dlg
 end
 
--- Uncomment to generate 'minetest.conf.example' and 'settings_translation_file.cpp'.
+-- Uncomment to generate 'multicraft.conf.example' and 'settings_translation_file.cpp'.
 -- For RUN_IN_PLACE the generated files may appear in the 'bin' folder.
 -- See comment and alternative line at the end of 'generate_from_settingtypes.lua'.
 

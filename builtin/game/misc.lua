@@ -2,6 +2,8 @@
 
 local S = core.get_translator("__builtin")
 
+local ceil, floor = math.ceil, math.floor
+
 --
 -- Misc. API functions
 --
@@ -54,15 +56,15 @@ end
 
 function core.send_join_message(player_name)
 	if not core.is_singleplayer() then
-		core.chat_send_all("*** " .. S("@1 joined the game.", player_name))
+		core.chat_send_all("=> " .. S("@1 has joined the game.", player_name))
 	end
 end
 
 
 function core.send_leave_message(player_name, timed_out)
-	local announcement = "*** " .. S("@1 left the game.", player_name)
+	local announcement = "<= " .. S("@1 left the game.", player_name)
 	if timed_out then
-		announcement = "*** " .. S("@1 left the game (timed out).", player_name)
+		announcement = "<= " .. S("@1 left the game (timed out).", player_name)
 	end
 	core.chat_send_all(announcement)
 end
@@ -71,9 +73,13 @@ end
 core.register_on_joinplayer(function(player)
 	local player_name = player:get_player_name()
 	if not core.is_singleplayer() then
-		local status = core.get_server_status(player_name, true)
-		if status and status ~= "" then
-			core.chat_send_player(player_name, status)
+	--	local status = core.get_server_status(player_name, true)
+	--	if status and status ~= "" then
+	--		core.chat_send_player(player_name, status)
+	--	end
+		local motd = core.settings:get("motd")
+		if motd ~= "" then
+			core.chat_send_player(player_name, "# Server: " .. motd)
 		end
 	end
 	core.send_join_message(player_name)
@@ -121,6 +127,22 @@ function core.get_player_radius_area(player_name, radius)
 end
 
 
+local mapgen_limit = tonumber(core.settings:get("mapgen_limit"))
+function core.is_valid_pos(pos)
+	if not pos or type(pos) ~= "table" then
+		return false
+	end
+	for _, v in pairs({"x", "y", "z"}) do
+		if not pos[v] or pos[v] ~= pos[v] or
+				pos[v] < -mapgen_limit or pos[v] > mapgen_limit then
+			return false
+		end
+	end
+
+	return true
+end
+
+
 function core.hash_node_position(pos)
 	return (pos.z + 32768) * 65536 * 65536
 		 + (pos.y + 32768) * 65536
@@ -130,9 +152,9 @@ end
 
 function core.get_position_from_hash(hash)
 	local x = (hash % 65536) - 32768
-	hash  = math.floor(hash / 65536)
+	hash  = floor(hash / 65536)
 	local y = (hash % 65536) - 32768
-	hash  = math.floor(hash / 65536)
+	hash  = floor(hash / 65536)
 	local z = (hash % 65536) - 32768
 	return vector.new(x, y, z)
 end
@@ -164,7 +186,7 @@ end
 
 -- See l_env.cpp for the other functions
 function core.get_artificial_light(param1)
-	return math.floor(param1 / 16)
+	return floor(param1 / 16)
 end
 
 
@@ -173,7 +195,6 @@ end
 function core.is_protected(pos, name)
 	return false
 end
-
 
 function core.record_protection_violation(pos, name)
 	for _, func in pairs(core.registered_on_protection_violation) do
@@ -212,18 +233,18 @@ function core.is_area_protected(minp, maxp, player_name, interval)
 
 		if maxp[c] > minp[c] then
 			d[c] = (maxp[c] - minp[c]) /
-				math.ceil((maxp[c] - minp[c]) / interval) - 1e-4
+				ceil((maxp[c] - minp[c]) / interval) - 1e-4
 		else
 			d[c] = 1 -- Any value larger than 0 to avoid division by zero
 		end
 	end
 
 	for zf = minp.z, maxp.z, d.z do
-		local z = math.floor(zf + 0.5)
+		local z = floor(zf + 0.5)
 		for yf = minp.y, maxp.y, d.y do
-			local y = math.floor(yf + 0.5)
+			local y = floor(yf + 0.5)
 			for xf = minp.x, maxp.x, d.x do
-				local x = math.floor(xf + 0.5)
+				local x = floor(xf + 0.5)
 				local pos = vector.new(x, y, z)
 				if core.is_protected(pos, player_name) then
 					return pos

@@ -99,6 +99,9 @@ invert_mouse (Invert mouse) bool false
 #    Mouse sensitivity multiplier.
 mouse_sensitivity (Mouse sensitivity) float 0.2
 
+#    Touch sensitivity multiplier.
+touch_sensitivity (Touch sensitivity) float 0.2
+
 #    If enabled, "Aux1" key instead of "Sneak" key is used for climbing down and
 #    descending.
 aux1_descends (Aux1 key for climbing/descending) bool false
@@ -140,7 +143,7 @@ fixed_virtual_joystick (Fixed virtual joystick) bool false
 virtual_joystick_triggers_aux1 (Virtual joystick triggers Aux1 button) bool false
 
 #    Enable joysticks
-enable_joysticks (Enable joysticks) bool false
+enable_joysticks (Enable joysticks) bool true
 
 #    The identifier of the joystick to use
 joystick_id (Joystick ID) int 0
@@ -153,7 +156,7 @@ joystick_type (Joystick type) enum auto auto,generic,xbox,dragonrise_gamecube
 repeat_joystick_button_time (Joystick button repetition interval) float 0.17 0.001
 
 #    The dead zone of the joystick
-joystick_deadzone (Joystick dead zone) int 2048
+joystick_deadzone (Joystick dead zone) int 4096
 
 #    The sensitivity of the joystick axes for moving the
 #    in-game view frustum around.
@@ -699,6 +702,9 @@ fall_bobbing_amount (Fall bobbing factor) float 0.03
 #    In-game chat console height, between 0.1 (10%) and 1.0 (100%).
 console_height (Console height) float 0.6 0.1 1.0
 
+#    In-game chat message console height, between 0.1 (10%) and 1.0 (100%).
+console_message_height (Console message height) float 0.25 0.1 1.0
+
 #    In-game chat console background color (R,G,B).
 console_color (Console color) string (0,0,0)
 
@@ -805,6 +811,11 @@ autoscale_mode (Autoscaling mode) enum disable disable,enable,force
 #    A restart is required after changing this.
 show_entity_selectionbox (Show entity selection boxes) bool false
 
+#    Sort transparent materials from back to front for proper rendering
+#    Note: works on a per-chunk basis
+#    Note: different materials are sorted independently
+transparency_sorting (Transparency sorting) bool true
+
 [*Menus]
 
 #    Use a cloud animation for the main menu background.
@@ -906,6 +917,9 @@ screen_dpi (DPI) int 72 1
 #    Adjust the detected display density, used for scaling UI elements.
 display_density_factor (Display Density Scaling Factor) float 1
 
+#    Adjust the detected display density, used for scaling UI elements.
+display_density_factor (Display Density Scaling Factor) float 1
+
 #    Windows systems only: Start Minetest with the command line window in the background.
 #    Contains the same information as the file debug.txt (default name).
 enable_console (Enable console window) bool false
@@ -966,7 +980,7 @@ enable_remote_media_server (Connect to external media server) bool true
 enable_client_modding (Client modding) bool false
 
 #    URL to the server list displayed in the Multiplayer Tab.
-serverlist_url (Serverlist URL) string servers.minetest.net
+serverlist_url (Serverlist URL) string servers.multicraft.world
 
 #    File in client/serverlist/ that contains your favorite servers displayed in the
 #    Multiplayer Tab.
@@ -992,6 +1006,19 @@ client_mapblock_limit (Mapblock limit) int 7500
 #    Whether to show the client debug info (has the same effect as hitting F5).
 show_debug (Show debug info) bool false
 
+#    URL to JSON file which provides information about the newest MultiCraft release
+update_information_url (Update information URL) string https://updates.multicraft.world/app.json
+
+#    Unix timestamp (integer) of when the client last checked for an update
+#    Set this value to "all" to never check for updates.
+update_last_checked (Last update check) string
+
+#    Version number which was last seen during an update check.
+#
+#    Representation: MMMIIIPPP, where M=Major, I=Minor, P=Patch
+#    Ex: 5.5.0 is 005005000
+update_last_known (Last known version update) int 0
+
 [Server / Singleplayer]
 
 #    Name of the server, to be displayed when players join and in the serverlist.
@@ -1010,11 +1037,14 @@ server_url (Server URL) string https://minetest.net
 server_announce (Announce server) bool false
 
 #    Announce to this serverlist.
-serverlist_url (Serverlist URL) string servers.minetest.net
+serverlist_url (Serverlist URL) string servers.multicraft.world
+
+#    Announce to MT serverlist.
+# announce_mt (Announce to MT) bool true
 
 #    Remove color codes from incoming chat messages
 #    Use this to stop players from being able to use color in their messages
-strip_color_codes (Strip color codes) bool false
+strip_color_codes (Strip color codes) bool true
 
 [*Network]
 
@@ -1024,6 +1054,9 @@ port (Server port) int 30000
 
 #    The network interface that the server listens on.
 bind_address (Bind address) string
+
+#    Disable to prevent clients that don't support protocol version 37 from connecting.
+enable_protocol_compat (Enable legacy network protocol compatibility) bool true
 
 #    Enable to disallow old clients from connecting.
 #    Older clients are compatible in the sense that they will not crash when connecting
@@ -1123,7 +1156,7 @@ enable_mod_channels (Mod channels) bool false
 #    If this is set, players will always (re)spawn at the given position.
 static_spawnpoint (Static spawnpoint) string
 
-#    If enabled, new players cannot join with an empty password.
+#    If enabled, players cannot join without a password or change theirs to an empty password.
 disallow_empty_password (Disallow empty passwords) bool false
 
 #    If enabled, disable cheat prevention in multiplayer.
@@ -2211,3 +2244,25 @@ contentdb_flag_blacklist (ContentDB Flag Blacklist) string nonfree, desktop_defa
 #    Maximum number of concurrent downloads. Downloads exceeding this limit will be queued.
 #    This should be lower than curl_parallel_limit.
 contentdb_max_concurrent_downloads (ContentDB Max Concurrent Downloads) int 3
+
+[Hunger]
+
+hunger.enabled          (Hunger enabled) bool true
+hunger.tick             (Time in seconds after that 1 saturation point is taken) float 600
+hunger.tick_min         (Hunger ticks won't reduce saturation below this level) int 4
+hunger.health_tick      (Time in seconds after player gets healed/damaged) float 4.0
+hunger.move_tick        (Time in seconds after the movement is checked) float 0.5
+hunger.poison_tick      (Time in seconds between actions of poisoning) float 1.0
+hunger.exhaust_dig      (Exhaustion for digging a node) float 2.0
+hunger.exhaust_place    (Exhaustion for placing a node) float 1.0
+hunger.exhaust_move     (Exhaustion for moving) float 2.0
+hunger.exhaust_jump     (Exhaustion for jumping) float 4.0
+hunger.exhaust_craft    (Exhaustion for crafting) float 2.0
+hunger.exhaust_punch    (Exhaustion for punching) float 5.0
+hunger.exhaust_lvl      (Exhaustion level at which saturation gets lowered) int 192
+hunger.heal             (Amount of HP a player gains per health tick) int 1 0 20
+hunger.heal_lvl         (Minimum saturation needed for healing) int 5 1 20
+hunger.starve           (Amount of HP a player loses per health tick) int 1 0 20
+hunger.starve_lvl       (Maximum hunger needed for starving) int 2 0 19
+hunger.level_max        (Maximum hunger level) int 21 3 21
+hunger.visual_max       (Visual hunger bar size) int 20 2 20

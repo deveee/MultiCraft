@@ -8,6 +8,9 @@ local setmetatable = setmetatable
 
 vector = {}
 
+local floor, hypot, round = math.floor, math.hypot, math.round
+local min, max, pi = math.min, math.max, math.pi
+
 local metatable = {}
 vector.metatable = metatable
 
@@ -93,14 +96,14 @@ function vector.normalize(v)
 end
 
 function vector.floor(v)
-	return vector.apply(v, math.floor)
+	return vector.apply(v, floor)
 end
 
 function vector.round(v)
 	return fast_new(
-		math.round(v.x),
-		math.round(v.y),
-		math.round(v.z)
+		round(v.x),
+		round(v.y),
+		round(v.z)
 	)
 end
 
@@ -260,8 +263,8 @@ function vector.offset(v, x, y, z)
 end
 
 function vector.sort(a, b)
-	return fast_new(math.min(a.x, b.x), math.min(a.y, b.y), math.min(a.z, b.z)),
-		fast_new(math.max(a.x, b.x), math.max(a.y, b.y), math.max(a.z, b.z))
+	return fast_new(min(a.x, b.x), min(a.y, b.y), min(a.z, b.z)),
+		fast_new(max(a.x, b.x), max(a.y, b.y), max(a.z, b.z))
 end
 
 function vector.check(v)
@@ -269,7 +272,7 @@ function vector.check(v)
 end
 
 local function sin(x)
-	if x % math.pi == 0 then
+	if x % pi == 0 then
 		return 0
 	else
 		return math.sin(x)
@@ -277,7 +280,7 @@ local function sin(x)
 end
 
 local function cos(x)
-	if x % math.pi == math.pi / 2 then
+	if x % pi == pi / 2 then
 		return 0
 	else
 		return math.cos(x)

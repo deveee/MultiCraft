@@ -3,7 +3,7 @@
 --
 --This program is free software; you can redistribute it and/or modify
 --it under the terms of the GNU Lesser General Public License as published by
---the Free Software Foundation; either version 2.1 of the License, or
+--the Free Software Foundation; either version 3.0 of the License, or
 --(at your option) any later version.
 --
 --This program is distributed in the hope that it will be useful,
@@ -825,18 +825,28 @@ function pkgmgr.get_game(index)
 end
 
 --------------------------------------------------------------------------------
+pkgmgr.default_game_idx = math.huge
 function pkgmgr.update_gamelist()
 	pkgmgr.games = core.get_games()
+
+	-- Update default_game_idx
+	for i, game in ipairs(pkgmgr.games) do
+		if game.id == "default" then
+			pkgmgr.default_game_idx = i
+			break
+		end
+	end
 end
 
 --------------------------------------------------------------------------------
 function pkgmgr.gamelist()
 	local retval = ""
 	if #pkgmgr.games > 0 then
-		retval = retval .. core.formspec_escape(pkgmgr.games[1].name)
-
-		for i=2,#pkgmgr.games,1 do
-			retval = retval .. "," .. core.formspec_escape(pkgmgr.games[i].name)
+		for i = 1, #pkgmgr.games do
+			if pkgmgr.games[i].id ~= "default" then
+				if retval ~= "" then retval = retval .. "," end
+				retval = retval .. core.formspec_escape(pkgmgr.games[i].name)
+			end
 		end
 	end
 	return retval
