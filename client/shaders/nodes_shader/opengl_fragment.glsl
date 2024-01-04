@@ -2,7 +2,7 @@ uniform sampler2D baseTexture;
 
 uniform vec3 dayLight;
 uniform vec4 skyBgColor;
-uniform float fogDistance;
+uniform mediump float fogDistance;
 uniform vec3 eyePosition;
 
 // The cameraOffset is the current center of the visible world.
@@ -428,7 +428,7 @@ float getShadow(sampler2D shadowsampler, vec2 smTexCoord, float realDistance)
 #if ENABLE_TONE_MAPPING
 
 /* Hable's UC2 Tone mapping parameters
-	A = 0.22;
+	A = 0.12;
 	B = 0.30;
 	C = 0.10;
 	D = 0.20;
@@ -440,7 +440,7 @@ float getShadow(sampler2D shadowsampler, vec2 smTexCoord, float realDistance)
 
 vec3 uncharted2Tonemap(vec3 x)
 {
-	return ((x * (0.22 * x + 0.03) + 0.002) / (x * (0.22 * x + 0.3) + 0.06)) - 0.03333;
+	return ((x * (0.12 * x + 0.03) + 0.002) / (x * (0.12 * x + 0.3) + 0.06)) - 0.03333;
 }
 
 vec4 applyToneMapping(vec4 color)
@@ -451,7 +451,7 @@ vec4 applyToneMapping(vec4 color)
 	color.rgb = uncharted2Tonemap(exposureBias * color.rgb);
 	// Precalculated white_scale from
 	//vec3 whiteScale = 1.0 / uncharted2Tonemap(vec3(W));
-	vec3 whiteScale = vec3(1.036015346);
+	vec3 whiteScale = vec3(1.25);
 	color.rgb *= whiteScale;
 	return vec4(pow(color.rgb, vec3(1.0 / gamma)), color.a);
 }
@@ -543,9 +543,11 @@ void main(void)
 	// As additions usually come for free following a multiplication, the new formula
 	// should be more efficient as well.
 	// Note: clarity = (1 - fogginess)
-	float clarity = clamp(fogShadingParameter
-		- fogShadingParameter * length(eyeVec) / fogDistance, 0.0, 1.0);
-	col = mix(skyBgColor, col, clarity);
+	if (fogDistance > 0.0) { // -1.0 means disabled
+		float clarity = clamp(fogShadingParameter
+			- fogShadingParameter * length(eyeVec), 0.0, 1.0);
+		col = mix(skyBgColor, col, clarity);
+	}
 	col = vec4(col.rgb, base.a);
 	
 	gl_FragColor = col;

@@ -1,6 +1,8 @@
 uniform mat4 mWorld;
 
 uniform vec3 eyePosition;
+uniform mediump float fogDistance;
+
 uniform float animationTimer;
 
 varying vec3 vNormal;
@@ -27,7 +29,7 @@ centroid varying vec2 varTexCoord;
 	varying float f_normal_length;
 #endif
 
-varying vec3 eyeVec;
+varying mediump vec3 eyeVec;
 varying float vIDiff;
 
 const float e = 2.718281828459;
@@ -62,7 +64,7 @@ void main(void)
 	vPosition = gl_Position.xyz;
 	vNormal = inVertexNormal;
 	worldPosition = (mWorld * inVertexPosition).xyz;
-	eyeVec = -(mWorldView * inVertexPosition).xyz;
+	eyeVec = -(mWorldView * inVertexPosition).xyz / fogDistance;
 
 #if (MATERIAL_TYPE == TILE_MATERIAL_PLAIN) || (MATERIAL_TYPE == TILE_MATERIAL_PLAIN_ALPHA)
 	vIDiff = 1.0;

@@ -2,6 +2,7 @@ uniform mat4 mWorld;
 // Color of the light emitted by the sun.
 uniform vec3 dayLight;
 uniform vec3 eyePosition;
+uniform mediump float fogDistance;
 
 // The cameraOffset is the current center of the visible world.
 uniform vec3 cameraOffset;
@@ -164,8 +165,8 @@ void main(void)
 	gl_Position = mWorldViewProj * inVertexPosition;
 #endif
 
+	eyeVec = -(mWorldView * inVertexPosition).xyz / fogDistance;
 	vPosition = gl_Position.xyz;
-	eyeVec = -(mWorldView * inVertexPosition).xyz;
 	vNormal = inVertexNormal;
 
 	// Calculate color.
@@ -179,9 +180,7 @@ void main(void)
 	vec4 color = inVertexColor;
 #endif
 	// The alpha gives the ratio of sunlight in the incoming light.
-	nightRatio = 1.0 - color.a;
-	color.rgb = color.rgb * (color.a * dayLight.rgb +
-		nightRatio * artificialLight.rgb) * 2.0;
+	color.rgb *= 2.0 * mix(artificialLight.rgb, dayLight.rgb, color.a);
 	color.a = 1.0;
 
 	// Emphase blue a bit in darker places
