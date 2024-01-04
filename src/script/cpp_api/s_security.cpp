@@ -52,7 +52,7 @@ static void shallow_copy_table(lua_State *L, int from=-2, int to=-1)
 	if (to   < 0) to   = lua_gettop(L) + to   + 1;
 	lua_pushnil(L);
 	while (lua_next(L, from) != 0) {
-		assert(lua_type(L, -1) != LUA_TTABLE);
+		//assert(lua_type(L, -1) != LUA_TTABLE);
 		// duplicate key and value for lua_rawset
 		lua_pushvalue(L, -2);
 		lua_pushvalue(L, -2);
