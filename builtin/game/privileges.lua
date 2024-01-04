@@ -30,11 +30,6 @@ function core.register_privilege(name, param)
 	core.registered_privileges[name] = def
 end
 
-local creative = false
-if core.settings:get_bool("creative_mode") then
-	creative = true
-end
-
 core.register_privilege("interact", S("Can interact with things and modify the world"))
 core.register_privilege("shout", S("Can speak in chat"))
 
@@ -48,7 +43,7 @@ core.register_privilege("privs", S("Can modify privileges"))
 
 core.register_privilege("teleport", {
 	description = S("Can teleport self"),
-	give_to_singleplayer = creative,
+	give_to_singleplayer = false,
 })
 core.register_privilege("bring", {
 	description = S("Can teleport other players"),
@@ -56,7 +51,7 @@ core.register_privilege("bring", {
 })
 core.register_privilege("settime", {
 	description = S("Can set the time of day using /time"),
-	give_to_singleplayer = creative,
+	give_to_singleplayer = false,
 })
 core.register_privilege("server", {
 	description = S("Can do server maintenance stuff"),
@@ -88,11 +83,11 @@ core.register_privilege("password", {
 })
 core.register_privilege("fly", {
 	description = S("Can use fly mode"),
-	give_to_singleplayer = creative,
+	give_to_singleplayer = false,
 })
 core.register_privilege("fast", {
 	description = S("Can use fast mode"),
-	give_to_singleplayer = creative,
+	give_to_singleplayer = false,
 })
 core.register_privilege("noclip", {
 	description = S("Can fly through solid nodes using noclip mode"),

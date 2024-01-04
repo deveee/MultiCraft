@@ -3,7 +3,7 @@
 --
 --This program is free software; you can redistribute it and/or modify
 --it under the terms of the GNU Lesser General Public License as published by
---the Free Software Foundation; either version 3.0 of the License, or
+--the Free Software Foundation; either version 2.1 of the License, or
 --(at your option) any later version.
 --
 --This program is distributed in the hope that it will be useful,
@@ -14,12 +14,6 @@
 --You should have received a copy of the GNU Lesser General Public License along
 --with this program; if not, write to the Free Software Foundation, Inc.,
 --51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
-local password_tmp = ""
-
-local esc = core.formspec_escape
-local lower = utf8.lower
-local small_screen = (PLATFORM == "Android" or PLATFORM == "iOS") and not core.settings:get_bool("device_is_tablet")
 
 local function get_sorted_servers()
 	local servers = {
@@ -70,65 +64,51 @@ local function get_formspec(tabview, name, tabdata)
 		tabdata.search_for = ""
 	end
 
-	local address = core.settings:get("address")
-	local port = tonumber(core.settings:get("remote_port"))
-	if port and port ~= 30000 then
-		address = address .. ":" .. port
-	end
-
 	local retval =
 		-- Search
-		"formspec_version[3]" ..
-		"image[-0.11,4.93;8.02,0.81;" .. defaulttexturedir_esc .. "field_bg.png;32]" ..
-		"style[Dte_search;border=false;bgcolor=transparent]" ..
-		"field[0.25,5.25;5.9,0.83;Dte_search;;" .. esc(tabdata.search_for) .. "]" ..
-		"image_button[5.62,4.93;0.83,0.83;" .. defaulttexturedir_esc ..
-			"clear.png;btn_mp_clear;;true;false]" ..
-		btn_style("btn_mp_refresh") ..
-		"image_button[6.37,4.93;0.83,0.83;" .. defaulttexturedir_esc ..
-			"refresh.png;btn_mp_refresh;;true;false]" ..
+		"field[0.25,0.25;7,0.75;te_search;;" .. core.formspec_escape(tabdata.search_for) .. "]" ..
+		"container[7.25,0.25]" ..
+		"image_button[0,0;0.75,0.75;" .. core.formspec_escape(defaulttexturedir .. "search.png") .. ";btn_mp_search;]" ..
+		"image_button[0.75,0;0.75,0.75;" .. core.formspec_escape(defaulttexturedir .. "clear.png") .. ";btn_mp_clear;]" ..
+		"image_button[1.5,0;0.75,0.75;" .. core.formspec_escape(defaulttexturedir .. "refresh.png") .. ";btn_mp_refresh;]" ..
+		"tooltip[btn_mp_clear;" .. fgettext("Clear") .. "]" ..
+		"tooltip[btn_mp_search;" .. fgettext("Search") .. "]" ..
+		"tooltip[btn_mp_refresh;" .. fgettext("Refresh") .. "]" ..
+		"container_end[]" ..
+
+		"container[9.75,0]" ..
+		"box[0,0;5.75,7;#666666]" ..
 
 		-- Address / Port
-		"image[7.1,0.09;6,0.8;" .. defaulttexturedir_esc .. "field_bg.png;32]" ..
-		"style[te_address;border=false;bgcolor=transparent]" ..
-		"field[7.45,0.55;4.9,0.5;te_address;" .. fgettext("Address / Port") .. ":;" ..
-			esc(address) .. "]" ..
+		"label[0.25,0.35;" .. fgettext("Address") .. "]" ..
+		"label[4.25,0.35;" .. fgettext("Port") .. "]" ..
+		"field[0.25,0.5;4,0.75;te_address;;" ..
+			core.formspec_escape(core.settings:get("address")) .. "]" ..
+		"field[4.25,0.5;1.25,0.75;te_port;;" ..
+			core.formspec_escape(core.settings:get("remote_port")) .. "]" ..
 
-		-- Name
-		"image[7.1,1.25;2.95,0.8;" .. defaulttexturedir_esc .. "field_bg.png;32]" ..
-		"style[te_name;border=false;bgcolor=transparent]" ..
-		"field[7.45,1.7;2.45,0.5;te_name;" .. fgettext("Name") .. ":;" ..
-			esc(core.settings:get("name")) .. "]" ..
-
-		-- Password
-		"image[9.55,1.25;2.95,0.8;" .. defaulttexturedir_esc .. "field_bg.png;32]" ..
-		"style[te_pwd;border=false;bgcolor=transparent]" ..
-		"pwdfield[9.9,1.7;2.45,0.5;te_pwd;" .. fgettext("Password") .. ":;" ..
-			esc(password_tmp) .. "]" ..
+		-- Name / Password
+		"label[0.25,1.55;" .. fgettext("Name") .. "]" ..
+		"label[3,1.55;" .. fgettext("Password") .. "]" ..
+		"field[0.25,1.75;2.75,0.75;te_name;;" ..
+			core.formspec_escape(core.settings:get("name")) .. "]" ..
+		"pwdfield[3,1.75;2.5,0.75;te_pwd;]" ..
 
 		-- Description Background
-		"background9[7.2,2.2;4.8,2.65;" .. defaulttexturedir_esc .. "desc_bg.png;false;32]" ..
+		"label[0.25,2.75;" .. fgettext("Server Description") .. "]" ..
+		"box[0.25,3;5.25,2.75;#999999]"..
 
 		-- Connect
-		btn_style("btn_mp_connect") ..
-		"style[btn_mp_connect;font_size=*" .. (small_screen and 1.5 or 2) .. "]" ..
-		"image_button[8.8,4.88;3.3,0.9;;btn_mp_connect;" ..
-			("\n"):rep(3) .. " " .. fgettext("Play") .. ("\n"):rep(3) .. ";true;false]" .. -- Connect
-		"image[9,5;0.6,0.6;" .. defaulttexturedir_esc .. "btn_play_icon.png]" ..
-		"tooltip[btn_mp_connect;" .. fgettext("Connect") .. "]"
+		"button[3,6;2.5,0.75;btn_mp_connect;" .. fgettext("Connect") .. "]"
 
 	if tabdata.selected then
 		if gamedata.fav then
-			retval = retval ..
-				btn_style("btn_delete_favorite", "red") ..
-				"image_button[7.1,4.93;0.83,0.83;" .. defaulttexturedir_esc ..
-					"trash.png;btn_delete_favorite;;true;false;" .. defaulttexturedir_esc .. "trash_pressed.png]" ..
-					"tooltip[btn_delete_favorite;" .. fgettext("Del. Favorite") .. "]"
+			retval = retval .. "button[0.25,6;2.5,0.75;btn_delete_favorite;" ..
+				fgettext("Del. Favorite") .. "]"
 		end
 		if gamedata.serverdescription then
-			retval = retval ..
-				scrollbar_style("textarea", true) ..
-				"textarea[7.5,2.2;4.8,3;;" .. esc((gamedata.serverdescription or ""), true) .. ";]"
+			retval = retval .. "textarea[0.25,3;5.25,2.75;;;" ..
+				core.formspec_escape(gamedata.serverdescription) .. "]"
 		end
 	end
 
@@ -288,10 +268,6 @@ local function main_button_handler(tabview, fields, name, tabdata)
 		core.settings:set("name", fields.te_name)
 	end
 
-	if fields.te_pwd then
-		password_tmp = fields.te_pwd
-	end
-
 	if fields.servers then
 		local event = core.explode_table_event(fields.servers)
 		local server = tabdata.lookup[event.row]
@@ -347,15 +323,9 @@ local function main_button_handler(tabview, fields, name, tabdata)
 		return true
 	end
 
-	if fields.btn_mp_refresh then
-		serverlistmgr.sync()
-		return true
-	end
-
-	if fields.Dte_search and not
-			(fields.btn_mp_connect or fields.key_enter) then
-		tabdata.search_for = fields.Dte_search
-		search_server_list(fields.Dte_search or "")
+	if fields.btn_mp_search or fields.key_enter_field == "te_search" then
+		tabdata.search_for = fields.te_search
+		search_server_list(fields.te_search:lower())
 		if menudata.search_result then
 			-- first server in row 2 due to header
 			set_selected_server(tabdata, 2, menudata.search_result[1])
@@ -370,15 +340,12 @@ local function main_button_handler(tabview, fields, name, tabdata)
 	end
 
 	if (fields.btn_mp_connect or fields.key_enter)
-			and fields.te_address ~= "" then
+			and fields.te_address ~= "" and fields.te_port then
 		gamedata.playername = fields.te_name
 		gamedata.password   = fields.te_pwd
+		gamedata.address    = fields.te_address
+		gamedata.port       = tonumber(fields.te_port)
 		gamedata.selected_world = 0
-
-		-- Allow entering "address:port"
-		local address, port = fields.te_address:match("^(.+):([0-9]+)$")
-		gamedata.address    = address or fields.te_address
-		gamedata.port       = tonumber(port) or 30000
 
 		local idx = core.get_table_index("servers")
 		local server = idx and tabdata.lookup[idx]
@@ -388,15 +355,15 @@ local function main_button_handler(tabview, fields, name, tabdata)
 		if server and server.address == gamedata.address and
 				server.port == gamedata.port then
 
-			if not is_server_protocol_compat_or_error(
-						server.proto_min, server.proto_max) then
-				return true
-			end
-
 			serverlistmgr.add_favorite(server)
 
 			gamedata.servername        = server.name
 			gamedata.serverdescription = server.description
+
+			if not is_server_protocol_compat_or_error(
+						server.proto_min, server.proto_max) then
+				return true
+			end
 		else
 			gamedata.servername        = ""
 			gamedata.serverdescription = ""
@@ -407,17 +374,6 @@ local function main_button_handler(tabview, fields, name, tabdata)
 			})
 		end
 
-		local auto_connect = false
-		for _, server in pairs(serverlist) do
-			if server.server_id == "multicraft" and server.address == gamedata.address then
-				auto_connect = true
-				break
-			end
-		end
-
-		core.settings:set_bool("auto_connect", auto_connect)
-		core.settings:set("connect_time", os.time())
-		core.settings:set("maintab_LAST", "online")
 		core.settings:set("address",     gamedata.address)
 		core.settings:set("remote_port", gamedata.port)
 

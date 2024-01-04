@@ -137,12 +137,12 @@ core.register_on_prejoinplayer(function(name, ip)
 	end
 
 	local name_lower = name:lower()
-	for _, k in ipairs(core_auth.list_names()) do
+	for k in core.builtin_auth_handler.iterate() do
 		if k:lower() == name_lower then
-			return ("\nYou can not register as \"%s\"! "..
-					"Another player called \"%s\" is already registered. " ..
-					"Please check the spelling if it's your account " ..
-					"or use a different name."):format(name, k)
+			return string.format("\nCannot create new player called '%s'. "..
+					"Another account called '%s' is already registered. "..
+					"Please check the spelling if it's your account "..
+					"or use a different nickname.", name, k)
 		end
 	end
 end)

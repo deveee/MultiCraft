@@ -1,3 +1,4 @@
+
 local scriptpath = core.get_builtin_path()
 local commonpath = scriptpath .. "common" .. DIR_DELIM
 local gamepath   = scriptpath .. "game".. DIR_DELIM
@@ -31,7 +32,5 @@ dofile(gamepath .. "voxelarea.lua")
 dofile(gamepath .. "forceloading.lua")
 dofile(gamepath .. "statbars.lua")
 dofile(gamepath .. "knockback.lua")
-dofile(gamepath .. "hunger.lua")
-dofile(gamepath .. "sscsm" .. DIR_DELIM .. "init.lua")
 
 profiler = nil

@@ -1,9 +1,6 @@
 -- cache setting
 local enable_damage = core.settings:get_bool("enable_damage")
 
-local max = math.max
-local tcopy = table.copy
-
 local health_bar_definition = {
 	hud_elem_type = "statbar",
 	position = {x = 0.5, y = 1},
@@ -34,8 +31,8 @@ local function scaleToDefault(player, field)
 	-- Scale "hp" or "breath" to the default dimensions
 	local current = player["get_" .. field](player)
 	local nominal = core["PLAYER_MAX_" .. field:upper() .. "_DEFAULT"]
-	local max_display = max(nominal,
-		max(player:get_properties()[field .. "_max"], current))
+	local max_display = math.max(nominal,
+		math.max(player:get_properties()[field .. "_max"], current))
 	return current / max_display * nominal
 end
 
@@ -55,10 +52,12 @@ local function update_builtin_statbars(player)
 	end
 	local hud = hud_ids[name]
 
-	if flags.healthbar and enable_damage then
+	local immortal = player:get_armor_groups().immortal == 1
+
+	if flags.healthbar and enable_damage and not immortal then
 		local number = scaleToDefault(player, "hp")
 		if hud.id_healthbar == nil then
-			local hud_def = tcopy(health_bar_definition)
+			local hud_def = table.copy(health_bar_definition)
 			hud_def.number = number
 			hud.id_healthbar = player:hud_add(hud_def)
 		else
@@ -69,14 +68,14 @@ local function update_builtin_statbars(player)
 		hud.id_healthbar = nil
 	end
 
-	local show_breathbar = flags.breathbar and enable_damage
+	local show_breathbar = flags.breathbar and enable_damage and not immortal
 
 	local breath     = player:get_breath()
 	local breath_max = player:get_properties().breath_max
 	if show_breathbar and breath <= breath_max then
 		local number = 2 * scaleToDefault(player, "breath")
 		if not hud.id_breathbar and breath < breath_max then
-			local hud_def = tcopy(breath_bar_definition)
+			local hud_def = table.copy(breath_bar_definition)
 			hud_def.number = number
 			hud.id_breathbar = player:hud_add(hud_def)
 		elseif hud.id_breathbar then
@@ -139,6 +138,7 @@ local function player_event_handler(player,eventname)
 end
 
 function core.hud_replace_builtin(hud_name, definition)
+
 	if type(definition) ~= "table" or
 			definition.hud_elem_type ~= "statbar" then
 		return false

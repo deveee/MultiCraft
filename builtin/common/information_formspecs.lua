@@ -2,14 +2,8 @@ local COLOR_BLUE = "#7AF"
 local COLOR_GREEN = "#7F7"
 local COLOR_GRAY = "#BBB"
 
--- Only use bg_common.png with MultiCraft clients
-local function get_background(name)
-	local info = minetest.get_player_information(name)
-	return info.major == 2 and "background9[0,0;14,8;bg_common.png;true;40]" or ""
-end
-
 local LIST_FORMSPEC = [[
-		size[13,6.5]%s
+		size[13,6.5]
 		label[0,-0.1;%s]
 		tablecolumns[color;tree;text;text]
 		table[0,0.5;12.8,5.5;list;%s;0]
@@ -17,12 +11,12 @@ local LIST_FORMSPEC = [[
 	]]
 
 local LIST_FORMSPEC_DESCRIPTION = [[
-		size[13,7.5]%s
+		size[13,7.5]
 		label[0,-0.1;%s]
 		tablecolumns[color;tree;text;text]
 		table[0,0.5;12.8,4.8;list;%s;%i]
 		box[0,5.5;12.8,1.5;#000]
-		textarea[0.3,5.5;13.05,1.9;;%s;]
+		textarea[0.3,5.5;13.05,1.9;;;%s]
 		button_exit[5,7;3,1;quit;%s]
 	]]
 
@@ -65,33 +59,23 @@ local function build_chatcommands_formspec(name, sel, copy)
 		S("Double-click to copy the entry to the chat history.")
 
 	for i, data in ipairs(mod_cmds) do
-		for _, cmds in ipairs(data[2]) do
+		rows[#rows + 1] = COLOR_BLUE .. ",0," .. F(data[1]) .. ","
+		for j, cmds in ipairs(data[2]) do
 			local has_priv = check_player_privs(name, cmds[2].privs)
-			if has_priv then
-				rows[#rows + 1] = COLOR_BLUE .. ",0," .. formspec_escape(data[1]) .. ","
-				break
-			end
-		end
-		for _, cmds in ipairs(data[2]) do
-			local has_priv = check_player_privs(name, cmds[2].privs)
-			if has_priv then
-				rows[#rows + 1] = ("%s,1,%s,%s"):format(
-				--	has_priv and COLOR_GREEN or COLOR_GRAY,
-					COLOR_GREEN,
-					cmds[1], formspec_escape(cmds[2].params))
-				if sel == #rows then
-					description = cmds[2].description
-					if copy then
-						core.chat_send_player(name, ("Command: %s %s"):format(
-							core.colorize("#0FF", "/" .. cmds[1]), cmds[2].params))
-					end
+			rows[#rows + 1] = ("%s,1,%s,%s"):format(
+				has_priv and COLOR_GREEN or COLOR_GRAY,
+				cmds[1], F(cmds[2].params))
+			if sel == #rows then
+				description = cmds[2].description
+				if copy then
+					core.chat_send_player(name, S("Command: @1 @2",
+						core.colorize("#0FF", "/" .. cmds[1]), cmds[2].params))
 				end
 			end
 		end
 	end
 
 	return LIST_FORMSPEC_DESCRIPTION:format(
-			get_background(name),
 			F(S("Available commands: (see also: /help <cmd>)")),
 			table.concat(rows, ","), sel or 0,
 			F(description), F(S("Close"))
@@ -119,7 +103,6 @@ local function build_privs_formspec(name)
 	end
 
 	return LIST_FORMSPEC:format(
-			get_background(name),
 			F(S("Available privileges:")),
 			table.concat(rows, ","),
 			F(S("Close"))

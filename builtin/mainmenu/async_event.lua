@@ -1,5 +1,5 @@
--- The main menu may be reloaded when the language is changed
-core.async_jobs = core.async_jobs or {}
+
+core.async_jobs = {}
 
 local function handle_job(jobid, serialized_retval)
 	local retval = core.deserialize(serialized_retval)
@@ -29,3 +29,4 @@ function core.handle_async(func, parameter, callback)
 
 	return true
 end
+
