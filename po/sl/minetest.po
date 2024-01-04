@@ -2078,10 +2078,10 @@ msgid "Key already in use"
 msgstr "Tipka je že v uporabi"
 
 #: src/gui/guiKeyChangeMenu.cpp
-msgid "Keybindings. (If this menu screws up, remove stuff from minetest.conf)"
+msgid "Keybindings. (If this menu screws up, remove stuff from multicraft.conf)"
 msgstr ""
 "Vloge tipk (če ta meni preneha delovati, odstranite nastavitve tipk iz "
-"datoteke minetest.conf)"
+"datoteke multicraft.conf)"
 
 #: src/gui/guiKeyChangeMenu.cpp
 msgid "Local command"

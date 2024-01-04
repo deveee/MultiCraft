@@ -2012,9 +2012,9 @@ msgid "Key already in use"
 msgstr "キーが重複しています"
 
 #: src/gui/guiKeyChangeMenu.cpp
-msgid "Keybindings. (If this menu screws up, remove stuff from minetest.conf)"
+msgid "Keybindings. (If this menu screws up, remove stuff from multicraft.conf)"
 msgstr ""
-"キー設定です。 (このメニューで失敗する場合は minetest.conf から該当する設定を"
+"キー設定です。 (このメニューで失敗する場合は multicraft.conf から該当する設定を"
 "削除してください)"
 
 #: src/gui/guiKeyChangeMenu.cpp
@@ -7940,4 +7940,4 @@ msgstr "cURL並行処理制限"
 #~ msgstr "あなたは死にました。"
 
 #~ msgid "needs_fallback_font"
-#~ msgstr "yes"
+#~ msgstr "no"

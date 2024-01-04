@@ -1987,7 +1987,7 @@ msgid ""
 "Please retype your password and click 'Register and Join' to confirm account "
 "creation, or click 'Cancel' to abort."
 msgstr ""
-"คุณกำลังจะเข้าร่วมเซิร์ฟเวอร์ที่ %1$s1 ด้วยชื่อ '%2$s2' เป็นครั้งแรก ถ้าคุณดำเนินการ "
+"คุณกำลังจะเข้าร่วมเซิร์ฟเวอร์ที่ ด้วยชื่อ '%s' เป็นครั้งแรก ถ้าคุณดำเนินการ "
 "จะมีสร้างบัญชีใหม่โดยใช้ข้อมูลประจำตัวของคุณบนเซิร์ฟเวอร์นี้ \n"
 "กรุณาพิมพ์รหัสผ่านของคุณ และคลิกที่ลงทะเบียนและเข้าร่วมเพื่อยืนยันการสร้างบัญชีผู้ใช้ "
 "หรือคลิกยกเลิกเพื่อยกเลิก."
@@ -2079,8 +2079,8 @@ msgid "Key already in use"
 msgstr "คีย์ใช้"
 
 #: src/gui/guiKeyChangeMenu.cpp
-msgid "Keybindings. (If this menu screws up, remove stuff from minetest.conf)"
-msgstr "โหวต. (ถ้าเมนูนี้สกรูขึ้น เอาข้อมูลจาก minetest.conf)"
+msgid "Keybindings. (If this menu screws up, remove stuff from multicraft.conf)"
+msgstr "โหวต. (ถ้าเมนูนี้สกรูขึ้น เอาข้อมูลจาก multicraft.conf)"
 
 #: src/gui/guiKeyChangeMenu.cpp
 msgid "Local command"

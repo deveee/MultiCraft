@@ -2014,7 +2014,7 @@ msgid "Key already in use"
 msgstr "Клавишът вече се ползва"
 
 #: src/gui/guiKeyChangeMenu.cpp
-msgid "Keybindings. (If this menu screws up, remove stuff from minetest.conf)"
+msgid "Keybindings. (If this menu screws up, remove stuff from multicraft.conf)"
 msgstr ""
 "Клавишни комбинации (Ако екранът изглежда счупен махнете нещата от minetest."
 "conf)"

@@ -2024,9 +2024,9 @@ msgid "Key already in use"
 msgstr "Taste bereits in Benutzung"
 
 #: src/gui/guiKeyChangeMenu.cpp
-msgid "Keybindings. (If this menu screws up, remove stuff from minetest.conf)"
+msgid "Keybindings. (If this menu screws up, remove stuff from multicraft.conf)"
 msgstr ""
-"Steuerung (Falls dieses Menü defekt ist, entfernen Sie Zeugs aus minetest."
+"Steuerung (Falls dieses Menü defekt ist, entfernen Sie Zeugs aus multicraft."
 "conf)"
 
 #: src/gui/guiKeyChangeMenu.cpp

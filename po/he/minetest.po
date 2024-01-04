@@ -2030,8 +2030,8 @@ msgid "Key already in use"
 msgstr "מקש כבר בשימוש"
 
 #: src/gui/guiKeyChangeMenu.cpp
-msgid "Keybindings. (If this menu screws up, remove stuff from minetest.conf)"
-msgstr "קישור מקשים (אם התפריט מתקלקל, הסר דברים מminetest.conf)"
+msgid "Keybindings. (If this menu screws up, remove stuff from multicraft.conf)"
+msgstr "קישור מקשים (אם התפריט מתקלקל, הסר דברים מmulticraft.conf)"
 
 #: src/gui/guiKeyChangeMenu.cpp
 msgid "Local command"
