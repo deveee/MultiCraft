@@ -246,13 +246,22 @@ function math.round(x)
 end
 
 
+
+function math.round(x)
+	if x >= 0 then
+		return math.floor(x + 0.5)
+	end
+	return math.ceil(x - 0.5)
+end
+
+
 function core.formspec_escape(text)
 	if text ~= nil then
-		text = string.gsub(text,"\\","\\\\")
-		text = string.gsub(text,"%]","\\]")
-		text = string.gsub(text,"%[","\\[")
-		text = string.gsub(text,";","\\;")
-		text = string.gsub(text,",","\\,")
+		text = text:gsub("\\", "\\\\")
+		text = text:gsub("%]", "\\]")
+		text = text:gsub("%[", "\\[")
+		text = text:gsub(";", "\\;")
+		text = text:gsub(",", "\\,")
 	end
 	return text
 end
@@ -282,7 +291,7 @@ end
 --------------------------------------------------------------------------------
 
 if INIT == "game" then
-	local dirs1 = {9, 18, 7, 12}
+	local dirs1 = {10, 19, 4, 13}
 	local dirs2 = {20, 23, 22, 21}
 
 	function core.rotate_and_place(itemstack, placer, pointed_thing,
@@ -294,8 +303,7 @@ if INIT == "game" then
 			return
 		end
 		local undef = core.registered_nodes[unode.name]
-		local sneaking = placer and placer:get_player_control().sneak
-		if undef and undef.on_rightclick and not sneaking then
+		if undef and undef.on_rightclick then
 			return undef.on_rightclick(pointed_thing.under, unode, placer,
 					itemstack, pointed_thing)
 		end

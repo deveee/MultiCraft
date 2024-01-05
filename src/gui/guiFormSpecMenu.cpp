@@ -1458,7 +1458,7 @@ void GUIFormSpecMenu::parseFieldCloseOnEnter(parserData *data, const std::string
 void GUIFormSpecMenu::parsePwdField(parserData* data, const std::string &element)
 {
 	std::vector<std::string> parts;
-	if (!precheckElement("pwdfield", element, 4, 4, parts))
+	if (!precheckElement("pwdfield", element, 4, 5, parts))
 		return;
 
 	std::vector<std::string> v_pos = split(parts[0],',');

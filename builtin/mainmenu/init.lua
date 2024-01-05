@@ -3,7 +3,7 @@
 --
 --This program is free software; you can redistribute it and/or modify
 --it under the terms of the GNU Lesser General Public License as published by
---the Free Software Foundation; either version 2.1 of the License, or
+--the Free Software Foundation; either version 3.0 of the License, or
 --(at your option) any later version.
 --
 --This program is distributed in the hope that it will be useful,
@@ -23,10 +23,14 @@ mt_color_orange  = "#FF8800"
 
 local menupath = core.get_mainmenu_path()
 local basepath = core.get_builtin_path()
+local mobile = PLATFORM == "Android" or PLATFORM == "iOS"
 defaulttexturedir = core.get_texturepath_share() .. DIR_DELIM .. "base" ..
 					DIR_DELIM .. "pack" .. DIR_DELIM
+defaulttexturedir_esc = core.formspec_escape(defaulttexturedir)
+DIR_DELIM_esc = core.formspec_escape(DIR_DELIM) -- for use in formspecs only
 
 dofile(basepath .. "common" .. DIR_DELIM .. "filterlist.lua")
+dofile(basepath .. "common" .. DIR_DELIM .. "btn_style.lua")
 dofile(basepath .. "fstk" .. DIR_DELIM .. "buttonbar.lua")
 dofile(basepath .. "fstk" .. DIR_DELIM .. "dialog.lua")
 dofile(basepath .. "fstk" .. DIR_DELIM .. "tabview.lua")
@@ -38,31 +42,45 @@ dofile(menupath .. DIR_DELIM .. "serverlistmgr.lua")
 dofile(menupath .. DIR_DELIM .. "game_theme.lua")
 
 dofile(menupath .. DIR_DELIM .. "dlg_config_world.lua")
-dofile(menupath .. DIR_DELIM .. "dlg_settings_advanced.lua")
 dofile(menupath .. DIR_DELIM .. "dlg_contentstore.lua")
 dofile(menupath .. DIR_DELIM .. "dlg_create_world.lua")
+dofile(menupath .. DIR_DELIM .. "dlg_create_world_default.lua")
 dofile(menupath .. DIR_DELIM .. "dlg_delete_content.lua")
 dofile(menupath .. DIR_DELIM .. "dlg_delete_world.lua")
 dofile(menupath .. DIR_DELIM .. "dlg_rename_modpack.lua")
 
+if not mobile then
+	dofile(menupath .. DIR_DELIM .. "dlg_settings_advanced.lua")
+end
+
+dofile(menupath .. DIR_DELIM .. "dlg_version_info.lua")
+
 local tabs = {}
 
-tabs.settings = dofile(menupath .. DIR_DELIM .. "tab_settings.lua")
+if not mobile then
+	tabs.settings = dofile(menupath .. DIR_DELIM .. "tab_settings.lua")
+else
+	tabs.settings = dofile(menupath .. DIR_DELIM .. "tab_settings_simple.lua")
+end
+
 tabs.content  = dofile(menupath .. DIR_DELIM .. "tab_content.lua")
 tabs.about    = dofile(menupath .. DIR_DELIM .. "tab_about.lua")
+tabs.local_default_game = dofile(menupath .. DIR_DELIM .. "tab_local_default.lua")
 tabs.local_game = dofile(menupath .. DIR_DELIM .. "tab_local.lua")
 tabs.play_online = dofile(menupath .. DIR_DELIM .. "tab_online.lua")
 
+local func = loadfile(basepath .. DIR_DELIM .. "hosting" .. DIR_DELIM .. "init.lua")
+
 --------------------------------------------------------------------------------
 local function main_event_handler(tabview, event)
-	if event == "MenuQuit" then
+	if event == "MenuQuit" and PLATFORM ~= "iOS" then
 		core.close()
 	end
 	return true
 end
 
 --------------------------------------------------------------------------------
-local function init_globals()
+function menudata.init_tabs()
 	-- Init gamedata
 	gamedata.worldindex = 0
 
@@ -83,29 +101,72 @@ local function init_globals()
 	menudata.worldlist:set_sortmode("alphabetic")
 
 	if not core.settings:get("menu_last_game") then
-		local default_game = core.settings:get("default_game") or "minetest"
+		local default_game = core.settings:get("default_game") or "default"
 		core.settings:set("menu_last_game", default_game)
 	end
 
 	mm_game_theme.init()
 
 	-- Create main tabview
-	local tv_main = tabview_create("maintab", {x = 12, y = 5.4}, {x = 0, y = 0})
+	local tv_main = tabview_create("maintab", {x = 12, y = 5.4}, {x = 0.1, y = 0})
 
-	tv_main:set_autosave_tab(true)
+	tv_main:add_side_button({
+		tooltip = fgettext("Browse online content"),
+		tab_name_selected = "content",
+		is_open_cdb = true,
+		on_click = function(this)
+			if #pkgmgr.games > 1 or (pkgmgr.games[1] and pkgmgr.games[1].id ~= "default") then
+				this:set_tab("content")
+			else
+				local dialog = create_store_dlg()
+				dialog:set_parent(this)
+				this:hide()
+				dialog:show()
+			end
+		end,
+	})
+
+	tv_main:add_side_button({
+		tooltip = fgettext("Settings"),
+		tab_name = "settings",
+	})
+
+	tv_main:add_side_button({
+		tooltip = fgettext("Credits"),
+		tab_name = "credits",
+		texture_prefix = "authors"
+	})
+
+	for i = 1, #pkgmgr.games do
+		if pkgmgr.games[i].id == "default" then
+			tv_main:add(tabs.local_default_game)
+			tabs.local_game.hidden = true
+			break
+		end
+	end
+
 	tv_main:add(tabs.local_game)
+	if func then
+		func(tv_main)
+	end
 	tv_main:add(tabs.play_online)
 
 	tv_main:add(tabs.content)
 	tv_main:add(tabs.settings)
 	tv_main:add(tabs.about)
 
+	tv_main:set_autosave_tab(true)
 	tv_main:set_global_event_handler(main_event_handler)
 	tv_main:set_fixed_size(false)
 
 	local last_tab = core.settings:get("maintab_LAST")
 	if last_tab and tv_main.current_tab ~= last_tab then
 		tv_main:set_tab(last_tab)
+	end
+
+	if last_tab ~= "local" then
+		core.set_clouds(false)
+--		mm_texture.set_dirt_bg()
 	end
 
 	-- In case the folder of the last selected game has been deleted,
@@ -118,9 +179,11 @@ local function init_globals()
 	end
 
 	ui.set_default("maintab")
+
+	check_new_version()
 	tv_main:show()
 
 	ui.update()
 end
 
-init_globals()
+menudata.init_tabs()
