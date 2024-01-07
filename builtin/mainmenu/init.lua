@@ -132,8 +132,8 @@ function menudata.init_tabs()
 	})
 
 	tv_main:add_side_button({
-		tooltip = fgettext("Credits"),
-		tab_name = "credits",
+		tooltip = fgettext("About"),
+		tab_name = "about",
 		texture_prefix = "authors"
 	})
 

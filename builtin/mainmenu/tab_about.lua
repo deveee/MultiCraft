@@ -119,7 +119,7 @@ end
 
 return {
 	name = "about",
-	caption = fgettext("About"),
+	caption = "", -- fgettext("About"),
 	cbf_formspec = function(tabview, name, tabdata)
 		local version = core.get_version()
 		local logofile = defaulttexturedir_esc .. "logo.png"

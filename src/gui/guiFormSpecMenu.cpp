@@ -676,7 +676,7 @@ void GUIFormSpecMenu::parseCheckbox(parserData* data, const std::string &element
 void GUIFormSpecMenu::parseScrollBar(parserData* data, const std::string &element)
 {
 	std::vector<std::string> parts;
-	if (!precheckElement("scrollbar", element, 5, 5, parts))
+	if (!precheckElement("scrollbar", element, 5, 6, parts))
 		return;
 
 	std::vector<std::string> v_pos = split(parts[0],',');
