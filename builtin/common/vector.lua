@@ -101,9 +101,9 @@ end
 
 function vector.round(v)
 	return fast_new(
-		round(v.x),
-		round(v.y),
-		round(v.z)
+		math.round(v.x),
+		math.round(v.y),
+		math.round(v.z)
 	)
 end
 
