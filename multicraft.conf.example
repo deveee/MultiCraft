@@ -1,13 +1,13 @@
-#    This file contains a list of all available settings and their default value for minetest.conf
+#    This file contains a list of all available settings and their default value for multicraft.conf
 
 #    By default, all the settings are commented and not functional.
 #    Uncomment settings by removing the preceding #.
 
-#    minetest.conf is read by default from:
-#    ../minetest.conf
-#    ../../minetest.conf
+#    multicraft.conf is read by default from:
+#    ../multicraft.conf
+#    ../../multicraft.conf
 #    Any other path can be chosen by passing the path as a parameter
-#    to the program, eg. "minetest.exe --config ../minetest.conf.example".
+#    to the program, eg. "minetest.exe --config ../multicraft.conf.example".
 
 #    Further documentation:
 #    http://wiki.minetest.net/
@@ -60,6 +60,10 @@
 #    Mouse sensitivity multiplier.
 #    type: float
 # mouse_sensitivity = 0.2
+
+#    Touch sensitivity multiplier.
+#    type: float
+# touch_sensitivity = 0.2
 
 #    If enabled, "Aux1" key instead of "Sneak" key is used for climbing down and
 #    descending.
@@ -114,7 +118,7 @@
 
 #    Enable joysticks
 #    type: bool
-# enable_joysticks = false
+# enable_joysticks = true
 
 #    The identifier of the joystick to use
 #    type: int
@@ -131,7 +135,7 @@
 
 #    The dead zone of the joystick
 #    type: int
-# joystick_deadzone = 2048
+# joystick_deadzone = 4096
 
 #    The sensitivity of the joystick axes for moving the
 #    in-game view frustum around.
@@ -805,6 +809,10 @@
 #    type: float min: 0.1 max: 1
 # console_height = 0.6
 
+#    In-game chat message console height, between 0.1 (10%) and 1.0 (100%).
+#    type: float min: 0.1 max: 1
+# console_message_height = 0.25
+
 #    In-game chat console background color (R,G,B).
 #    type: string
 # console_color = (0,0,0)
@@ -938,6 +946,12 @@
 #    A restart is required after changing this.
 #    type: bool
 # show_entity_selectionbox = false
+
+#    Sort transparent materials from back to front for proper rendering
+#    Note: works on a per-chunk basis
+#    Note: different materials are sorted independently
+#    type: bool
+# transparency_sorting = true
 
 ## Menus
 
@@ -1146,11 +1160,11 @@
 #    Enable Lua modding support on client.
 #    This support is experimental and API can change.
 #    type: bool
-# enable_client_modding = false
+# enable_client_modding = true
 
 #    URL to the server list displayed in the Multiplayer Tab.
 #    type: string
-# serverlist_url = servers.minetest.net
+# serverlist_url = servers.multicraft.world
 
 #    File in client/serverlist/ that contains your favorite servers displayed in the
 #    Multiplayer Tab.
@@ -1208,12 +1222,16 @@
 
 #    Announce to this serverlist.
 #    type: string
-# serverlist_url = servers.minetest.net
+# serverlist_url = servers.multicraft.world
+
+#    Announce to MT serverlist.
+#    type: bool
+# announce_mt = true
 
 #    Remove color codes from incoming chat messages
 #    Use this to stop players from being able to use color in their messages
 #    type: bool
-# strip_color_codes = false
+# strip_color_codes = true
 
 ## Network
 
@@ -1225,6 +1243,9 @@
 #    The network interface that the server listens on.
 #    type: string
 # bind_address =
+
+#    Disable to prevent clients that don't support protocol version 37 from connecting.
+# enable_protocol_compat = true
 
 #    Enable to disallow old clients from connecting.
 #    Older clients are compatible in the sense that they will not crash when connecting
@@ -1342,7 +1363,7 @@
 
 #    Enable mod channels support.
 #    type: bool
-# enable_mod_channels = false
+# enable_mod_channels = true
 
 #    If this is set, players will always (re)spawn at the given position.
 #    type: string
@@ -1385,7 +1406,7 @@
 # ask_reconnect_on_crash = false
 
 #    From how far clients know about objects, stated in mapblocks (16 nodes).
-#    
+#
 #    Setting this larger than active_block_range will also cause the server
 #    to maintain active objects up to this distance in the direction the
 #    player is looking. (This can avoid mobs suddenly disappearing from view)
@@ -1597,7 +1618,7 @@
 #    csm_restriction_noderange)
 #    READ_PLAYERINFO: 32 (disable get_player_names call client-side)
 #    type: int
-# csm_restriction_flags = 62
+# csm_restriction_flags = 60
 
 #    If the CSM restriction for node range is enabled, get_node calls are limited
 #    to this distance from the player to the node.
@@ -1938,7 +1959,7 @@
 #    octaves     = 3,
 #    persistence = 0.5,
 #    lacunarity  = 2.0,
-#    flags       = 
+#    flags       =
 # }
 
 #    Second of two 3D noises that together define tunnels.
@@ -1951,7 +1972,7 @@
 #    octaves     = 3,
 #    persistence = 0.5,
 #    lacunarity  = 2.0,
-#    flags       = 
+#    flags       =
 # }
 
 #    3D noise defining giant caverns.
@@ -1964,7 +1985,7 @@
 #    octaves     = 5,
 #    persistence = 0.63,
 #    lacunarity  = 2.0,
-#    flags       = 
+#    flags       =
 # }
 
 #    3D noise defining terrain.
@@ -1990,7 +2011,7 @@
 #    octaves     = 2,
 #    persistence = 0.8,
 #    lacunarity  = 2.0,
-#    flags       = 
+#    flags       =
 # }
 
 ## Mapgen V6
@@ -2377,7 +2398,7 @@
 #    octaves     = 5,
 #    persistence = 0.63,
 #    lacunarity  = 2.0,
-#    flags       = 
+#    flags       =
 # }
 
 #    3D noise defining structure of river canyon walls.
@@ -2390,7 +2411,7 @@
 #    octaves     = 4,
 #    persistence = 0.75,
 #    lacunarity  = 2.0,
-#    flags       = 
+#    flags       =
 # }
 
 #    3D noise defining structure of floatlands.
@@ -2406,7 +2427,7 @@
 #    octaves     = 4,
 #    persistence = 0.75,
 #    lacunarity  = 1.618,
-#    flags       = 
+#    flags       =
 # }
 
 #    3D noise defining giant caverns.
@@ -2419,7 +2440,7 @@
 #    octaves     = 5,
 #    persistence = 0.63,
 #    lacunarity  = 2.0,
-#    flags       = 
+#    flags       =
 # }
 
 #    First of two 3D noises that together define tunnels.
@@ -2432,7 +2453,7 @@
 #    octaves     = 3,
 #    persistence = 0.5,
 #    lacunarity  = 2.0,
-#    flags       = 
+#    flags       =
 # }
 
 #    Second of two 3D noises that together define tunnels.
@@ -2445,7 +2466,7 @@
 #    octaves     = 3,
 #    persistence = 0.5,
 #    lacunarity  = 2.0,
-#    flags       = 
+#    flags       =
 # }
 
 #    3D noise that determines number of dungeons per mapchunk.
@@ -2458,7 +2479,7 @@
 #    octaves     = 2,
 #    persistence = 0.8,
 #    lacunarity  = 2.0,
-#    flags       = 
+#    flags       =
 # }
 
 ## Mapgen Carpathian
@@ -2701,7 +2722,7 @@
 #    octaves     = 5,
 #    persistence = 0.55,
 #    lacunarity  = 2.0,
-#    flags       = 
+#    flags       =
 # }
 
 #    First of two 3D noises that together define tunnels.
@@ -2714,7 +2735,7 @@
 #    octaves     = 3,
 #    persistence = 0.5,
 #    lacunarity  = 2.0,
-#    flags       = 
+#    flags       =
 # }
 
 #    Second of two 3D noises that together define tunnels.
@@ -2727,7 +2748,7 @@
 #    octaves     = 3,
 #    persistence = 0.5,
 #    lacunarity  = 2.0,
-#    flags       = 
+#    flags       =
 # }
 
 #    3D noise defining giant caverns.
@@ -2740,7 +2761,7 @@
 #    octaves     = 5,
 #    persistence = 0.63,
 #    lacunarity  = 2.0,
-#    flags       = 
+#    flags       =
 # }
 
 #    3D noise that determines number of dungeons per mapchunk.
@@ -2753,7 +2774,7 @@
 #    octaves     = 2,
 #    persistence = 0.8,
 #    lacunarity  = 2.0,
-#    flags       = 
+#    flags       =
 # }
 
 ## Mapgen Flat
@@ -2875,7 +2896,7 @@
 #    octaves     = 3,
 #    persistence = 0.5,
 #    lacunarity  = 2.0,
-#    flags       = 
+#    flags       =
 # }
 
 #    Second of two 3D noises that together define tunnels.
@@ -2888,7 +2909,7 @@
 #    octaves     = 3,
 #    persistence = 0.5,
 #    lacunarity  = 2.0,
-#    flags       = 
+#    flags       =
 # }
 
 #    3D noise defining giant caverns.
@@ -2901,7 +2922,7 @@
 #    octaves     = 5,
 #    persistence = 0.63,
 #    lacunarity  = 2.0,
-#    flags       = 
+#    flags       =
 # }
 
 #    3D noise that determines number of dungeons per mapchunk.
@@ -2914,7 +2935,7 @@
 #    octaves     = 2,
 #    persistence = 0.8,
 #    lacunarity  = 2.0,
-#    flags       = 
+#    flags       =
 # }
 
 ## Mapgen Fractal
@@ -3088,7 +3109,7 @@
 #    octaves     = 3,
 #    persistence = 0.5,
 #    lacunarity  = 2.0,
-#    flags       = 
+#    flags       =
 # }
 
 #    Second of two 3D noises that together define tunnels.
@@ -3101,7 +3122,7 @@
 #    octaves     = 3,
 #    persistence = 0.5,
 #    lacunarity  = 2.0,
-#    flags       = 
+#    flags       =
 # }
 
 #    3D noise that determines number of dungeons per mapchunk.
@@ -3114,7 +3135,7 @@
 #    octaves     = 2,
 #    persistence = 0.8,
 #    lacunarity  = 2.0,
-#    flags       = 
+#    flags       =
 # }
 
 ## Mapgen Valleys
@@ -3204,7 +3225,7 @@
 #    octaves     = 3,
 #    persistence = 0.5,
 #    lacunarity  = 2.0,
-#    flags       = 
+#    flags       =
 # }
 
 #    Second of two 3D noises that together define tunnels.
@@ -3217,7 +3238,7 @@
 #    octaves     = 3,
 #    persistence = 0.5,
 #    lacunarity  = 2.0,
-#    flags       = 
+#    flags       =
 # }
 
 #    The depth of dirt or other biome filler node.
@@ -3243,7 +3264,7 @@
 #    octaves     = 6,
 #    persistence = 0.63,
 #    lacunarity  = 2.0,
-#    flags       = 
+#    flags       =
 # }
 
 #    Defines large-scale river channel structure.
@@ -3295,7 +3316,7 @@
 #    octaves     = 6,
 #    persistence = 0.8,
 #    lacunarity  = 2.0,
-#    flags       = 
+#    flags       =
 # }
 
 #    Amplifies the valleys.
@@ -3334,7 +3355,7 @@
 #    octaves     = 2,
 #    persistence = 0.8,
 #    lacunarity  = 2.0,
-#    flags       = 
+#    flags       =
 # }
 
 ## Advanced
@@ -3400,4 +3421,3 @@
 #    This should be lower than curl_parallel_limit.
 #    type: int
 # contentdb_max_concurrent_downloads = 3
-

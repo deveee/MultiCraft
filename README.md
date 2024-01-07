@@ -1,20 +1,21 @@
-Minetest
-========
+MultiCraft Open Source
+======================
 
-![Build Status](https://github.com/minetest/minetest/workflows/build/badge.svg)
-[![Translation status](https://hosted.weblate.org/widgets/minetest/-/svg-badge.svg)](https://hosted.weblate.org/engage/minetest/?utm_source=widget)
-[![License](https://img.shields.io/badge/license-LGPLv2.1%2B-blue.svg)](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.en.html)
+![Build Status](https://github.com/MultiCraft/MultiCraft2/workflows/build/badge.svg)
+[![License](https://img.shields.io/badge/license-LGPLv3.0%2B-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0.en.html)
+[![License: CC BY-SA 4.0](https://img.shields.io/badge/license-CC_BY--SA_4.0-orange.svg)](https://creativecommons.org/licenses/by-sa/4.0/)
 
-Minetest is a free open-source voxel game engine with easy modding and game creation.
+MultiCraft Open Source is a free open-source voxel game engine with easy modding and game creation.
 
-Copyright (C) 2010-2020 Perttu Ahola <celeron55@gmail.com>
-and contributors (see source file comments and the version control log)
+MultiCraft is based on the Minetest project, which is developed by a [number of contributors](https://github.com/minetest/minetest/graphs/contributors).
 
 In case you downloaded the source code
 --------------------------------------
-If you downloaded the Minetest Engine source code in which this file is
-contained, you probably want to download the [Minetest Game](https://github.com/minetest/minetest_game/)
-project too. See its README.txt for more information.
+Copyright © 2014-2023 Maksim Gamarnik [MoNTE48] <Maksym48@pm.me> & MultiCraft Development Team.
+
+[![License](https://resources.jetbrains.com/storage/products/company/brand/logos/jb_beam.svg)](https://jb.gg/OpenSourceSupport)
+
+Special thanks to JetBrains for their support of our community!
 
 Table of Contents
 ------------------
@@ -31,11 +32,11 @@ Table of Contents
 
 Further documentation
 ----------------------
-- Website: https://minetest.net/
-- Wiki: https://wiki.minetest.net/
-- Developer wiki: https://dev.minetest.net/
-- Forum: https://forum.minetest.net/
-- GitHub: https://github.com/minetest/minetest/
+- Minetest Website: https://minetest.net/
+- Minetest Wiki: https://wiki.minetest.net/
+- Minetest Developer wiki: https://dev.minetest.net/
+- Minetest Forum: https://forum.minetest.net/
+- Minetest GitHub: https://github.com/minetest/minetest/
 - [doc/](doc/) directory of source distribution
 
 Default controls
@@ -96,29 +97,29 @@ Where each location is on each platform:
     * `share` = `.`
     * `user`  = `.`
 * Windows installed:
-    * `bin`   = `C:\Program Files\Minetest\bin (Depends on the install location)`
-    * `share` = `C:\Program Files\Minetest (Depends on the install location)`
-    * `user`  = `%APPDATA%\Minetest`
+    * `bin`   = `C:\Program Files\MultiCraft\bin (Depends on the install location)`
+    * `share` = `C:\Program Files\MultiCraft (Depends on the install location)`
+    * `user`  = `%APPDATA%\MultiCraft`
 * Linux installed:
     * `bin`   = `/usr/bin`
-    * `share` = `/usr/share/minetest`
-    * `user`  = `~/.minetest`
+    * `share` = `/usr/share/multicraft`
+    * `user`  = `~/.multicraft`
 * macOS:
     * `bin`   = `Contents/MacOS`
     * `share` = `Contents/Resources`
-    * `user`  = `Contents/User OR ~/Library/Application Support/minetest`
+    * `user`  = `Contents/User OR ~/Library/Application Support/multicraft`
 
 Worlds can be found as separate folders in: `user/worlds/`
 
 Configuration file
 ------------------
 - Default location:
-    `user/minetest.conf`
-- This file is created by closing Minetest for the first time.
+    `user/multicraft.conf`
+- This file is created by closing MultiCraft for the first time.
 - A specific file can be specified on the command line:
     `--config <path-to-file>`
 - A run-in-place build will look for the configuration file in
-    `location_of_exe/../minetest.conf` and also `location_of_exe/../../minetest.conf`
+    `location_of_exe/../multicraft.conf` and also `location_of_exe/../../multicraft.conf`
 
 Command-line options
 --------------------
@@ -172,38 +173,14 @@ For Fedora users:
 
 Download source (this is the URL to the latest of source repository, which might not work at all times) using Git:
 
-    git clone --depth 1 https://github.com/minetest/minetest.git
-    cd minetest
-
-Download minetest_game (otherwise only the "Development Test" game is available) using Git:
-
-    git clone --depth 1 https://github.com/minetest/minetest_game.git games/minetest_game
-
-Download IrrlichtMt to `lib/irrlichtmt`, it will be used to satisfy the IrrlichtMt dependency that way:
-
-    git clone --depth 1 https://github.com/minetest/irrlicht.git lib/irrlichtmt
+    git clone --depth 1 https://github.com/MultiCraft/MultiCraft.git
+    cd MultiCraft
 
 Download source, without using Git:
 
-    wget https://github.com/minetest/minetest/archive/master.tar.gz
-    tar xf master.tar.gz
-    cd minetest-master
-
-Download minetest_game, without using Git:
-
-    cd games/
-    wget https://github.com/minetest/minetest_game/archive/master.tar.gz
-    tar xf master.tar.gz
-    mv minetest_game-master minetest_game
-    cd ..
-
-Download IrrlichtMt, without using Git:
-
-    cd lib/
-    wget https://github.com/minetest/irrlicht/archive/master.tar.gz
-    tar xf master.tar.gz
-    mv irrlicht-master irrlichtmt
-    cd ..
+    wget https://github.com/MultiCraft/MultiCraft/archive/main.tar.gz
+    tar xf main.tar.gz
+    cd MultiCraft-main
 
 #### Build
 
@@ -214,7 +191,7 @@ Build a version that runs directly from the source directory:
 
 Run it:
 
-    ./bin/minetest
+    ./bin/multicraft
 
 - Use `cmake . -LH` to see all CMake options and their current state.
 - If you want to install it system-wide (or are making a distribution package),
@@ -237,8 +214,8 @@ Run it:
 
 General options and their default values:
 
-    BUILD_CLIENT=TRUE          - Build Minetest client
-    BUILD_SERVER=FALSE         - Build Minetest server
+    BUILD_CLIENT=TRUE          - Build MultiCraft client
+    BUILD_SERVER=FALSE         - Build MultiCraft server
     BUILD_UNITTESTS=TRUE       - Build unittest sources
     CMAKE_BUILD_TYPE=Release   - Type of build (Release vs. Debug)
         Release                - Release build
@@ -261,8 +238,9 @@ General options and their default values:
     ENABLE_SYSTEM_JSONCPP=ON   - Use JsonCPP from system
     OPENGL_GL_PREFERENCE=LEGACY - Linux client build only; See CMake Policy CMP0072 for reference
     RUN_IN_PLACE=FALSE         - Create a portable install (worlds, settings etc. in current directory)
+    ENABLE_UPDATE_CHECKER=TRUE - Whether to enable update checks by default
     USE_GPROF=FALSE            - Enable profiling using GProf
-    VERSION_EXTRA=             - Text to append to version (e.g. VERSION_EXTRA=foobar -> Minetest 0.4.9-foobar)
+    VERSION_EXTRA=             - Text to append to version (e.g. VERSION_EXTRA=foobar -> MultiCraft 0.4.9-foobar)
     ENABLE_TOUCH=FALSE         - Enable Touchscreen support (requires support by IrrlichtMt)
 
 Library specific options:
@@ -344,12 +322,12 @@ There are other optional libraries, but they are not tested if they can build an
 
 Use `--triplet` to specify the target triplet, e.g. `x64-windows` or `x86-windows`.
 
-### Compile Minetest
+### Compile MultiCraft
 
 #### a) Using the vcpkg toolchain and CMake GUI
 1. Start up the CMake GUI
-2. Select **Browse Source...** and select DIR/minetest
-3. Select **Browse Build...** and select DIR/minetest-build
+2. Select **Browse Source...** and select DIR/multicraft
+3. Select **Browse Build...** and select DIR/multicraft-build
 4. Select **Configure**
 5. Choose the right visual Studio version and target platform. It has to match the version of the installed dependencies
 6. Choose **Specify toolchain file for cross-compiling**
@@ -360,7 +338,7 @@ Use `--triplet` to specify the target triplet, e.g. `x64-windows` or `x86-window
 11. If there are any errors, solve them and hit **Configure**
 12. Click **Generate**
 13. Click **Open Project**
-14. Compile Minetest inside Visual studio.
+14. Compile MultiCraft inside Visual studio.
 
 #### b) Using the vcpkg toolchain and the commandline
 
@@ -439,44 +417,3 @@ make install
 ```
 open ./build/macos/minetest.app
 ```
-
-Docker
-------
-We provide Minetest server Docker images using the GitLab mirror registry.
-
-Images are built on each commit and available using the following tag scheme:
-
-* `registry.gitlab.com/minetest/minetest/server:latest` (latest build)
-* `registry.gitlab.com/minetest/minetest/server:<branch/tag>` (current branch or current tag)
-* `registry.gitlab.com/minetest/minetest/server:<commit-id>` (current commit id)
-
-If you want to test it on a Docker server you can easily run:
-
-	sudo docker run registry.gitlab.com/minetest/minetest/server:<docker tag>
-
-If you want to use it in a production environment you should use volumes bound to the Docker host
-to persist data and modify the configuration:
-
-	sudo docker create -v /home/minetest/data/:/var/lib/minetest/ -v /home/minetest/conf/:/etc/minetest/ registry.gitlab.com/minetest/minetest/server:master
-
-Data will be written to `/home/minetest/data` on the host, and configuration will be read from `/home/minetest/conf/minetest.conf`.
-
-**Note:** If you don't understand the previous commands please read the official Docker documentation before use.
-
-You can also host your Minetest server inside a Kubernetes cluster. See our example implementation in [`misc/kubernetes.yml`](misc/kubernetes.yml).
-
-
-Version scheme
---------------
-We use `major.minor.patch` since 5.0.0-dev. Prior to that we used `0.major.minor`.
-
-- Major is incremented when the release contains breaking changes, all other
-numbers are set to 0.
-- Minor is incremented when the release contains new non-breaking features,
-patch is set to 0.
-- Patch is incremented when the release only contains bugfixes and very
-minor/trivial features considered necessary.
-
-Since 5.0.0-dev and 0.4.17-dev, the dev notation refers to the next release,
-i.e.: 5.0.0-dev is the development version leading to 5.0.0.
-Prior to that we used `previous_version-dev`.
