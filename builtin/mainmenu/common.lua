@@ -53,7 +53,7 @@ function image_column(tooltip)
 		"11=" .. core.formspec_escape(defaulttexturedir .. "server_ping_1.png")
 end
 
-function render_serverlist_row(spec)
+function render_serverlist_row(spec, is_favorite)
 	if not spec then
 		spec = {}
 	end

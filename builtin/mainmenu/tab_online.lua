@@ -15,51 +15,12 @@
 --with this program; if not, write to the Free Software Foundation, Inc.,
 --51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
+--------------------------------------------------------------------------------
 local password_tmp = ""
 
 local esc = core.formspec_escape
 local lower = utf8.lower
 local small_screen = (PLATFORM == "Android" or PLATFORM == "iOS") and not core.settings:get_bool("device_is_tablet")
-
-local function get_sorted_servers()
-	local servers = {
-		fav = {},
-		public = {},
-		incompatible = {}
-	}
-
-	local favs = serverlistmgr.get_favorites()
-	local taken_favs = {}
-	local result = menudata.search_result or serverlistmgr.servers
-	for _, server in ipairs(result) do
-		server.is_favorite = false
-		for index, fav in ipairs(favs) do
-			if server.address == fav.address and server.port == fav.port then
-				taken_favs[index] = true
-				server.is_favorite = true
-				break
-			end
-		end
-		server.is_compatible = is_server_protocol_compat(server.proto_min, server.proto_max)
-		if server.is_favorite then
-			table.insert(servers.fav, server)
-		elseif server.is_compatible then
-			table.insert(servers.public, server)
-		else
-			table.insert(servers.incompatible, server)
-		end
-	end
-
-	if not menudata.search_result then
-		for index, fav in ipairs(favs) do
-			if not taken_favs[index] then
-				table.insert(servers.fav, fav)
-			end
-		end
-	end
-
-	return servers
-end
 
 local function get_formspec(tabview, name, tabdata)
 	-- Update the cached supported proto info,
@@ -205,92 +166,9 @@ local function get_formspec(tabview, name, tabdata)
 end
 
 --------------------------------------------------------------------------------
-
-local function search_server_list(input)
-	menudata.search_result = nil
-	if #serverlistmgr.servers < 2 then
-		return
-	end
-
-	-- setup the keyword list
-	local keywords = {}
-	for word in input:gmatch("%S+") do
-		word = word:gsub("(%W)", "%%%1")
-		table.insert(keywords, word)
-	end
-
-	if #keywords == 0 then
-		return
-	end
-
-	menudata.search_result = {}
-
-	-- Search the serverlist
-	local search_result = {}
-	for i = 1, #serverlistmgr.servers do
-		local server = serverlistmgr.servers[i]
-		local found = 0
-		for k = 1, #keywords do
-			local keyword = keywords[k]
-			if server.name then
-				local sername = lower(server.name)
-				local _, count = sername:gsub(keyword, keyword)
-				found = found + count * 4
-			end
-
-			if server.description then
-				local desc = lower(server.description)
-				local _, count = desc:gsub(keyword, keyword)
-				found = found + count * 2
-			end
-		end
-		if found > 0 then
-			local points = (#serverlistmgr.servers - i) / 5 + found
-			server.points = points
-			table.insert(search_result, server)
-		end
-	end
-
-	if #search_result == 0 then
-		return
-	end
-
-	table.sort(search_result, function(a, b)
-		return a.points > b.points
-	end)
-	menudata.search_result = search_result
-end
-
-local function set_selected_server(tabdata, idx, server)
-	-- reset selection
-	if idx == nil or server == nil then
-		tabdata.selected = nil
-
-		core.settings:set("address", "")
-		core.settings:set("remote_port", "30000")
-		return
-	end
-
-	local address = server.address
-	local port    = server.port
-	gamedata.serverdescription = server.description
-
-	gamedata.fav = false
-	for _, fav in ipairs(serverlistmgr.get_favorites()) do
-		if address == fav.address and port == fav.port then
-			gamedata.fav = true
-			break
-		end
-	end
-
-	if address and port then
-		core.settings:set("address", address)
-		core.settings:set("remote_port", port)
-	end
-	tabdata.selected = idx
-end
-
 local function main_button_handler(tabview, fields, name, tabdata)
+	local serverlist = menudata.search_result or serverlistmgr.servers
+
 	if fields.te_name then
 		gamedata.playername = fields.te_name
 		core.settings:set("name", fields.te_name)
@@ -300,19 +178,19 @@ local function main_button_handler(tabview, fields, name, tabdata)
 		password_tmp = fields.te_pwd
 	end
 
-	if fields.servers then
-		local event = core.explode_table_event(fields.servers)
-		local server = tabdata.lookup[event.row]
+	if fields.favorites then
+		local event = core.explode_table_event(fields.favorites)
+		local fav = serverlist[event.row]
 
-		if server then
-			if event.type == "DCL" then
+		if event.type == "DCL" then
+			if event.row <= #serverlist then
 				if not is_server_protocol_compat_or_error(
-							server.proto_min, server.proto_max) then
+							fav.proto_min, fav.proto_max) then
 					return true
 				end
 
-				gamedata.address    = server.address
-				gamedata.port       = server.port
+				gamedata.address    = fav.address
+				gamedata.port       = fav.port
 				gamedata.playername = fields.te_name
 				gamedata.selected_world = 0
 
@@ -320,32 +198,84 @@ local function main_button_handler(tabview, fields, name, tabdata)
 					gamedata.password = fields.te_pwd
 				end
 
-				gamedata.servername        = server.name
-				gamedata.serverdescription = server.description
+				gamedata.servername        = fav.name
+				gamedata.serverdescription = fav.description
 
 				if gamedata.address and gamedata.port then
 					core.settings:set("address", gamedata.address)
 					core.settings:set("remote_port", gamedata.port)
 					core.start()
 				end
-				return true
 			end
-			if event.type == "CHG" then
-				set_selected_server(tabdata, event.row, server)
-				return true
+			return true
+		end
+
+		if event.type == "CHG" then
+			if event.row <= #serverlist then
+				gamedata.fav = false
+				local favs = serverlistmgr.get_favorites()
+				local address = fav.address
+				local port    = fav.port
+				gamedata.serverdescription = fav.description
+
+				for i = 1, #favs do
+					if fav.address == favs[i].address and
+							fav.port == favs[i].port then
+						gamedata.fav = true
+					end
+				end
+
+				if address and port then
+					core.settings:set("address", address)
+					core.settings:set("remote_port", port)
+				end
+				tabdata.selected = event.row
 			end
+			return true
 		end
 	end
 
-	if fields.btn_delete_favorite then
-		local idx = core.get_table_index("servers")
-		if not idx then return end
-		local server = tabdata.lookup[idx]
-		if not server then return end
+	if fields.key_up or fields.key_down then
+		local fav_idx = core.get_table_index("favorites")
+		local fav = serverlist[fav_idx]
 
-		serverlistmgr.delete_favorite(server)
-		-- the server at [idx+1] will be at idx once list is refreshed
-		set_selected_server(tabdata, idx, tabdata.lookup[idx+1])
+		if fav_idx then
+			if fields.key_up and fav_idx > 1 then
+				fav_idx = fav_idx - 1
+			elseif fields.key_down and fav_idx < #serverlistmgr.servers then
+				fav_idx = fav_idx + 1
+			end
+		else
+			fav_idx = 1
+		end
+
+		if not serverlistmgr.servers or not fav then
+			tabdata.selected = 0
+			return true
+		end
+
+		local address = fav.address
+		local port    = fav.port
+		gamedata.serverdescription = fav.description
+		if address and port then
+			core.settings:set("address", address)
+			core.settings:set("remote_port", port)
+		end
+
+		tabdata.selected = fav_idx
+		return true
+	end
+
+	if fields.btn_delete_favorite then
+		local current_favorite = core.get_table_index("favorites")
+		if not current_favorite then return end
+
+		serverlistmgr.delete_favorite(serverlistmgr.servers[current_favorite])
+		serverlistmgr.sync()
+		tabdata.selected = nil
+
+		core.settings:set("address", "")
+		core.settings:set("remote_port", "30000")
 		return true
 	end
 
@@ -362,18 +292,65 @@ local function main_button_handler(tabview, fields, name, tabdata)
 
 	if fields.Dte_search and not
 			(fields.btn_mp_connect or fields.key_enter) then
+		tabdata.selected = 1
+		local input = lower(fields.Dte_search or "")
 		tabdata.search_for = fields.Dte_search
-		search_server_list(fields.Dte_search or "")
-		if menudata.search_result then
-			-- first server in row 2 due to header
-			set_selected_server(tabdata, 2, menudata.search_result[1])
+
+		if #serverlistmgr.servers < 2 then
+			return true
 		end
 
-		return true
-	end
+		menudata.search_result = {}
 
-	if fields.btn_mp_refresh then
-		serverlistmgr.sync()
+		-- setup the keyword list
+		local keywords = {}
+		for word in input:gmatch("%S+") do
+			word = word:gsub("(%W)", "%%%1")
+			table.insert(keywords, word)
+		end
+
+		if #keywords == 0 then
+			menudata.search_result = nil
+			return true
+		end
+
+		-- Search the serverlist
+		local search_result = {}
+		for i = 1, #serverlistmgr.servers do
+			local server = serverlistmgr.servers[i]
+			local found = 0
+			for k = 1, #keywords do
+				local keyword = keywords[k]
+				if server.name then
+					local sername = lower(server.name)
+					local _, count = sername:gsub(keyword, keyword)
+					found = found + count * 4
+				end
+
+				if server.description then
+					local desc = lower(server.description)
+					local _, count = desc:gsub(keyword, keyword)
+					found = found + count * 2
+				end
+			end
+			if found > 0 then
+				local points = (#serverlistmgr.servers - i) / 5 + found
+				server.points = points
+				table.insert(search_result, server)
+			end
+		end
+		if #search_result > 0 then
+			table.sort(search_result, function(a, b)
+				return a.points > b.points
+			end)
+			menudata.search_result = search_result
+			local first_server = search_result[1]
+			if first_server.address and first_server.port then
+				core.settings:set("address",     first_server.address)
+				core.settings:set("remote_port", first_server.port)
+				gamedata.serverdescription = first_server.description
+			end
+		end
 		return true
 	end
 
@@ -381,30 +358,28 @@ local function main_button_handler(tabview, fields, name, tabdata)
 			and fields.te_address ~= "" then
 		gamedata.playername = fields.te_name
 		gamedata.password   = fields.te_pwd
-		gamedata.selected_world = 0
 
 		-- Allow entering "address:port"
 		local address, port = fields.te_address:match("^(.+):([0-9]+)$")
 		gamedata.address    = address or fields.te_address
 		gamedata.port       = tonumber(port) or 30000
 
-		local idx = core.get_table_index("servers")
-		local server = idx and tabdata.lookup[idx]
+		gamedata.selected_world = 0
+		local fav_idx = core.get_table_index("favorites")
+		local fav = serverlist[fav_idx]
 
-		set_selected_server(tabdata)
-
-		if server and server.address == gamedata.address and
-				server.port == gamedata.port then
-
+		if fav_idx and fav_idx <= #serverlist and
+				fav.address == gamedata.address and
+				fav.port    == gamedata.port then
 			if not is_server_protocol_compat_or_error(
-						server.proto_min, server.proto_max) then
+						fav.proto_min, fav.proto_max) then
 				return true
 			end
 
-			serverlistmgr.add_favorite(server)
+			serverlistmgr.add_favorite(fav)
 
-			gamedata.servername        = server.name
-			gamedata.serverdescription = server.description
+			gamedata.servername        = fav.name
+			gamedata.serverdescription = fav.description
 		else
 			gamedata.servername        = ""
 			gamedata.serverdescription = ""
@@ -432,7 +407,6 @@ local function main_button_handler(tabview, fields, name, tabdata)
 		core.start()
 		return true
 	end
-
 	return false
 end
 
@@ -441,6 +415,7 @@ local function on_change(type, old_tab, new_tab)
 	serverlistmgr.sync()
 end
 
+--------------------------------------------------------------------------------
 return {
 	name = "online",
 	caption = fgettext("Join Game"),
