@@ -2,23 +2,23 @@ ARG DOCKER_IMAGE=alpine:3.14
 FROM $DOCKER_IMAGE AS builder
 
 ENV MINETEST_GAME_VERSION master
-ENV IRRLICHT_VERSION master
+ENV IRRLICHT_VERSION SDL2
 
-COPY .git /usr/src/minetest/.git
-COPY CMakeLists.txt /usr/src/minetest/CMakeLists.txt
-COPY README.md /usr/src/minetest/README.md
-COPY minetest.conf.example /usr/src/minetest/minetest.conf.example
-COPY builtin /usr/src/minetest/builtin
-COPY cmake /usr/src/minetest/cmake
-COPY doc /usr/src/minetest/doc
-COPY fonts /usr/src/minetest/fonts
-COPY lib /usr/src/minetest/lib
-COPY misc /usr/src/minetest/misc
-COPY po /usr/src/minetest/po
-COPY src /usr/src/minetest/src
-COPY textures /usr/src/minetest/textures
+COPY .git /usr/src/multicraft/.git
+COPY CMakeLists.txt /usr/src/multicraft/CMakeLists.txt
+COPY README.md /usr/src/multicraft/README.md
+COPY multicraft.conf.example /usr/src/multicraft/multicraft.conf.example
+COPY builtin /usr/src/multicraft/builtin
+COPY cmake /usr/src/multicraft/cmake
+COPY doc /usr/src/multicraft/doc
+COPY fonts /usr/src/multicraft/fonts
+COPY lib /usr/src/multicraft/lib
+COPY misc /usr/src/multicraft/misc
+COPY po /usr/src/multicraft/po
+COPY src /usr/src/multicraft/src
+COPY textures /usr/src/multicraft/textures
 
-WORKDIR /usr/src/minetest
+WORKDIR /usr/src/multicraft
 
 RUN apk add --no-cache git build-base cmake sqlite-dev curl-dev zlib-dev zstd-dev \
 		gmp-dev jsoncpp-dev postgresql-dev ninja luajit-dev ca-certificates && \
@@ -37,10 +37,10 @@ RUN git clone --recursive https://github.com/jupp0r/prometheus-cpp/ && \
 	ninja && \
 	ninja install
 
-RUN git clone --depth=1 https://github.com/minetest/irrlicht/ -b ${IRRLICHT_VERSION} && \
+RUN git clone --depth=1 https://github.com/MoNTE48/Irrlicht/ -b ${IRRLICHT_VERSION} && \
 	cp -r irrlicht/include /usr/include/irrlichtmt
 
-WORKDIR /usr/src/minetest
+WORKDIR /usr/src/multicraft
 RUN mkdir build && \
 	cd build && \
 	cmake .. \
@@ -58,17 +58,17 @@ ARG DOCKER_IMAGE=alpine:3.14
 FROM $DOCKER_IMAGE AS runtime
 
 RUN apk add --no-cache sqlite-libs curl gmp libstdc++ libgcc libpq luajit jsoncpp zstd-libs && \
-	adduser -D minetest --uid 30000 -h /var/lib/minetest && \
-	chown -R minetest:minetest /var/lib/minetest
+	adduser -D multicraft --uid 30000 -h /var/lib/multicraft && \
+	chown -R multicraft:multicraft /var/lib/multicraft
 
-WORKDIR /var/lib/minetest
+WORKDIR /var/lib/multicraft
 
-COPY --from=builder /usr/local/share/minetest /usr/local/share/minetest
-COPY --from=builder /usr/local/bin/minetestserver /usr/local/bin/minetestserver
-COPY --from=builder /usr/local/share/doc/minetest/minetest.conf.example /etc/minetest/minetest.conf
+COPY --from=builder /usr/local/share/multicraft /usr/local/share/multicraft
+COPY --from=builder /usr/local/bin/multicraftserver /usr/local/bin/multicraftserver
+COPY --from=builder /usr/local/share/doc/multicraft/multicraft.conf.example /etc/multicraft/multicraft.conf
 
-USER minetest:minetest
+USER multicraft:multicraft
 
 EXPOSE 30000/udp 30000/tcp
 
-CMD ["/usr/local/bin/minetestserver", "--config", "/etc/minetest/minetest.conf"]
+CMD ["/usr/local/bin/multicraftserver", "--config", "/etc/multicraft/multicraft.conf"]

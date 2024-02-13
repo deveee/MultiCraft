@@ -604,12 +604,42 @@ function core.do_item_eat(hp_change, replace_with_item, itemstack, user, pointed
 		return itemstack
 	end
 
+	local pos = user:get_pos()
+	if not core.is_valid_pos(pos) then
+		return itemstack
+	end
+
 	if def and def.sound and def.sound.eat then
 		core.sound_play(def.sound.eat, {
-			pos = user:get_pos(),
+			pos = pos,
 			max_hear_distance = 16
 		}, true)
+	else
+		core.sound_play("player_eat", {
+			pos = pos,
+			max_hear_distance = 16,
+			gain = 0.3
+		}, true)
 	end
+
+	local dir = user:get_look_dir()
+	local ppos = {x = pos.x, y = pos.y + 1.3, z = pos.z}
+	core.add_particlespawner({
+		amount = 20,
+		time = 0.1,
+		minpos = ppos,
+		maxpos = ppos,
+		minvel = {x = dir.x - 1, y = 2, z = dir.z - 1},
+		maxvel = {x = dir.x + 1, y = 2, z = dir.z + 1},
+		minacc = {x = 0, y = -5, z = 0},
+		maxacc = {x = 0, y = -9, z = 0},
+		minexptime = 1,
+		maxexptime = 1,
+		minsize = 1,
+		maxsize = 1,
+		vertical = false,
+		texture = def.inventory_image
+	})
 
 	-- Changing hp might kill the player causing mods to do who-knows-what to the
 	-- inventory, so do this before set_hp().
@@ -629,7 +659,11 @@ function core.do_item_eat(hp_change, replace_with_item, itemstack, user, pointed
 	end
 	user:set_wielded_item(itemstack)
 
-	user:set_hp(user:get_hp() + hp_change)
+	if enable_hunger then
+		hunger.item_eat(hp_change, user, poison)
+	else
+		user:set_hp(user:get_hp() + hp_change)
+	end
 
 	return nil -- don't overwrite wield item a second time
 end

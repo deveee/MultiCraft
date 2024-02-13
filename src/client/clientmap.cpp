@@ -187,7 +187,13 @@ void ClientMap::updateDrawList()
 	getBlocksInViewRange(cam_pos_nodes, &p_blocks_min, &p_blocks_max);
 
 	// Read the vision range, unless unlimited range is enabled.
-	float range = m_control.range_all ? 1e7 : m_control.wanted_range;
+#if !defined(__ANDROID__) && !defined(__IOS__)
+	float range = 100000 * BS;
+#else
+	float range = m_control.wanted_range * BS * 4;
+#endif
+	if (!m_control.range_all)
+		range = m_control.wanted_range * BS;
 
 	// Number of blocks currently loaded by the client
 	u32 blocks_loaded = 0;

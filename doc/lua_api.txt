@@ -91,7 +91,7 @@ The game directory can contain the following files:
                 ContentDB.
     * `release`: Ignore this: Should only ever be set by ContentDB, as it is
                  an internal ID used to track versions.
-* `minetest.conf`:
+* `multicraft.conf`:
   Used to set default settings when running this game.
 * `settingtypes.txt`:
   In the same format as the one in builtin.
@@ -1802,6 +1802,8 @@ to games.
 
 ### Node and item groups
 
+* `no_change_anim`: Disables the wielditem changing animation when switching
+  to the item in the hotbar.
 * `not_in_creative_inventory`: (*) Special group for inventory mods to indicate
   that the item should be hidden in item lists.
 
@@ -2447,20 +2449,25 @@ Elements
 * `bgcolor` tooltip background color as `ColorString` (optional)
 * `fontcolor` tooltip font color as `ColorString` (optional)
 
-### `image[<X>,<Y>;<W>,<H>;<texture name>]`
+### `image[<X>,<Y>;<W>,<H>;<texture name>;<middle>]`
 
-* Show an image
+* Show an image.
+* `middle` (optional): Makes the image render in 9-sliced mode and defines the middle rect.
+    * Requires formspec version >= 4.
+    * See `background9[]` documentation for more information.
 
-### `animated_image[<X>,<Y>;<W>,<H>;<name>;<texture name>;<frame count>;<frame duration>;<frame start>]`
+### `animated_image[<X>,<Y>;<W>,<H>;<name>;<texture name>;<frame count>;<frame duration>;<frame start>;<middle>]`
 
 * Show an animated image. The image is drawn like a "vertical_frames" tile
-    animation (See [Tile animation definition]), but uses a frame count/duration
-    for simplicity
+  animation (See [Tile animation definition]), but uses a frame count/duration for simplicity
 * `name`: Element name to send when an event occurs. The event value is the index of the current frame.
 * `texture name`: The image to use.
 * `frame count`: The number of frames animating the image.
 * `frame duration`: Milliseconds between each frame. `0` means the frames don't advance.
-* `frame start` (Optional): The index of the frame to start on. Default `1`.
+* `frame start` (optional): The index of the frame to start on. Default `1`.
+* `middle` (optional): Makes the image render in 9-sliced mode and defines the middle rect.
+    * Requires formspec version >= 4.
+    * See `background9[]` documentation for more information.
 
 ### `model[<X>,<Y>;<W>,<H>;<name>;<mesh>;<textures>;<rotation X,Y>;<continuous>;<mouse control>;<frame loop range>;<animation speed>]`
 
@@ -2746,7 +2753,7 @@ Elements
 * **Note**: If the new coordinate system is enabled, checkboxes are
   positioned from the center of the checkbox, not the top.
 
-### `scrollbar[<X>,<Y>;<W>,<H>;<orientation>;<name>;<value>]`
+### `scrollbar[<X>,<Y>;<W>,<H>;<orientation>;<name>;<value>;<bg.png,slider.png,arrow_up.png,arrow_down.png>]`
 
 * Show a scrollbar using options defined by the previous `scrollbaroptions[]`
 * There are two ways to use it:
@@ -3070,16 +3077,33 @@ Some types may inherit styles from parent types.
     * noclip - boolean, set to true to allow the element to exceed formspec bounds.
     * size - 2d vector, sets the size of inventory slots in coordinates.
     * spacing - 2d vector, sets the space between inventory slots in coordinates.
+    * bgimg - slot background image. Defaults to none.
+    * bgimg_hovered - hovered slot background image.
+    * bgimg_pressed - pressed slot background image.
+    * bgimg_middle - Makes the bgimg textures render in 9-sliced mode and defines the middle rect.
 * image_button (additional properties)
     * fgimg - standard image. Defaults to none.
     * fgimg_hovered - image when hovered. Defaults to fgimg when not provided.
         * This is deprecated, use states instead.
     * fgimg_pressed - image when pressed. Defaults to fgimg when not provided.
         * This is deprecated, use states instead.
+    * fgimg_middle - Makes the fgimg textures render in 9-sliced mode and defines the middle rect.
+                     See background9[] documentation for more details.
     * NOTE: The parameters of any given image_button will take precedence over fgimg/fgimg_pressed
     * sound - a sound to be played when triggered.
 * scrollbar
     * noclip - boolean, set to true to allow the element to exceed formspec bounds.
+* scrollbar, table, textarea
+    * scrollbar_bgimg - The background image of the scrollbar
+    * scrollbar_thumb_img - The thumb/slider image of the scrollbar.
+                            If scrollbar_thumb_top_img and scrollbar_thumb_bottom_img are specified,
+                            this should be middle texture.
+    * scrollbar_thumb_top_img - The top half of the thumb image
+    * scrollbar_thumb_bottom_img - The bottom half of the thumb image
+    * scrollbar_up_img - The up arrow image to use for the scrollbar
+    * scrollbar_down_img - The down arrow image to use for the scrollbar
+    * scrollbar_middle - The middle for all 9-sliced scrollbar textures
+    * NOTE: Scrollbar textures will only be applied if all scrollbar image properties are specified.
 * tabheader
     * noclip - boolean, set to true to allow the element to exceed formspec bounds.
     * sound - a sound to be played when a different tab is selected.
@@ -3429,6 +3453,110 @@ angles in radians.
     * Otherwise `direction` and `up` need to be vectors in a 90 degree angle to each other.
 
 
+
+SSCSM
+=====
+
+MultiCraft has a built-in SSCSM implementation that will load SSCSMs onto
+MultiCraft clients, as well as non-MultiCraft clients if they have the correct
+CSM installed.
+
+
+Server-side API
+---------------
+
+* `sscsm.register(SSCSM definition table)`:
+    * Registers a server-provided CSM with an [SSCSM definition table].
+* `sscsm.register_on_sscsms_loaded(function(name))`:
+    * Registers a callback that will be called when SSCSMs have been loaded
+      on a client.
+* `sscsm.has_sscsms_enabled(name)`:
+    * Returns a boolean.
+    * Returns `true` if the client supports SSCSMs and SSCSMs have been loaded.
+    * Note that this will not return `true` immediately after joining.
+* `sscsm.com_send(player_or_name, channel, msg)`:
+    * Sends a com message to a specific client.
+    * `msg` can be any object that can be serialized with JSON.
+* `sscsm.com_send_all(channel, msg)`:
+    * Sends a com message to all clients.
+* `sscsm.register_on_com_receive(channel, function(name, msg))`:
+    * Registers a function to be called when a message on channel is received
+      from the client.
+    * Note that `msg` may be any JSON-compatible type, so checking the type of
+      this object is strongly recommended.
+
+Client-side API
+---------------
+
+SSCSMs have access most of the API functions mentioned in client_lua_api.txt,
+along with an extra `sscsm` namespace:
+
+* `sscsm.register_on_mods_loaded(function())`:
+    * Runs the provided callback once all SSCSMs are loaded.
+* `sscsm.register_chatcommand(command, function(param))`:
+    * Similar to `minetest.register_chatcommand`, however overrides commands
+      starting in `/` instead. This can be used to make some commands have
+      instantaneous responses.
+* `sscsm.unregister_chatcommand(command)`:
+    * Unregisters a chatcommand.
+* `sscsm.get_player_control()`:
+    * Returns a table similar to the server-side `player:get_player_control()`.
+* `sscsm.every(interval, func, ...)`:
+    * Calls `func` every `interval` seconds with any extra parameters specified.
+    * Use `minetest.register_globalstep` instead if `interval` is zero.
+* `sscsm.com_send(channel, msg)`:
+    * Sends `msg` (a JSON-compatible object) to the server.
+    * Note that client-to-server messages cannot be long, for plain strings
+      the channel and message combined must be at most 492 characters.
+* `sscsm.register_on_com_receive(channel, function(msg))`:
+    * Registers a function to be called when a message on `channel` is received
+      from the server.
+
+This namespace has the following constants:
+* `sscsm.restriction_flags`:
+    * The `csm_restriction_flags` setting set in the server's `multicraft.conf`.
+* `sscsm.restrictions`: A table based on `csm_restriction_flags`:
+    * `chat_messages`: When `true`, SSCSMs can't send chat messages or run
+       server chatcommands.
+    * `read_itemdefs`: When `true`, SSCSMs can't read item definitions.
+    * `read_nodedefs`: When `true`, SSCSMs can't read node definitions.
+    * `lookup_nodes_limit`: When `true`, any get_node calls are restricted.
+    * `read_playerinfo`: When `true`, `minetest.get_player_names()` will return
+      `nil`.
+
+
+SSCSM definition table
+----------------------
+
+```lua
+sscsm.register({
+    -- The name of the server-provided CSM. Using `modname` or
+    -- `modname:sscsmname` is strongly recommended. This name cannot start with
+    -- a colon or contain newlines.
+    name = "mymod",
+
+    -- The code to be sent to clients.
+    -- code = "print('Hello world!')",
+
+    -- The file to read code from.
+    -- This should be used instead of `code`.
+    file = minetest.get_modpath("mymod") .. DIR_DELIM .. "sscsm.lua",
+
+    -- An optional list of SSCSMs that this one depends on.
+    -- depends = {"othermod"},
+})
+```
+
+Security considerations
+-----------------------
+
+Do not trust any input sent to the server via SSCSMs (and do not store
+sensitive data in SSCSM code), as malicious users can and will inspect code and
+modify the output from SSCSMs.
+
+I repeat, **do not trust the client** and/or SSCSMs with any sensitive
+information and do not trust any output from the client and/or SSCSMs. Make
+sure you rerun any privilege checks on the server.
 
 
 Helper functions
@@ -4446,7 +4574,7 @@ Callbacks:
 * `on_step(self, dtime)`
     * Called on every server tick, after movement and collision processing.
       `dtime` is usually 0.1 seconds, as per the `dedicated_server_step` setting
-      in `minetest.conf`.
+      in `multicraft.conf`.
 * `on_punch(self, puncher, time_from_last_punch, tool_capabilities, dir, damage)`
     * Called when somebody punches the object.
     * Note that you probably want to handle most punches using the automatic
@@ -4647,14 +4775,15 @@ Utilities
           min_jitter = 0.01,         -- minimum packet time jitter
           max_jitter = 0.5,          -- maximum packet time jitter
           avg_jitter = 0.03,         -- average packet time jitter
-          -- the following information is available in a debug build only!!!
-          -- DO NOT USE IN MODS
-          --ser_vers = 26,             -- serialization version used by client
-          --major = 0,                 -- major version number
-          --minor = 4,                 -- minor version number
-          --patch = 10,                -- patch version number
-          --vers_string = "0.4.9-git", -- full version string
-          --state = "Active"           -- current client state
+          -- DO NOT USE IN MODS WITHOUT A GOOD REASON
+          serialization_version = 26,   -- serialization version used by client
+          major = 0,                    -- major version number
+          minor = 4,                    -- minor version number
+          patch = 10,                   -- patch version number
+          version_string = "0.4.9-git", -- full version string
+          platform = "Linux",           -- Equivalent to the "PLATFORM" variable
+          sysinfo = "Linux/5.4.0-109-generic x86_64",
+          state = "Active"              -- current client state
       }
 
 * `minetest.mkdir(path)`: returns success.
@@ -4688,6 +4817,7 @@ Utilities
     * `string`: Simple version, eg, "1.2.3-dev"
     * `hash`: Full git version (only set if available),
       eg, "1.2.3-dev-01234567-dirty".
+    * `is_dev`: Boolean value indicating whether it's a development build
   Use this for informational purposes only. The information in the returned
   table does not represent the capabilities of the engine, nor is it
   reliable or verifiable. Compatible forks will have a different name and
@@ -4817,7 +4947,7 @@ Call these functions only at load time!
     * If it is a description, the priv will be granted to singleplayer and admin
       by default.
     * To allow players with `basic_privs` to grant, see the `basic_privs`
-      minetest.conf setting.
+      multicraft.conf setting.
 * `minetest.register_authentication_handler(authentication handler definition)`
     * Registers an auth handler that overrides the builtin one.
     * This function can be called by a single mod once only.
@@ -5037,7 +5167,7 @@ Setting-related
 ---------------
 
 * `minetest.settings`: Settings object containing all of the settings from the
-  main config file (`minetest.conf`).
+  main config file (`multicraft.conf`).
 * `minetest.setting_get_pos(name)`: Loads a setting from the main settings and
   parses it as a position (in the format `(1,2,3)`). Returns a position or nil.
 
@@ -5288,14 +5418,14 @@ Environment access
     * `flags` contains a comma-delimited string of flags to set, or if the
       prefix `"no"` is attached, clears instead.
     * `flags` is in the same format and has the same options as `mg_flags` in
-      `minetest.conf`.
+      `multicraft.conf`.
 * `minetest.get_mapgen_setting(name)`
     * Gets the *active* mapgen setting (or nil if none exists) in string
       format with the following order of precedence:
         1) Settings loaded from map_meta.txt or overrides set during mod
            execution.
         2) Settings set by mods without a metafile override
-        3) Settings explicitly set in the user config file, minetest.conf
+        3) Settings explicitly set in the user config file, multicraft.conf
         4) Settings set as the user config default
 * `minetest.get_mapgen_setting_noiseparams(name)`
     * Same as above, but returns the value as a NoiseParams table if the
@@ -5441,6 +5571,12 @@ Environment access
     * The spawn level returned is for a player spawn in unmodified terrain.
     * The spawn level is intentionally above terrain level to cope with
       full-node biome 'dust' nodes.
+ * `minetest.set_world_spawnpoint([pos])`
+    * Sets the world-specific spawnpoint to pos (or `nil` to reset).
+    * If `static_spawnpoint` is specified in multicraft.conf, the
+      world-specific spawnpoint will be ignored.
+ * `minetest.get_world_spawnpoint()`
+    * Returns the world-specific spawnpoint.
 
 Mod channels
 ------------
@@ -7089,7 +7225,7 @@ secure random device cannot be found on the system.
 `Settings`
 ----------
 
-An interface to read config files in the format of `minetest.conf`.
+An interface to read config files in the format of `multicraft.conf`.
 
 It can be created via `Settings(filename)`.
 
@@ -7396,6 +7532,11 @@ Used by `minetest.register_abm`.
         chance = 1,
         -- Chance of triggering `action` per-node per-interval is 1.0 / this
         -- value
+
+        min_y = -32768,
+        max_y = 32767,
+        -- min and max height levels where ABM will be processed
+        -- can be used to reduce CPU usage
 
         min_y = -32768,
         max_y = 32767,

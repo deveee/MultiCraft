@@ -323,6 +323,7 @@ local function create_world_formspec(dialogdata)
 		"background9[0,0;0,0;" .. defaulttexturedir_esc .. "bg_common.png;true;40]" ..
 
 		-- Left side
+		"container[0,0]"..
 		"real_coordinates[true]" ..
 		"formspec_version[3]" ..
 		"image[0.37,0.6;7.28,0.8;" .. defaulttexturedir_esc .. "field_bg.png;32]" ..
@@ -424,7 +425,9 @@ local function create_world_buttonhandler(this, fields)
 		end
 
 		if message == nil then
-			this.data.seed = fields["te_seed"]
+			if fields["te_seed"] then
+				this.data.seed = fields["te_seed"]
+			end
 			this.data.mg = fields["dd_mapgen"]
 
 			-- actual names as used by engine

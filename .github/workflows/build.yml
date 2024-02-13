@@ -31,31 +31,32 @@ on:
 
 jobs:
   # Older gcc version (should be close to our minimum supported version)
-  gcc_5:
-    runs-on: ubuntu-18.04
++#  gcc_6:
++#    runs-on: ubuntu-18.04
++#    steps:
++#      - uses: actions/checkout@v2
++#      - name: Install deps
++#        run: |
++#          sudo apt-get install g++-6 gcc-6 -qyy
++#          source ./util/ci/common.sh
++#          install_linux_deps
++#
++#      - name: Build
++#        run: |
++#          ./util/ci/build.sh
++#        env:
++#          CC: gcc-6
++#          CXX: g++-6
++#
++#      - name: Test
++#        run: |
++#          ./bin/multicraft --run-unittests
++
++  # This is the current gcc compiler (available in jammy)
++  gcc_10:
++    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v2
-      - name: Install deps
-        run: |
-          source ./util/ci/common.sh
-          install_linux_deps g++-5
-
-      - name: Build
-        run: |
-          ./util/ci/build.sh
-        env:
-          CC: gcc-5
-          CXX: g++-5
-
-      - name: Test
-        run: |
-          ./bin/minetest --run-unittests
-
-  # Current gcc version
-  gcc_10:
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Install deps
         run: |
           source ./util/ci/common.sh
@@ -70,28 +71,29 @@ jobs:
 
       - name: Test
         run: |
-          ./bin/minetest --run-unittests
+          ./bin/multicraft --run-unittests
 
   # Older clang version (should be close to our minimum supported version)
-  clang_3_9:
-    runs-on: ubuntu-18.04
-    steps:
-      - uses: actions/checkout@v2
-      - name: Install deps
-        run: |
-          source ./util/ci/common.sh
-          install_linux_deps clang-3.9 gdb
-
-      - name: Build
-        run: |
-          ./util/ci/build.sh
-        env:
-          CC: clang-3.9
-          CXX: clang++-3.9
-
-      - name: Unittest
-        run: |
-          ./bin/minetest --run-unittests
++#  clang_3_9:
++#    runs-on: ubuntu-18.04
++#    steps:
++#      - uses: actions/checkout@v2
++#      - name: Install deps
++#        run: |
++#          sudo apt-get install clang-3.9 -qyy
++#          source ./util/ci/common.sh
++#          install_linux_deps
++#
++#      - name: Build
++#        run: |
++#          ./util/ci/build.sh
++#        env:
++#          CC: clang-3.9
++#          CXX: clang++-3.9
++#
++#      - name: Test
++#        run: |
++#          ./bin/multicraft --run-unittests
 
       - name: Integration test + devtest
         run: |
@@ -180,9 +182,9 @@ jobs:
 
   win64:
     name: "MinGW cross-compiler (64-bit)"
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Install compiler
         run: |
           sudo apt-get update -q && sudo apt-get install gettext -qyy
@@ -227,10 +229,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Restore from cache and run vcpkg
-        uses: lukka/run-vcpkg@v5
+        uses: lukka/run-vcpkg@v7
         with:
           vcpkgArguments: ${{env.vcpkg_packages}}
           vcpkgDirectory: '${{ github.workspace }}\vcpkg'
@@ -265,7 +267,7 @@ jobs:
       - name: Package Clean
         run: rm -r $env:GITHUB_WORKSPACE\Package\_CPack_Packages
 
-      - uses: actions/upload-artifact@v1
+      - uses: actions/upload-artifact@v3
         with:
-          name: msvc-${{ matrix.config.arch }}-${{ matrix.type }}
+          name: MultiCraft-msvc-${{ matrix.config.arch }}-${{ matrix.type }}
           path: .\Package\

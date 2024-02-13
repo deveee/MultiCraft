@@ -46,15 +46,15 @@ done
 
 # Get stuff
 irrlicht_version=1.9.0mt4
-ogg_version=1.3.4
+ogg_version=1.3.5
 vorbis_version=1.3.7
-curl_version=7.76.1
-gettext_version=0.20.1
-freetype_version=2.10.4
-sqlite3_version=3.35.5
-luajit_version=2.1.0-beta3
+curl_version=8.0.1
+gettext_version=0.20.2
+freetype_version=2.12.1
+sqlite3_version=3.41.2
+luajit_version=20230221
 leveldb_version=1.23
-zlib_version=1.2.11
+zlib_version=1.2.13
 zstd_version=1.4.9
 
 mkdir -p $libdir
@@ -86,7 +86,7 @@ download "http://minetest.kitsunemimi.pw/libogg-$ogg_version-win64.zip"
 download "http://minetest.kitsunemimi.pw/libvorbis-$vorbis_version-win64.zip"
 download "http://minetest.kitsunemimi.pw/curl-$curl_version-win64.zip"
 download "http://minetest.kitsunemimi.pw/gettext-$gettext_version-win64.zip"
-download "http://minetest.kitsunemimi.pw/freetype2-$freetype_version-win64.zip" freetype-$freetype_version.zip
+download "http://minetest.kitsunemimi.pw/freetype-$freetype_version-win64.zip" freetype-$freetype_version.zip
 download "http://minetest.kitsunemimi.pw/sqlite3-$sqlite3_version-win64.zip"
 download "http://minetest.kitsunemimi.pw/luajit-$luajit_version-win64.zip"
 download "http://minetest.kitsunemimi.pw/libleveldb-$leveldb_version-win64.zip" leveldb-$leveldb_version.zip

@@ -3,7 +3,7 @@
 --
 --This program is free software; you can redistribute it and/or modify
 --it under the terms of the GNU Lesser General Public License as published by
---the Free Software Foundation; either version 2.1 of the License, or
+--the Free Software Foundation; either version 3.0 of the License, or
 --(at your option) any later version.
 --
 --This program is distributed in the hope that it will be useful,
@@ -17,6 +17,8 @@
 
 
 mm_game_theme = {}
+
+local small_screen = (PLATFORM == "Android" or PLATFORM == "iOS") and not core.settings:get_bool("device_is_tablet")
 
 --------------------------------------------------------------------------------
 function mm_game_theme.init()
@@ -60,14 +62,16 @@ function mm_game_theme.reset()
 	core.set_clouds(false)
 
 	mm_game_theme.set_generic("footer")
-	mm_game_theme.set_generic("header")
+	if not small_screen then
+		mm_game_theme.set_generic("header")
+	end
 
 	if not have_bg then
-		if core.settings:get_bool("menu_clouds") then
-			core.set_clouds(true)
-		else
+	--	if core.settings:get_bool("menu_clouds") then
+	--		core.set_clouds(true)
+	--	else
 			mm_game_theme.set_dirt_bg()
-		end
+	--	end
 	end
 
 	if mm_game_theme.music_handle ~= nil then
@@ -94,7 +98,7 @@ function mm_game_theme.update_game(gamedetails)
 
 	if not have_bg then
 
-		if core.settings:get_bool("menu_clouds") then
+		if core.settings:get_bool("menu_clouds") and gamedetails.id ~= "default" then
 			core.set_clouds(true)
 		else
 			mm_game_theme.set_dirt_bg()
@@ -102,7 +106,9 @@ function mm_game_theme.update_game(gamedetails)
 	end
 
 	mm_game_theme.set_game("footer",gamedetails)
-	mm_game_theme.set_game("header",gamedetails)
+	if not small_screen then
+		mm_game_theme.set_game("header",gamedetails)
+	end
 
 	mm_game_theme.gameid = gamedetails.id
 end
@@ -181,16 +187,7 @@ end
 
 --------------------------------------------------------------------------------
 function mm_game_theme.set_dirt_bg()
-	if mm_game_theme.texturepack ~= nil then
-		local path = mm_game_theme.texturepack .. DIR_DELIM .."default_dirt.png"
-		if core.set_background("background", path, true, 128) then
-			return true
-		end
-	end
-
-	-- Use universal fallback texture in textures/base/pack
-	local minimalpath = defaulttexturedir .. "menu_bg.png"
-	core.set_background("background", minimalpath, true, 128)
+	core.set_background("background", defaulttexturedir .. "bg.png", true, 256)
 end
 
 --------------------------------------------------------------------------------
