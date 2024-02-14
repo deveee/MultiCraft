@@ -42,7 +42,7 @@ if(USE_SDL)
 	endif()
 	if (SDL2_FOUND)
 		message(STATUS "SDL2 found.")
-		include_directories(${SDL2_INCLUDE_DIR})
+		include_directories(${SDL2_INCLUDE_DIRS})
 	else()
 		message(FATAL_ERROR "SDL2 not found.")
 	endif()
@@ -274,6 +274,12 @@ endif()
 add_definitions(-DUSE_CMAKE_CONFIG_H)
 
 if(WIN32)
+	# Irrlicht with SDL needs external libjpeg/libpng
+	if(MSVC AND BUILD_CLIENT AND USE_SDL)
+		find_package(JPEG REQUIRED)
+		find_package(PNG REQUIRED)
+	endif()
+
 	# Windows
 	if(MSVC) # MSVC Specifics
 		set(PLATFORM_LIBS dbghelp.lib ${PLATFORM_LIBS})
@@ -513,6 +519,7 @@ include_directories(
 	${ZSTD_INCLUDE_DIR}
 	${SQLITE3_INCLUDE_DIR}
 	${LUA_INCLUDE_DIR}
+	${CHACHA_INCLUDE_DIR}
 	${GMP_INCLUDE_DIR}
 	${JSON_INCLUDE_DIR}
 	${LUA_BIT_INCLUDE_DIR}
@@ -565,6 +572,7 @@ if(BUILD_CLIENT)
 		${SDL2_LIBRARIES}
 		luautf8
 		luachacha
+		chacha
 	)
 	if(NOT USE_LUAJIT)
 		set_target_properties(${PROJECT_NAME} PROPERTIES
@@ -671,6 +679,7 @@ if(BUILD_SERVER)
 		${PLATFORM_LIBS}
 		luautf8
 		luachacha
+		chacha
 	)
 	set_target_properties(${PROJECT_NAME}server PROPERTIES
 		COMPILE_DEFINITIONS "SERVER")
@@ -682,6 +691,21 @@ if(BUILD_SERVER)
 		)
 	endif()
 
+	if(USE_SDL)
+		target_link_libraries(
+			${PROJECT_NAME}server
+			${SDL2_LIBRARIES}
+		)
+		if(USE_STATIC_BUILD AND WIN32)
+			target_link_libraries(
+				${PROJECT_NAME}server
+				winmm
+				imm32
+				setupapi
+				opengl32
+			)
+		endif()
+	endif()
 	if (USE_GETTEXT)
 		target_link_libraries(${PROJECT_NAME}server ${GETTEXT_LIBRARY})
 	endif()

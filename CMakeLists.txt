@@ -19,7 +19,7 @@ set(CLANG_MINIMUM_VERSION "3.5")
 # Also remember to set PROTOCOL_VERSION in network/networkprotocol.h when releasing
 set(VERSION_MAJOR 2)
 set(VERSION_MINOR 0)
-set(VERSION_PATCH 4)
+set(VERSION_PATCH 6)
 set(VERSION_EXTRA "" CACHE STRING "Stuff to append to version string")
 
 # Change to false for releases
@@ -210,6 +210,7 @@ endif()
 find_package(GMP REQUIRED)
 find_package(Json REQUIRED)
 find_package(Lua REQUIRED)
+add_subdirectory(lib/chacha)
 add_subdirectory(lib/luautf8)
 add_subdirectory(lib/luachacha)
 

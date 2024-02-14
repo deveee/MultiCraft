@@ -861,7 +861,7 @@
 
 #    Whether node texture animations should be desynchronized per mapblock.
 #    type: bool
-# desynchronize_mapblock_texture_animation = true
+# desynchronize_mapblock_texture_animation = false
 
 #    Maximum proportion of current window to be used for hotbar.
 #    Useful if there's something to be displayed right or left of hotbar.
@@ -1244,9 +1244,6 @@
 #    type: string
 # bind_address =
 
-#    Disable to prevent clients that don't support protocol version 37 from connecting.
-# enable_protocol_compat = true
-
 #    Enable to disallow old clients from connecting.
 #    Older clients are compatible in the sense that they will not crash when connecting
 #    to new servers, but they may not support all new features that you are expecting.
@@ -1617,6 +1614,7 @@
 #    LOOKUP_NODES_LIMIT: 16 (limits get_node call client-side to
 #    csm_restriction_noderange)
 #    READ_PLAYERINFO: 32 (disable get_player_names call client-side)
+#    THIRD_PARTY_MODS: 256 (disable loading third-party client-provided mods)
 #    type: int
 # csm_restriction_flags = 60
 
