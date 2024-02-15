@@ -169,12 +169,12 @@ void GUIModalMenu::quitMenu()
 	Environment->forceUpdateHoveredElement();
 #endif
 
-	this->drop();
-
 #ifdef HAVE_TOUCHSCREENGUI
 	if (g_touchscreengui && g_touchscreengui->isActive() && m_touchscreen_visible)
 		g_touchscreengui->show();
 #endif
+
+	this->drop();
 }
 
 void GUIModalMenu::removeChildren()
@@ -347,6 +347,9 @@ bool GUIModalMenu::preprocessEvent(const SEvent &event)
 			if (field_name.empty() || porting::hasRealKeyboard())
 				return retval;
 
+			if (porting::isInputDialogActive())
+				return retval;
+
 			m_jni_field_name = field_name;
 
 			// single line text input
@@ -361,7 +364,8 @@ bool GUIModalMenu::preprocessEvent(const SEvent &event)
 				type = 3;
 
 			porting::showInputDialog(wide_to_utf8(getLabelByID(hovered->getID())),
-				wide_to_utf8(((gui::IGUIEditBox *)hovered)->getText()), type);
+				wide_to_utf8(((gui::IGUIEditBox *)hovered)->getText()), type, 
+				"modalmenu");
 			return retval;
 		}
 	}
@@ -402,7 +406,7 @@ bool GUIModalMenu::preprocessEvent(const SEvent &event)
 			if (!ret && m_hovered && m_hovered != focused)
 				ret = m_hovered->OnEvent(mouse_event);
 			if (event.TouchInput.Event == ETIE_LEFT_UP) {
-				m_pointer = v2s32(0, 0);
+				m_pointer = AbsoluteClippingRect.UpperLeftCorner;
 				leave();
 			}
 			return ret;

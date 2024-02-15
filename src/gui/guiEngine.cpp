@@ -357,7 +357,7 @@ void GUIEngine::run()
 		m_script->step();
 
 #if defined(__ANDROID__) || defined(__IOS__)
-		m_menu->getAndroidUIInput();
+		m_menu->getTouchUIInput();
 #endif
 	}
 }
@@ -496,9 +496,15 @@ void GUIEngine::drawBackground(video::IVideoDriver *driver)
 		(s32) screensize.Y - (s32) bg_size.Y
 	) / 2;
 	/* Draw background texture */
+	float aspectRatioScreen = (float) screensize.X / screensize.Y;
+	float aspectRatioSource = (float) sourcesize.X / sourcesize.Y;
+
+	int sourceX = aspectRatioSource > aspectRatioScreen ? (sourcesize.X - sourcesize.Y * aspectRatioScreen) / 2 : 0;
+	int sourceY = aspectRatioSource < aspectRatioScreen ? (sourcesize.Y - sourcesize.X / aspectRatioScreen) / 2 : 0;
+
 	draw2DImageFilterScaled(driver, texture,
 		core::rect<s32>(offset.X, offset.Y, bg_size.X + offset.X, bg_size.Y + offset.Y),
-		core::rect<s32>(0, 0, sourcesize.X, sourcesize.Y),
+		core::rect<s32>(sourceX, sourceY, sourcesize.X - sourceX, sourcesize.Y - sourceY),
 		NULL, NULL, true);
 }
 
@@ -515,9 +521,15 @@ void GUIEngine::drawOverlay(video::IVideoDriver *driver)
 
 	/* Draw background texture */
 	v2u32 sourcesize = texture->getOriginalSize();
+	float aspectRatioScreen = (float) screensize.X / screensize.Y;
+	float aspectRatioSource = (float) sourcesize.X / sourcesize.Y;
+
+	int sourceX = aspectRatioSource > aspectRatioScreen ? (sourcesize.X - sourcesize.Y * aspectRatioScreen) / 2 : 0;
+	int sourceY = aspectRatioSource < aspectRatioScreen ? (sourcesize.Y - sourcesize.X / aspectRatioScreen) / 2 : 0;
+
 	draw2DImageFilterScaled(driver, texture,
 		core::rect<s32>(0, 0, screensize.X, screensize.Y),
-		core::rect<s32>(0, 0, sourcesize.X, sourcesize.Y),
+		core::rect<s32>(sourceX, sourceY, sourcesize.X - sourceX, sourcesize.Y - sourceY),
 		NULL, NULL, true);
 }
 
@@ -552,7 +564,7 @@ void GUIEngine::drawHeader(video::IVideoDriver *driver)
 	core::rect<s32> splashrect(0, 0, splashsize.X, splashsize.Y);
 	splashrect += v2s32((screensize.Width/2)-(splashsize.X/2), 0);
 
-	if (g_settings->getBool("device_is_tablet"))
+	if (RenderingEngine::isTablet())
 		splashrect += v2s32(0, splashsize.Y/4);
 #endif
 
@@ -662,7 +674,7 @@ void GUIEngine::updateTopLeftTextSize()
 {
 	core::rect<s32> rect(0, 0, g_fontengine->getTextWidth(m_toplefttext.c_str()),
 		g_fontengine->getTextHeight());
-	rect += v2s32(5 + g_settings->getU16("round_screen"), 0);
+	rect += v2s32(5 + g_settings->getU16("round_screen") * 1.1, 0);
 
 	m_irr_toplefttext->remove();
 	m_irr_toplefttext = gui::StaticText::add(m_rendering_engine->get_gui_env(),

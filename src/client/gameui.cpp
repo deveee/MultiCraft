@@ -153,17 +153,20 @@ void GameUI::update(const RunStats &stats, Client *client, MapDrawControl *draw_
 			<< ", Z: " << (player_position.Z / BS)
 			<< " | yaw: " << (wrapDegrees_0_360(cam.camera_yaw)) << "° "
 			<< yawToDirectionString(cam.camera_yaw)
-			<< " | pitch: " << (-wrapDegrees_180(cam.camera_pitch)) << "°"
-			<< " | seed: " << ((u64)client->getMapSeed());
+			<< " | pitch: " << (-wrapDegrees_180(cam.camera_pitch)) << "°";
 
-		if (pointed_old.type == POINTEDTHING_NODE) {
-			ClientMap &map = client->getEnv().getClientMap();
-			const NodeDefManager *nodedef = client->getNodeDefManager();
-			MapNode n = map.getNode(pointed_old.node_undersurface);
+		if (m_flags.show_basic_debug) {
+			os << " | seed: " << ((u64)client->getMapSeed());
 
-			if (n.getContent() != CONTENT_IGNORE && nodedef->get(n).name != "unknown") {
-				os << ", pointed: " << nodedef->get(n).name
-					<< ", param2: " << (u64) n.getParam2();
+			if (pointed_old.type == POINTEDTHING_NODE) {
+				ClientMap &map = client->getEnv().getClientMap();
+				const NodeDefManager *nodedef = client->getNodeDefManager();
+				MapNode n = map.getNode(pointed_old.node_undersurface);
+
+				if (n.getContent() != CONTENT_IGNORE && nodedef->get(n).name != "unknown") {
+					os << ", pointed: " << nodedef->get(n).name
+						<< ", param2: " << (u64) n.getParam2();
+				}
 			}
 		}
 

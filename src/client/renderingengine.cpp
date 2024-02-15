@@ -52,12 +52,17 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <SDL_syswm.h>
 #endif
 
+#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+#include <SDL.h>
+#include <SDL_syswm.h>
+#endif
+
 #ifdef _WIN32
 #include <windows.h>
 #include <winuser.h>
 #endif
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__IOS__)
 #include "defaultsettings.h"
 #endif
 
@@ -108,7 +113,11 @@ RenderingEngine::RenderingEngine(IEventReceiver *receiver)
 	bool stereo_buffer = g_settings->get("3d_mode") == "pageflip";
 
 	// Determine driver
+#if !defined(__ANDROID__) && !defined(__IOS__)
 	video::E_DRIVER_TYPE driverType = video::EDT_OPENGL;
+#else
+	video::E_DRIVER_TYPE driverType = video::EDT_OGLES2;
+#endif
 	const std::string &driverstring = g_settings->get("video_driver");
 	std::vector<video::E_DRIVER_TYPE> drivers =
 			RenderingEngine::getSupportedVideoDrivers();
@@ -125,6 +134,10 @@ RenderingEngine::RenderingEngine(IEventReceiver *receiver)
 			       "defaulting to opengl"
 			    << std::endl;
 	}
+#if defined(__ANDROID__) || defined(__IOS__)
+	// Shaders are required on OpenGL ES2
+	g_settings->setBool("enable_shaders", driverType == video::EDT_OGLES2);
+#endif
 
 	SIrrlichtCreationParameters params = SIrrlichtCreationParameters();
 	if (g_logger.getTraceEnabled())
@@ -146,6 +159,10 @@ RenderingEngine::RenderingEngine(IEventReceiver *receiver)
 #endif
 
 	m_device = createDeviceEx(params);
+#if defined(__ANDROID__) || defined(__IOS__)
+	FATAL_ERROR_IF(!m_device, ("Device create failed. Driver Type: \"" +
+			std::string(RenderingEngine::getVideoDriverName(driverType)) + "\".").c_str());
+#endif
 	driver = m_device->getVideoDriver();
 
 	s_singleton = this;
@@ -155,11 +172,10 @@ RenderingEngine::RenderingEngine(IEventReceiver *receiver)
 	m_device->getGUIEnvironment()->setSkin(skin);
 	skin->drop();
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__IOS__)
 	// Apply settings according to screen size
 	// We can get real screen size only after device initialization finished
-	if (m_device)
-		set_default_settings();
+	set_default_settings();
 #endif
 }
 
@@ -754,7 +770,7 @@ v2u32 RenderingEngine::getDisplaySize()
 #else // __ANDROID__/__IOS__
 float RenderingEngine::getDisplayDensity()
 {
-	static const float density = porting::getDisplayDensity();
+	static const float density = porting::getScreenScale();
 	return density;
 }
 
@@ -767,13 +783,23 @@ v2u32 RenderingEngine::getDisplaySize()
 }
 #endif // __ANDROID__/__IOS__
 
+bool RenderingEngine::isTablet()
+{
+#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
+	static const bool isTablet = SDL_IsTablet();
+	return isTablet;
+#else
+	return false;
+#endif
+}
+
 bool RenderingEngine::isHighDpi()
 {
 #if defined(__MACH__) && defined(__APPLE__) && !defined(__IOS__)
 	return g_settings->getFloat("screen_dpi") / 72.0f >= 2;
 #elif defined(__IOS__)
 	float density = RenderingEngine::getDisplayDensity();
-	return g_settings->getBool("device_is_tablet") ? (density >= 2) : (density >= 3);
+	return isTablet() ? (density >= 2) : (density >= 3);
 #else
 	return RenderingEngine::getDisplayDensity() >= 3;
 #endif

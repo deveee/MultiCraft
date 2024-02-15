@@ -246,6 +246,8 @@ gui::IGUIFont *FontEngine::initFont(const FontSpec &spec)
 		Settings::getLayer(SL_DEFAULTS)->get(path_setting)
 	};
 
+	std::string emoji_font_path = g_settings->get("emoji_font_path");
+
 	for (const std::string &font_path : fallback_settings) {
 		gui::CGUITTFont *font = gui::CGUITTFont::createTTFont(m_env,
 				font_path.c_str(), size, true, true, font_shadow,
@@ -256,6 +258,8 @@ gui::IGUIFont *FontEngine::initFont(const FontSpec &spec)
 				"'. Trying to fall back to another path." << std::endl;
 			continue;
 		}
+		
+		font->loadAdditionalFont(emoji_font_path.c_str());
 
 		if (spec.mode != _FM_Fallback) {
 			FontSpec spec2(spec);

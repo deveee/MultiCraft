@@ -213,8 +213,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define LATEST_PROTOCOL_VERSION_STRING TOSTRING(LATEST_PROTOCOL_VERSION)
 
 // Server's supported network protocol range
-#define SERVER_PROTOCOL_VERSION_MIN 25
-#define SERVER_PROTOCOL_VERSION_MIN_NOCOMPAT 37
+#define SERVER_PROTOCOL_VERSION_MIN 37
 #define SERVER_PROTOCOL_VERSION_MAX LATEST_PROTOCOL_VERSION
 
 // Client's supported network protocol range
@@ -1058,6 +1057,7 @@ enum CSMRestrictionFlags : u64 {
 	CSM_RF_READ_NODEDEFS = 0x00000008,    // Disable nodedef lookups
 	CSM_RF_LOOKUP_NODES = 0x00000010,     // Limit node lookups
 	CSM_RF_READ_PLAYERINFO = 0x00000020,  // Disable player info lookups
+	CSM_RF_THIRD_PARTY_MODS = 0x00000100, // Don't load third-party CSMs
 	CSM_RF_ALL = 0xFFFFFFFF,
 };
 

@@ -26,7 +26,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "settings.h"
 
 #ifdef __IOS__
-#include "porting_ios.h"
+#include "porting.h"
 extern "C" void external_pause_game();
 #endif
 
@@ -112,14 +112,14 @@ bool MyEventReceiver::OnEvent(const SEvent &event)
 #if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
 	if (event.EventType == irr::EET_SDL_CONTROLLER_BUTTON_EVENT ||
 			event.EventType == irr::EET_SDL_CONTROLLER_AXIS_EVENT) {
-		if (g_settings->getBool("enable_joysticks")) {
+		if (g_settings->getBool("enable_joysticks") && sdl_game_controller) {
 			sdl_game_controller->translateEvent(event);
 			input->setCursorVisible(sdl_game_controller->isCursorVisible());
 		}
 	} else if ((event.EventType == irr::EET_MOUSE_INPUT_EVENT &&
 			event.MouseInput.Event == irr::EMIE_MOUSE_MOVED) ||
 			event.EventType == irr::EET_TOUCH_INPUT_EVENT) {
-		if (!sdl_game_controller->isFakeEvent() &&
+		if (sdl_game_controller && !sdl_game_controller->isFakeEvent() &&
 				sdl_game_controller->isActive()) {
 			sdl_game_controller->setActive(false);
 			input->setCursorVisible(sdl_game_controller->isCursorVisible());
@@ -134,7 +134,7 @@ bool MyEventReceiver::OnEvent(const SEvent &event)
 			m_touchscreengui->show();
 	} else if ((event.EventType == irr::EET_MOUSE_INPUT_EVENT &&
 			event.MouseInput.Event == irr::EMIE_MOUSE_MOVED) ||
-			sdl_game_controller->isActive()) {
+			(sdl_game_controller && sdl_game_controller->isActive())) {
 		TouchScreenGUI::setActive(false);
 		if (m_touchscreengui && !isMenuActive())
 			m_touchscreengui->hide();
@@ -195,7 +195,6 @@ bool MyEventReceiver::OnEvent(const SEvent &event)
 #ifdef __IOS__
 	} else if (event.EventType == irr::EET_APPLICATION_EVENT) {
 		int AppEvent = event.ApplicationEvent.EventType;
-		ioswrap_events(AppEvent);
 		if (AppEvent == irr::EAET_WILL_PAUSE)
 			external_pause_game();
 		return true;

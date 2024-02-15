@@ -1464,12 +1464,17 @@ void MapblockMeshGenerator::drawMeshNode()
 		// Convert wallmounted to 6dfacedir.
 		// When cache enabled, it is already converted.
 		facedir = n.getWallMounted(nodedef);
-		if (!enable_mesh_cache)
-			facedir = wallmounted_to_facedir[facedir];
+		if (!enable_mesh_cache) {
+			facedir = wallmountedToFacedir(facedir);
+		}
 	} else if (f->param_type_2 == CPT2_DEGROTATE ||
 			f->param_type_2 == CPT2_COLORED_DEGROTATE) {
 		degrotate = n.getDegRotate(nodedef);
 	}
+
+	// f->mesh_ptr has 24 elements
+	if (facedir > 23)
+		facedir = 0;
 
 	if (!data->m_smooth_lighting && f->mesh_ptr[facedir] && !degrotate) {
 		// use cached meshes

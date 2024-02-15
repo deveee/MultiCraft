@@ -31,6 +31,7 @@ RenderingCore *createRenderingCore(const std::string &stereo_mode, IrrlichtDevic
 {
 	if (stereo_mode == "none")
 		return new RenderingCorePlain(device, client, hud);
+#if !defined(__ANDROID__) && !defined(__APPLE__)
 	if (stereo_mode == "anaglyph")
 		return new RenderingCoreAnaglyph(device, client, hud);
 	if (stereo_mode == "interlaced")
@@ -45,6 +46,7 @@ RenderingCore *createRenderingCore(const std::string &stereo_mode, IrrlichtDevic
 		return new RenderingCoreSideBySide(device, client, hud, true);
 	if (stereo_mode == "crossview")
 		return new RenderingCoreSideBySide(device, client, hud, false, true);
+#endif
 
 	// fallback to plain renderer
 	errorstream << "Invalid rendering mode: " << stereo_mode << std::endl;

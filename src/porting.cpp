@@ -58,7 +58,11 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #endif
 
 #if defined(__HAIKU__)
-        #include <FindDirectory.h>
+	#include <FindDirectory.h>
+#endif
+
+#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+	#include <SDL.h>
 #endif
 
 #include "config.h"
@@ -750,6 +754,29 @@ bool open_url(const std::string &url)
 	}
 
 	return open_uri(url);
+}
+
+#if defined(__APPLE__)
+std::string getSecretKey(const std::string &key)
+{
+	return std::string(get_secret_key(key.c_str()));
+}
+
+float getScreenScale()
+{
+	static const float retval = get_screen_scale();
+	return retval;
+}
+#endif
+
+float getTotalSystemMemory()
+{
+#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
+	static const float retval = SDL_GetSystemRAM();
+	return retval;
+#else
+	return 0;
+#endif
 }
 
 bool open_directory(const std::string &path)

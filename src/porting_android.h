@@ -1,8 +1,8 @@
 /*
 Minetest
 Copyright (C) 2014 celeron55, Perttu Ahola <celeron55@gmail.com>
-Copyright (C) 2014-2022 Maksim Gamarnik [MoNTE48] <Maksym48@pm.me>
-Copyright (C) 2022 Dawid Gan <deveee@gmail.com>
+Copyright (C) 2014-2023 Maksim Gamarnik [MoNTE48] <Maksym48@pm.me>
+Copyright (C) 2023 Dawid Gan <deveee@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU Lesser General Public License as published by
@@ -34,6 +34,8 @@ namespace porting {
 // java <-> c++ interaction interface
 extern JNIEnv *jnienv;
 
+extern std::string input_dialog_owner;
+
 // do initialization required on android only
 void initAndroid();
 
@@ -51,26 +53,18 @@ void initializePaths();
  * @param editType type of texfield
  * (1 == multiline text input; 2 == single line text input; 3 == password field)
  */
-void showInputDialog(const std::string &hint, const std::string &current, int editType);
+void showInputDialog(const std::string &hint, const std::string &current, int editType, std::string owner = "");
+
+std::string getInputDialogOwner();
+
+bool isInputDialogActive();
 
 void openURIAndroid(const std::string &url);
 
 /**
- * WORKAROUND for not working callbacks from java -> c++
- * get current state of input dialog
- */
-int getInputDialogState();
-
-/**
- * WORKAROUND for not working callbacks from java -> c++
  * get text in current input dialog
  */
 std::string getInputDialogValue();
-
-/**
- * get total device memory
- */
-float getTotalSystemMemory();
 
 /**
  * notify java on server connection
@@ -82,9 +76,10 @@ void notifyServerConnect(bool is_multiplayer);
  */
 void notifyExitGame();
 
-#ifndef SERVER
-float getDisplayDensity();
-#endif
+/**
+ * get screen density
+ */
+float getScreenScale();
 
 /**
  * call Android function to finish
@@ -110,6 +105,11 @@ void upgrade(const std::string &item);
  * get radius of rounded corners
  */
 int getRoundScreen();
+
+/**
+ * get actual CPU architecture
+ */
+std::string getCpuArchitecture();
 
 /**
  * get encrypted key for further actions

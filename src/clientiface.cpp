@@ -19,7 +19,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #include <sstream>
 #include "clientiface.h"
-#include "network/connection.h"
+#include "network/mt_connection.h"
 #include "network/serveropcodes.h"
 #include "remoteplayer.h"
 #include "settings.h"
@@ -737,34 +737,6 @@ void ClientInterface::sendToAllCompat(NetworkPacket *pkt, NetworkPacket *legacyp
 			clientCommandFactoryTable[pkt_to_send->getCommand()].channel,
 			pkt_to_send,
 			clientCommandFactoryTable[pkt_to_send->getCommand()].reliable);
-	}
-}
-
-void ClientInterface::oldSendToAll(NetworkPacket *pkt)
-{
-	RecursiveMutexAutoLock clientslock(m_clients_mutex);
-	for (auto &client_it : m_clients) {
-		RemoteClient *client = client_it.second;
-
-		if (client->net_proto_version != 0 && client->net_proto_version < 37) {
-			m_con->Send(client->peer_id,
-				clientCommandFactoryTable[pkt->getCommand()].channel, pkt,
-				clientCommandFactoryTable[pkt->getCommand()].reliable);
-			}
-	}
-}
-
-void ClientInterface::newSendToAll(NetworkPacket *pkt)
-{
-	RecursiveMutexAutoLock clientslock(m_clients_mutex);
-	for (auto &client_it : m_clients) {
-		RemoteClient *client = client_it.second;
-
-		if (client->net_proto_version > 36) {
-			m_con->Send(client->peer_id,
-				clientCommandFactoryTable[pkt->getCommand()].channel, pkt,
-				clientCommandFactoryTable[pkt->getCommand()].reliable);
-			}
 	}
 }
 

@@ -98,7 +98,7 @@ void GUIConfirmRegistration::regenerateGui(v2u32 screensize)
 	*/
 	float s = MYMIN(screensize.X / 600.f, screensize.Y / 360.f);
 #if HAVE_TOUCHSCREENGUI
-	s *= g_settings->getBool("device_is_tablet") ? 0.7f : 0.8f;
+	s *= RenderingEngine::isTablet() ? 0.7f : 0.8f;
 #else
 	s *= 0.5f;
 #endif
@@ -211,7 +211,7 @@ void GUIConfirmRegistration::drawMenu()
 
 	gui::IGUIElement::draw();
 #if defined(__ANDROID__) || defined(__IOS__)
-	getAndroidUIInput();
+	getTouchUIInput();
 #endif
 }
 
@@ -299,13 +299,16 @@ bool GUIConfirmRegistration::OnEvent(const SEvent &event)
 }
 
 #if defined(__ANDROID__) || defined(__IOS__)
-bool GUIConfirmRegistration::getAndroidUIInput()
+bool GUIConfirmRegistration::getTouchUIInput()
 {
 	if (m_jni_field_name.empty() || m_jni_field_name != "password")
 		return false;
 
+	if (porting::getInputDialogOwner() != "modalmenu")
+		return false;
+
 	// still waiting
-	if (porting::getInputDialogState() == -1)
+	if (porting::isInputDialogActive())
 		return true;
 
 	m_jni_field_name.clear();
