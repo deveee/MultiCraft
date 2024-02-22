@@ -3093,6 +3093,13 @@ void GUIFormSpecMenu::regenerateGui(v2u32 screensize)
 		return;
 	}
 
+	// Update m_tooltip_append_itemname depending on debug privilege
+	if (m_client != nullptr) {
+		m_tooltip_append_itemname = m_client->checkPrivilege("debug") ?
+			g_settings->getBool("tooltip_append_itemname") : false;
+	}
+
+
 	parserData mydata;
 
 	// Preserve stuff only on same form, not on a new form.
@@ -3371,7 +3378,7 @@ void GUIFormSpecMenu::regenerateGui(v2u32 screensize)
 			double prefer_imgsize = min_screen_dim / 10 * gui_scaling;
 
 			// Try to fit 13 coordinates on large tablets.
-			if (g_settings->getBool("device_is_tablet"))
+			if (RenderingEngine::isTablet())
 				prefer_imgsize = min_screen_dim / 13 * gui_scaling;
 #else
 			// Desktop computers have more space, so try to fit 15 coordinates.
@@ -3579,13 +3586,16 @@ void GUIFormSpecMenu::legacySortElements(core::list<IGUIElement *>::Iterator fro
 }
 
 #if defined(__ANDROID__) || defined(__IOS__)
-bool GUIFormSpecMenu::getAndroidUIInput()
+bool GUIFormSpecMenu::getTouchUIInput()
 {
 	if (m_jni_field_name.empty())
 		return false;
 
+	if (porting::getInputDialogOwner() != "modalmenu")
+		return false;
+
 	// still waiting
-	if (porting::getInputDialogState() == -1)
+	if (porting::isInputDialogActive())
 		return true;
 
 	std::string fieldname = m_jni_field_name;
@@ -4052,7 +4062,11 @@ void GUIFormSpecMenu::acceptInput(FormspecQuitMode quitmode)
 					// without rtti support in Irrlicht
 					IGUIElement *element = getElementFromId(s.fid, true);
 					GUIScrollBar *e = nullptr;
+#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+					if (element && element->getType() == gui::EGUIET_CUSTOM_SCROLLBAR)
+#else
 					if (element && element->getType() == gui::EGUIET_ELEMENT)
+#endif
 						e = static_cast<GUIScrollBar *>(element);
 
 					if (e) {
@@ -4127,21 +4141,72 @@ bool GUIFormSpecMenu::preprocessEvent(const SEvent& event)
 			}
 		}
 	}
-	// Mouse wheel and move events: send to hovered element instead of focused
-	if (event.EventType == EET_MOUSE_INPUT_EVENT &&
-			(event.MouseInput.Event == EMIE_MOUSE_WHEEL ||
-			(event.MouseInput.Event == EMIE_MOUSE_MOVED &&
-			event.MouseInput.ButtonStates == 0))) {
+
+#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+#ifdef HAVE_TOUCHSCREENGUI
+	// If element is inside scroll container then send it to scroll container
+	// first so that it can handle swipe gesture
+	if (event.EventType == EET_MOUSE_INPUT_EVENT) {
 		s32 x = event.MouseInput.X;
 		s32 y = event.MouseInput.Y;
 		gui::IGUIElement *hovered =
 			Environment->getRootGUIElement()->getElementFromPoint(
 				core::position2d<s32>(x, y));
+
 		if (hovered && isMyChild(hovered)) {
-			hovered->OnEvent(event);
-			return event.MouseInput.Event == EMIE_MOUSE_WHEEL;
+			IGUIElement *element = hovered;
+
+			if (element->getType() != gui::EGUIET_SCROLL_BAR &&
+					element->getType() != gui::EGUIET_CUSTOM_SCROLLBAR &&
+					element->getType() != gui::EGUIET_EDIT_BOX &&
+					element->getType() != gui::EGUIET_CUSTOM_SCROLLCONTAINER &&
+					element->getType() != gui::EGUIET_CUSTOM_GUITABLE &&
+					element->getType() != gui::EGUIET_CUSTOM_HYPERTEXT)
+			{
+				while (element) {
+					element = element->getParent();
+
+					if (!element)
+						break;
+
+					if (element->getType() == gui::EGUIET_SCROLL_BAR ||
+							element->getType() == gui::EGUIET_CUSTOM_SCROLLBAR ||
+							element->getType() == gui::EGUIET_EDIT_BOX)
+						break;
+
+					if (element->getType() == gui::EGUIET_CUSTOM_SCROLLCONTAINER ||
+							element->getType() == gui::EGUIET_CUSTOM_GUITABLE ||
+							element->getType() == gui::EGUIET_CUSTOM_HYPERTEXT) {
+						bool result = element->OnEvent(event);
+
+						if (result)
+							return true;
+
+						break;
+					}
+
+				}
+			}
 		}
 	}
+#endif
+#endif
+
+	// Mouse wheel and move events: send to hovered element instead of focused
+	if (event.EventType == EET_MOUSE_INPUT_EVENT &&
+			(event.MouseInput.Event == EMIE_MOUSE_WHEEL ||
+			(event.MouseInput.Event == EMIE_MOUSE_MOVED &&
+			event.MouseInput.ButtonStates == 0))) {
+ 		s32 x = event.MouseInput.X;
+ 		s32 y = event.MouseInput.Y;
+ 		gui::IGUIElement *hovered =
+ 			Environment->getRootGUIElement()->getElementFromPoint(
+ 				core::position2d<s32>(x, y));
+ 		if (hovered && isMyChild(hovered)) {
+			hovered->OnEvent(event);
+			return event.MouseInput.Event == EMIE_MOUSE_WHEEL;
+ 		}
+ 	}
 
 	if (event.EventType == irr::EET_JOYSTICK_INPUT_EVENT) {
 		/* TODO add a check like:

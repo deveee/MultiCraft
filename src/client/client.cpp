@@ -200,29 +200,31 @@ void Client::loadMods()
 	scanModIntoMemory(BUILTIN_MOD_NAME, getBuiltinLuaPath());
 	m_script->loadModFromMemory(BUILTIN_MOD_NAME);
 
-	ClientModConfiguration modconf(getClientModsLuaPath());
-	m_mods = modconf.getMods();
-	// complain about mods with unsatisfied dependencies
-	if (!modconf.isConsistent()) {
-		modconf.printUnsatisfiedModsError();
-		return;
+	if (!checkCSMRestrictionFlag(CSMRestrictionFlags::CSM_RF_THIRD_PARTY_MODS)) {
+		ClientModConfiguration modconf(getClientModsLuaPath());
+		m_mods = modconf.getMods();
+		// complain about mods with unsatisfied dependencies
+		if (!modconf.isConsistent()) {
+			modconf.printUnsatisfiedModsError();
+			return;
+		}
+	
+		// Print mods
+		infostream << "Client loading mods: ";
+		for (const ModSpec &mod : m_mods)
+			infostream << mod.name << " ";
+		infostream << std::endl;
+	
+		// Load "mod" scripts
+		for (const ModSpec &mod : m_mods) {
+			mod.checkAndLog();
+			scanModIntoMemory(mod.name, mod.path);
+		}
+	
+		// Run them
+		for (const ModSpec &mod : m_mods)
+			m_script->loadModFromMemory(mod.name);
 	}
-
-	// Print mods
-	infostream << "Client loading mods: ";
-	for (const ModSpec &mod : m_mods)
-		infostream << mod.name << " ";
-	infostream << std::endl;
-
-	// Load "mod" scripts
-	for (const ModSpec &mod : m_mods) {
-		mod.checkAndLog();
-		scanModIntoMemory(mod.name, mod.path);
-	}
-
-	// Run them
-	for (const ModSpec &mod : m_mods)
-		m_script->loadModFromMemory(mod.name);
 
 	// Mods are done loading. Unlock callbacks
 	m_mods_loaded = true;

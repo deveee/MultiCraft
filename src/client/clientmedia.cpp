@@ -527,7 +527,10 @@ bool IClientMediaDownloader::tryLoadFromCache(const std::string &name,
 	const std::string &sha1, Client *client)
 {
 	std::ostringstream tmp_os(std::ios_base::binary);
-	bool found_in_cache = m_media_cache.load(hex_encode(sha1), tmp_os);
+	std::string filename = hex_encode(sha1);
+	if (str_ends_with(name, ".e"))
+		filename += ".e";
+	bool found_in_cache = m_media_cache.load(filename, tmp_os);
 
 	// If found in cache, try to load it from there
 	if (found_in_cache)
@@ -581,8 +584,12 @@ bool IClientMediaDownloader::checkAndLoad(
 		<< std::endl;
 
 	// Update cache (unless we just loaded the file from the cache)
-	if (!is_from_cache && m_write_to_cache)
-		m_media_cache.update(sha1_hex, data);
+	if (!is_from_cache && m_write_to_cache) {
+		std::string filename = sha1_hex;
+		if (str_ends_with(name, ".e"))
+			filename += ".e";
+		m_media_cache.update(filename, data);
+	}
 
 	return true;
 }

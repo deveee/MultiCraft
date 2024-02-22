@@ -261,11 +261,6 @@ gui::IGUIFont *FontEngine::initFont(const FontSpec &spec)
 		
 		font->loadAdditionalFont(emoji_font_path.c_str());
 
-		if (spec.mode != _FM_Fallback) {
-			FontSpec spec2(spec);
-			spec2.mode = _FM_Fallback;
-			font->setFallback(getFont(spec2, true));
-		}
 		return font;
 	}
 	return nullptr;

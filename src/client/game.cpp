@@ -756,7 +756,7 @@ protected:
 	void processClientEvents(CameraOrientation *cam);
 	void updateCamera(f32 dtime);
 	void updateSound(f32 dtime);
-	void processPlayerInteraction(f32 dtime, bool show_hud, bool show_debug);
+	void processPlayerInteraction(f32 dtime, bool show_hud);
 	/*!
 	 * Returns the object or node the player is pointing at.
 	 * Also updates the selected thing in the Hud.
@@ -809,7 +809,7 @@ protected:
 	}
 
 #if defined(__ANDROID__) || defined(__IOS__)
-	void handleAndroidChatInput();
+	void handleTouchChatInput();
 #endif
 
 private:
@@ -1171,8 +1171,7 @@ void Game::run()
 		updateDebugState();
 		updateCamera(dtime);
 		updateSound(dtime);
-		processPlayerInteraction(dtime, m_game_ui->m_flags.show_hud,
-			m_game_ui->m_flags.show_basic_debug);
+		processPlayerInteraction(dtime, m_game_ui->m_flags.show_hud);
 		updateFrame(&graph, &stats, dtime, cam_view);
 		updateProfilerGraphs(&graph);
 
@@ -1540,6 +1539,8 @@ bool Game::connectToServer(const GameStartData &start_data,
 		Wait for server to accept connection
 	*/
 
+	bool result = true;
+
 	try {
 		input->clear();
 
@@ -1549,7 +1550,7 @@ bool Game::connectToServer(const GameStartData &start_data,
 
 		fps_control.reset();
 
-		while (m_rendering_engine->run()) {
+		while ((result = m_rendering_engine->run())) {
 
 			fps_control.limit(device, &dtime);
 
@@ -1612,7 +1613,7 @@ bool Game::connectToServer(const GameStartData &start_data,
 		return false;
 	}
 
-	return true;
+	return result;
 }
 
 bool Game::getServerContent(bool *aborted)
@@ -1624,7 +1625,8 @@ bool Game::getServerContent(bool *aborted)
 
 	fps_control.reset();
 
-	while (m_rendering_engine->run()) {
+	bool result = true;
+	while ((result = m_rendering_engine->run())) {
 
 		fps_control.limit(device, &dtime);
 
@@ -1700,7 +1702,7 @@ bool Game::getServerContent(bool *aborted)
 		}
 	}
 
-	return true;
+	return result;
 }
 
 
@@ -1900,6 +1902,14 @@ void Game::processUserInput(f32 dtime)
 		g_touchscreengui->hide();
 #endif
 	}
+
+#if defined(__ANDROID__) || defined(__IOS__)
+	if (porting::isInputDialogActive() && porting::getInputDialogOwner() == "chat") {
+		input->clear();
+		g_touchscreengui->hide();
+	}
+#endif
+
 #ifdef HAVE_TOUCHSCREENGUI
 	else if (g_touchscreengui) {
 		/* on touchscreengui step may generate own input events which ain't
@@ -1917,13 +1927,11 @@ void Game::processUserInput(f32 dtime)
 	input->step(dtime);
 
 #if defined(__ANDROID__) || defined(__IOS__)
-	if (!porting::hasRealKeyboard()) {
-		auto formspec = m_game_ui->getFormspecGUI();
-		if (formspec)
-			formspec->getAndroidUIInput();
-		else
-			handleAndroidChatInput();
-	}
+	handleTouchChatInput();
+
+	auto formspec = m_game_ui->getFormspecGUI();
+	if (formspec)
+		formspec->getTouchUIInput();
 #endif
 
 	bool doubletap_jump = m_cache_doubletap_jump;
@@ -1951,9 +1959,6 @@ void Game::processKeyInput()
 	} else if (wasKeyDown(KeyType::INVENTORY)) {
 		openInventory();
 	} else if (input->cancelPressed()) {
-#if defined(__ANDROID__) || defined(__IOS__)
-		gui_chat_console->setAndroidChatOpen(false);
-#endif
 		if (!gui_chat_console->isOpenInhibited()) {
 			showPauseMenu();
 		}
@@ -2161,21 +2166,21 @@ void Game::openConsole(float scale, const wchar_t *line)
 {
 	assert(scale > 0.0f && scale <= 1.0f);
 
-	if (gui_chat_console->getAndroidChatOpen())
+	if (gui_chat_console->isOpenInhibited())
 		return;
 
 #if defined(__ANDROID__) || defined(__IOS__)
+	if (porting::isInputDialogActive())
+		return;
+
 	if (!porting::hasRealKeyboard()) {
-		porting::showInputDialog("", "", 2);
-		gui_chat_console->setAndroidChatOpen(true);
+		porting::showInputDialog("", "", 2, "chat");
 	}
 
-	if (!g_settings->getBool("device_is_tablet"))
+	if (!RenderingEngine::isTablet())
 		return;
 #endif
 
-	if (gui_chat_console->isOpenInhibited())
-		return;
 	gui_chat_console->openConsole(scale);
 	if (line) {
 		gui_chat_console->setCloseOnEnter(true);
@@ -2184,16 +2189,21 @@ void Game::openConsole(float scale, const wchar_t *line)
 }
 
 #if defined(__ANDROID__) || defined(__IOS__)
-void Game::handleAndroidChatInput()
+void Game::handleTouchChatInput()
 {
-	if (gui_chat_console->getAndroidChatOpen() &&
-			porting::getInputDialogState() == 0) {
+	if (porting::getInputDialogOwner() == "chat" &&
+			!porting::isInputDialogActive()) {
 		std::string text = porting::getInputDialogValue();
 		client->typeChatMessage(utf8_to_wide(text));
-		gui_chat_console->setAndroidChatOpen(false);
 		if (!text.empty() && gui_chat_console->isOpen()) {
 			gui_chat_console->closeConsole();
 		}
+#ifdef HAVE_TOUCHSCREENGUI
+		if (!gui_chat_console->isOpen() && !isMenuActive()) {
+			if (g_touchscreengui && g_touchscreengui->isActive())
+				g_touchscreengui->show();
+		}
+#endif
 	}
 }
 #endif
@@ -2376,6 +2386,9 @@ void Game::toggleFog()
 
 void Game::toggleDebug()
 {
+	LocalPlayer *player = client->getEnv().getLocalPlayer();
+	bool has_debug = client->checkPrivilege("debug");
+	bool has_basic_debug = has_debug || (player->hud_flags & HUD_FLAG_BASIC_DEBUG);
 	// Initial: No debug info
 	// 1x toggle: Debug text
 	// 2x toggle: Debug text with profiler graph
@@ -2385,9 +2398,9 @@ void Game::toggleDebug()
 	// The debug text can be in 2 modes: minimal and basic.
 	// * Minimal: Only technical client info that not gameplay-relevant
 	// * Basic: Info that might give gameplay advantage, e.g. pos, angle
-	// Basic mode is always used.
+	// Basic mode is used when player has the debug HUD flag set,
+	// otherwise the Minimal mode is used.
 
-	const bool has_basic_debug = true;
 	if (!m_game_ui->m_flags.show_minimal_debug) {
 		m_game_ui->m_flags.show_minimal_debug = true;
 		if (has_basic_debug)
@@ -2411,7 +2424,7 @@ void Game::toggleDebug()
 		m_game_ui->m_flags.show_basic_debug = false;
 		m_game_ui->m_flags.show_profiler_graph = false;
 		draw_control->show_wireframe = false;
-		if (client->checkPrivilege("debug")) {
+		if (has_debug) {
 			m_game_ui->showTranslatedStatusText("Debug info, profiler graph, and wireframe hidden");
 		} else {
 			m_game_ui->showTranslatedStatusText("Debug info and profiler graph hidden");
@@ -3116,7 +3129,7 @@ void Game::updateSound(f32 dtime)
 }
 
 
-void Game::processPlayerInteraction(f32 dtime, bool show_hud, bool show_debug)
+void Game::processPlayerInteraction(f32 dtime, bool show_hud)
 {
 	LocalPlayer *player = client->getEnv().getLocalPlayer();
 
@@ -3234,7 +3247,9 @@ void Game::processPlayerInteraction(f32 dtime, bool show_hud, bool show_debug)
 		handlePointingAtNode(pointed, selected_item, hand_item, dtime);
 	} else if (pointed.type == POINTEDTHING_OBJECT) {
 		v3f player_position  = player->getPosition();
-		handlePointingAtObject(pointed, tool_item, player_position, show_debug);
+		bool basic_debug_allowed = client->checkPrivilege("debug") || (player->hud_flags & HUD_FLAG_BASIC_DEBUG);
+		handlePointingAtObject(pointed, tool_item, player_position,
+				m_game_ui->m_flags.show_basic_debug && basic_debug_allowed);
 	} else if (isKeyDown(KeyType::DIG)) {
 		// When button is held down in air, show continuous animation
 		runData.punching = true;
@@ -4176,7 +4191,7 @@ void FpsControl::limit(IrrlichtDevice *device, f32 *dtime)
 	if (g_menumgr.pausesGame() && !device->isWindowFocused())
 		frametime_min = 1000;
 #endif
-#if defined(__MACH__) && defined(__APPLE__) && !defined(__IOS__)
+#if defined(__MACH__) && defined(__APPLE__) && !defined(__IOS__) && !defined(__aarch64__)
 	// FPS limiting causes freezes on macOS
 	if (!g_menumgr.pausesGame())
 		frametime_min = 0;
@@ -4369,8 +4384,6 @@ void Game::showPauseMenu()
 	bool hasRealKeyboard = porting::hasRealKeyboard();
 	if (simple_singleplayer_mode && hasRealKeyboard)
 		ypos -= 0.6f;
-#endif
-#ifdef __IOS__
 	ypos += 0.5f;
 #endif
 	const bool high_dpi = RenderingEngine::isHighDpi();

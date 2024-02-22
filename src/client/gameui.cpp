@@ -76,15 +76,15 @@ void GameUI::init(Client *client)
 	// If in debug mode, object debug infos shown here, too.
 	// Located on the left on the screen, below chat.
 	u32 chat_font_height = m_guitext_chat->getActiveFont()->getDimension(L"Ay").Height;
-	float scale = 1.0f;
-#if defined(__ANDROID__) || defined(__APPLE__)
-	scale = RenderingEngine::getDisplayDensity() * client->getHudScaling() * 0.5f;
-#endif
+	v2u32 screensize = RenderingEngine::getWindowSize();
+	s32 text_height = g_fontengine->getTextHeight() * 6;
+	s32 top_y = (screensize.Y - text_height) / 2;
+	s32 horiz_offset = 100 + client->getRoundScreen();
+
 	m_guitext_info = gui::StaticText::add(guienv, L"",
 		// Size is limited; text will be truncated after 6 lines.
-		core::rect<s32>(0, 0, 400, g_fontengine->getTextHeight() * 6) +
-			v2s32(100 + client->getRoundScreen(),
-			chat_font_height * (g_settings->getU16("recent_chat_messages") + 3) * scale),
+		core::rect<s32>(horiz_offset, top_y,
+			horiz_offset + 400, top_y + text_height),
 			false, true, guiroot);
 
 	// Status text (displays info when showing and hiding GUI stuff, etc.)
@@ -145,7 +145,8 @@ void GameUI::update(const RunStats &stats, Client *client, MapDrawControl *draw_
 	m_guitext->setVisible(m_flags.show_hud && (m_flags.show_minimal_debug || m_flags.show_minimap));
 
 	// Basic debug text also shows info that might give a gameplay advantage
-	if (m_flags.show_basic_debug) {
+	const bool show_pos = m_flags.show_basic_debug || (m_flags.show_minimal_debug && m_flags.show_minimap);
+	if (show_pos) {
 		std::ostringstream os(std::ios_base::binary);
 		os << std::setprecision(1) << std::fixed
 			<< "X: " << (player_position.X / BS)
@@ -178,7 +179,7 @@ void GameUI::update(const RunStats &stats, Client *client, MapDrawControl *draw_
 		));
 	}
 
-	m_guitext2->setVisible(m_flags.show_basic_debug && m_flags.show_hud);
+	m_guitext2->setVisible(m_flags.show_hud && show_pos);
 
 	setStaticText(m_guitext_info, m_infotext.c_str());
 	m_guitext_info->setVisible(m_flags.show_hud && g_menumgr.menuCount() == 0);
@@ -278,9 +279,9 @@ void GameUI::updateChatSize()
 	s32 chat_y = 5;
 
 	if (m_flags.show_hud) {
-		if (m_flags.show_minimal_debug)
-			chat_y += g_fontengine->getLineHeight() * 2;
-		else if (m_flags.show_minimap)
+		if (m_flags.show_minimal_debug || m_flags.show_minimap)
+			chat_y += g_fontengine->getLineHeight();
+		if (m_flags.show_basic_debug || (m_flags.show_minimal_debug && m_flags.show_minimap))
 			chat_y += g_fontengine->getLineHeight();
 	}
 

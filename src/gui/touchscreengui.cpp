@@ -595,7 +595,6 @@ void TouchScreenGUI::init(ISimpleTextureSource *tsrc)
 {
 	assert(tsrc);
 
-	m_visible       = true;
 	m_texturesource = tsrc;
 
 	/* Init joystick display "button"
@@ -1099,10 +1098,10 @@ void TouchScreenGUI::handleChangedButton(const SEvent &event)
 		for (auto iter = m_buttons[i].ids.begin();
 				iter != m_buttons[i].ids.end(); ++iter) {
 			if (event.TouchInput.ID == *iter) {
-				s32 current_button_id =
+				touch_gui_button_id current_button_id =
 						getButtonID(event.TouchInput.X, event.TouchInput.Y);
 
-				if (current_button_id == i)
+				if (current_button_id == (touch_gui_button_id) i)
 					continue;
 
 				// remove old button
@@ -1117,7 +1116,8 @@ void TouchScreenGUI::handleChangedButton(const SEvent &event)
 		}
 	}
 
-	s32 current_button_id = getButtonID(event.TouchInput.X, event.TouchInput.Y);
+	touch_gui_button_id current_button_id = getButtonID(event.TouchInput.X,
+			event.TouchInput.Y);
 
 	if (current_button_id == after_last_element_id)
 		return;
@@ -1294,6 +1294,10 @@ void TouchScreenGUI::registerHudItem(s32 index, const rect<s32> &rect)
 void TouchScreenGUI::Toggle(bool visible)
 {
 	m_visible = visible;
+
+	if (!m_buttons_initialized)
+		return;
+
 	for (auto &button : m_buttons) {
 		if (button.guibutton)
 			button.guibutton->setVisible(visible);
