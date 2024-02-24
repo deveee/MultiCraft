@@ -23,7 +23,6 @@ mt_color_orange  = "#FF8800"
 
 local menupath = core.get_mainmenu_path()
 local basepath = core.get_builtin_path()
-local mobile = PLATFORM == "Android" or PLATFORM == "iOS"
 defaulttexturedir = core.get_texturepath_share() .. DIR_DELIM .. "base" ..
 					DIR_DELIM .. "pack" .. DIR_DELIM
 defaulttexturedir_esc = core.formspec_escape(defaulttexturedir)
@@ -42,30 +41,20 @@ dofile(menupath .. DIR_DELIM .. "serverlistmgr.lua")
 dofile(menupath .. DIR_DELIM .. "game_theme.lua")
 
 dofile(menupath .. DIR_DELIM .. "dlg_config_world.lua")
+dofile(menupath .. DIR_DELIM .. "dlg_settings_advanced.lua")
 dofile(menupath .. DIR_DELIM .. "dlg_contentstore.lua")
 dofile(menupath .. DIR_DELIM .. "dlg_create_world.lua")
-dofile(menupath .. DIR_DELIM .. "dlg_create_world_default.lua")
 dofile(menupath .. DIR_DELIM .. "dlg_delete_content.lua")
 dofile(menupath .. DIR_DELIM .. "dlg_delete_world.lua")
 dofile(menupath .. DIR_DELIM .. "dlg_rename_modpack.lua")
-
-if not mobile then
-	dofile(menupath .. DIR_DELIM .. "dlg_settings_advanced.lua")
-end
 
 dofile(menupath .. DIR_DELIM .. "dlg_version_info.lua")
 
 local tabs = {}
 
-if not mobile then
-	tabs.settings = dofile(menupath .. DIR_DELIM .. "tab_settings.lua")
-else
-	tabs.settings = dofile(menupath .. DIR_DELIM .. "tab_settings_simple.lua")
-end
-
+tabs.settings = dofile(menupath .. DIR_DELIM .. "tab_settings.lua")
 tabs.content  = dofile(menupath .. DIR_DELIM .. "tab_content.lua")
 tabs.about    = dofile(menupath .. DIR_DELIM .. "tab_about.lua")
-tabs.local_default_game = dofile(menupath .. DIR_DELIM .. "tab_local_default.lua")
 tabs.local_game = dofile(menupath .. DIR_DELIM .. "tab_local.lua")
 tabs.play_online = dofile(menupath .. DIR_DELIM .. "tab_online.lua")
 
@@ -100,11 +89,6 @@ function menudata.init_tabs()
 	menudata.worldlist:add_sort_mechanism("alphabetic", sort_worlds_alphabetic)
 	menudata.worldlist:set_sortmode("alphabetic")
 
-	if not core.settings:get("menu_last_game") then
-		local default_game = core.settings:get("default_game") or "default"
-		core.settings:set("menu_last_game", default_game)
-	end
-
 	mm_game_theme.init()
 
 	-- Create main tabview
@@ -115,14 +99,19 @@ function menudata.init_tabs()
 		tab_name_selected = "content",
 		is_open_cdb = true,
 		on_click = function(this)
-			if #pkgmgr.games > 1 or (pkgmgr.games[1] and pkgmgr.games[1].id ~= "default") then
-				this:set_tab("content")
-			else
-				local dialog = create_store_dlg()
-				dialog:set_parent(this)
-				this:hide()
-				dialog:show()
+			-- Show the content tab if no hidden games are installed
+			for _, game in ipairs(pkgmgr.games) do
+				if not game.hidden then
+					this:set_tab("content")
+					return
+				end
 			end
+
+			-- Otherwise open the store dialog
+			local dialog = create_store_dlg("game")
+			dialog:set_parent(this)
+			this:hide()
+			dialog:show()
 		end,
 	})
 
@@ -137,14 +126,7 @@ function menudata.init_tabs()
 		texture_prefix = "authors"
 	})
 
-	for i = 1, #pkgmgr.games do
-		if pkgmgr.games[i].id == "default" then
-			tv_main:add(tabs.local_default_game)
-			tabs.local_game.hidden = true
-			break
-		end
-	end
-
+	tv_main:set_autosave_tab(true)
 	tv_main:add(tabs.local_game)
 	if func then
 		func(tv_main)
@@ -155,7 +137,6 @@ function menudata.init_tabs()
 	tv_main:add(tabs.settings)
 	tv_main:add(tabs.about)
 
-	tv_main:set_autosave_tab(true)
 	tv_main:set_global_event_handler(main_event_handler)
 	tv_main:set_fixed_size(false)
 

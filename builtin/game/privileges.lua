@@ -84,7 +84,6 @@ core.register_privilege("give", {
 core.register_privilege("password", {
 	description = S("Can use /setpassword and /clearpassword"),
 	give_to_singleplayer = false,
-	give_to_admin = true,
 })
 core.register_privilege("fly", {
 	description = S("Can use fly mode"),

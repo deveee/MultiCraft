@@ -312,11 +312,6 @@ local function create_world_formspec(dialogdata)
 		gamelist_height = 1.12
 	end
 
-	local _gameidx = gameidx
-	if _gameidx >= pkgmgr.default_game_idx then
-		_gameidx = _gameidx - 1
-	end
-
 	local retval =
 		"size[12.25,7]" ..
 		"bgcolor[#0000]" ..
@@ -344,7 +339,7 @@ local function create_world_formspec(dialogdata)
 			"label[0.43,4.3;" .. fgettext("Game") .. ":]" ..
 			"background9[0.37,4.5;7.28," .. gamelist_height .. ";" .. defaulttexturedir_esc .. "worldlist_bg.png;false;40]" ..
 			"textlist[0.47,4.6;7.08,".. gamelist_height - 0.2 .. ";games;" ..
-				pkgmgr.gamelist() .. ";" .. _gameidx .. ";true]" ..
+				pkgmgr.gamelist() .. ";" .. gameidx .. ";true]" ..
 			"container[0.37,5.8]" ..
 			devtest_only ..
 			"container_end[]"
@@ -395,10 +390,6 @@ local function create_world_buttonhandler(this, fields)
 		end
 
 		if message == nil then
-			if gameindex >= pkgmgr.default_game_idx then
-				gameindex = gameindex + 1
-			end
-
 			if not pkgmgr.games[gameindex] then
 				gamedata.errormessage = fgettext("No game selected")
 				this:delete()
@@ -410,7 +401,7 @@ local function create_world_buttonhandler(this, fields)
 			-- generated name number found.
 			if worldname == "" then
 				local worldnum_max = 0
-				for _, world in ipairs(menudata.worldlist:get_list()) do
+				for _, world in ipairs(menudata.worldlist:get_raw_list()) do
 					if world.name:match("^World %d+$") then
 						local worldnum = tonumber(world.name:sub(6))
 						worldnum_max = math.max(worldnum_max, worldnum)
@@ -466,9 +457,6 @@ local function create_world_buttonhandler(this, fields)
 
 	if fields["games"] then
 		local gameindex = core.get_textlist_index("games")
-		if gameindex >= pkgmgr.default_game_idx then
-			gameindex = gameindex + 1
-		end
 		local game = pkgmgr.games[gameindex]
 		if not game then return end
 		core.settings:set("menu_last_game", game.id)

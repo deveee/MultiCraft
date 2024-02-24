@@ -60,7 +60,7 @@ local function singleplayer_refresh_gamebar()
 					--[[local index = filterlist.get_current_index(menudata.worldlist,
 						tonumber(core.settings:get("mainmenu_last_selected_world")))
 					if not index or index < 1 then
-						local selected = get_index()
+						local selected = core.get_table_index("sp_worlds")
 						if selected ~= nil and selected < #menudata.worldlist:get_list() then
 							index = selected
 						else
@@ -83,27 +83,25 @@ local function singleplayer_refresh_gamebar()
 
 
 	for _, game in ipairs(pkgmgr.games) do
-		if game.id ~= "default" then
-			local btn_name = "game_btnbar_" .. game.id
+		local btn_name = "game_btnbar_" .. game.id
 
-			local image = nil
-			local text = nil
-			local tooltip = esc(game.name)
+		local image = nil
+		local text = nil
+		local tooltip = esc(game.name)
 
-			if (game.menuicon_path or "") ~= "" then
-				image = esc(game.menuicon_path)
-			else
-				local part1 = game.id:sub(1,5)
-				local part2 = game.id:sub(6,10)
-				local part3 = game.id:sub(11)
+		if (game.menuicon_path or "") ~= "" then
+			image = esc(game.menuicon_path)
+		else
+			local part1 = game.id:sub(1,5)
+			local part2 = game.id:sub(6,10)
+			local part3 = game.id:sub(11)
 
-				text = part1 .. "\n" .. part2
-				if part3 ~= "" then
-					text = text .. "\n" .. part3
-				end
+			text = part1 .. "\n" .. part2
+			if part3 ~= "" then
+				text = text .. "\n" .. part3
 			end
-			btnbar:add_button(btn_name, text, image, tooltip)
 		end
+	btnbar:add_button(btn_name, text, image, tooltip)
 	end
 
 	btnbar:add_button("game_open_cdb", "", "", fgettext("Install games from ContentDB"), true)
@@ -135,17 +133,11 @@ local function get_disabled_settings(game)
 	return disabled_settings
 end
 
-local function get_index()
+local function get_formspec(_, _, tab_data)
 	local index = filterlist.get_current_index(menudata.worldlist,
 				tonumber(core.settings:get("mainmenu_last_selected_world")))
 	-- Default index
 	if index == 0 then index = 1 end
-
-	return index
-end
-
-local function get_formspec(_, _, tab_data)
-	local index = get_index()
 
 	local space = small_screen and ("\n"):rep(3) or ("\n"):rep(5)
 	local retval =
@@ -164,7 +156,7 @@ local function get_formspec(_, _, tab_data)
 	if game and game.moddable then
 		retval = retval ..
 			btn_style("world_configure") ..
-			"image_button[8.1,4.85;4,0.9;;world_configure;" .. fgettext("Select Mods") .. ";true;false]" ..
+			"image_button[8.1,4.85;4,0.9;;world_configure;" .. fgettext("Settings") .. ";true;false]" ..
 			"image[8.3,5.02;0.5,0.5;" .. defaulttexturedir_esc .. "gui" .. DIR_DELIM_esc .. "world_settings.png]"
 	end
 
@@ -184,9 +176,11 @@ local function get_formspec(_, _, tab_data)
 				(core.settings:get_bool("creative_mode") and "checkbox_checked" or "checkbox") .. ".png]" ..
 			"image_button[7.31,3.09;4.2,0.83;;cb_creative_mode;" .. c_label .. ";true;false]" ..
 
-			"real_coordinates[true]" ..
-			menu_render_worldlist(index) ..
-			"real_coordinates[false]"
+			"background9[0,0;6.5,4.8;" .. defaulttexturedir_esc .. "worldlist_bg.png;false;40]" ..
+			"tableoptions[background=#0000;border=false]" ..
+			"tablecolumns[" .. image_column(fgettext("Creative mode")) .. ";text]" ..
+			scrollbar_style("sp_worlds") ..
+			"table[0,0;6.28,4.64;sp_worlds;" .. menu_render_worldlist() .. ";" .. index .. "]"
 
 	if tab_data.hidden then
 		retval = retval ..
@@ -225,16 +219,21 @@ local function main_button_handler(this, fields, name, tab_data)
 	local world_doubleclick = false
 
 	if fields["sp_worlds"] ~= nil then
-		local event = core.explode_textlist_event(fields["sp_worlds"])
-		local selected = core.get_textlist_index("sp_worlds")
-
-		menu_worldmt_legacy(selected)
+		local event = core.explode_table_event(fields["sp_worlds"])
+		local selected = core.get_table_index("sp_worlds")
 
 		if event.type == "DCL" then
 			world_doubleclick = true
 		end
 
 		if event.type == "CHG" and selected ~= nil then
+			local world = menudata.worldlist:get_list()[selected]
+			if world and world.creative_mode ~= nil and
+					world.enable_damage ~= nil then
+				core.settings:set_bool("creative_mode", world.creative_mode)
+				core.settings:set_bool("enable_damage", world.enable_damage)
+			end
+
 			core.settings:set("mainmenu_last_selected_world",
 				menudata.worldlist:get_raw_index(selected))
 			return true
@@ -250,7 +249,7 @@ local function main_button_handler(this, fields, name, tab_data)
 		core.settings:set_bool("creative_mode", not creative_mode)
 		core.settings:set_bool("enable_damage", creative_mode)
 
-		local selected = get_index()
+		local selected = core.get_table_index("sp_worlds")
 		local world = menudata.worldlist:get_list()[selected]
 		if world then
 			-- Update the cached values
@@ -281,8 +280,8 @@ local function main_button_handler(this, fields, name, tab_data)
 		return true
 	end
 
-	if fields["play"] ~= nil or fields["key_enter"] then
-		local selected = get_index()
+	if fields["play"] ~= nil or world_doubleclick or fields["key_enter"] then
+		local selected = core.get_table_index("sp_worlds")
 		gamedata.selected_world = menudata.worldlist:get_raw_index(selected)
 		core.settings:set("maintab_LAST", "local")
 		core.settings:set("mainmenu_last_selected_world", gamedata.selected_world)
@@ -354,7 +353,7 @@ local function main_button_handler(this, fields, name, tab_data)
 
 	if fields["world_create"] ~= nil then
 		local dlg
-		if #pkgmgr.games > 1 or (pkgmgr.games[1] and pkgmgr.games[1].id ~= "default") then
+		if #pkgmgr.games > 0 then
 --			mm_texture.update("singleplayer", current_game())
 			dlg = create_create_world_dlg(true)
 		else
@@ -368,7 +367,7 @@ local function main_button_handler(this, fields, name, tab_data)
 	end
 
 	if fields["world_delete"] ~= nil then
-		local selected = get_index()
+		local selected = core.get_table_index("sp_worlds")
 		if selected ~= nil and
 			selected <= menudata.worldlist:size() then
 			local world = menudata.worldlist:get_list()[selected]
@@ -389,7 +388,7 @@ local function main_button_handler(this, fields, name, tab_data)
 	end
 
 	if fields["world_configure"] ~= nil then
-		local selected = get_index()
+		local selected = core.get_table_index("sp_worlds")
 		if selected ~= nil then
 			local configdialog =
 				create_configure_world_dlg(
@@ -407,14 +406,12 @@ local function main_button_handler(this, fields, name, tab_data)
 	end
 
 	if fields["switch_local_default"] then
-		core.settings:set("menu_last_game", "default")
 		this:set_tab("local_default")
-
 		return true
 	end
 
 	if fields["game_open_cdb"] then
-		if #pkgmgr.games > 1 or (pkgmgr.games[1] and pkgmgr.games[1].id ~= "default") then
+		if #pkgmgr.games > 0 then
 			this:set_tab("content")
 		else
 			local dlg = create_store_dlg("game")
@@ -430,11 +427,11 @@ end
 local function on_change(type, old_tab, new_tab)
 	if (type == "ENTER") then
 		local gameid = core.settings:get("menu_last_game")
-		if not gameid or gameid == "" or gameid == "default" then
+		if not gameid or gameid == "" then
 			local game_set
 			for _, game in ipairs(pkgmgr.games) do
 				local name = game.id
-				if name and name ~= "default" then
+				if name then
 					core.settings:set("menu_last_game", name)
 					game_set = true
 					break
@@ -447,7 +444,7 @@ local function on_change(type, old_tab, new_tab)
 
 		local game = current_game()
 
-		if game and game.id ~= "default" then
+		if game then
 			menudata.worldlist:set_filtercriteria(game.id)
 --			mm_texture.update("singleplayer",game)
 		else
