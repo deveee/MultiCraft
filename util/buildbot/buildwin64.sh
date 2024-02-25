@@ -16,36 +16,11 @@ fi
 builddir=$1
 mkdir -p $builddir
 builddir="$( cd "$builddir" && pwd )"
+packagedir=$builddir/packages
 libdir=$builddir/libs
 
-# Test which win64 compiler is present
-command -v x86_64-w64-mingw32-gcc >/dev/null &&
-	compiler=x86_64-w64-mingw32-gcc
-command -v x86_64-w64-mingw32-gcc-posix >/dev/null &&
-	compiler=x86_64-w64-mingw32-gcc-posix
-
-if [ -z "$compiler" ]; then
-	echo "Unable to determine which MinGW compiler to use"
-	exit 1
-fi
-toolchain_file=$dir/toolchain_${compiler/-gcc/}.cmake
-echo "Using $toolchain_file"
-
-# Try to find runtime DLLs in various paths (varies by distribution, sigh)
-tmp=$(dirname "$(command -v $compiler)")/..
-runtime_dlls=
-for name in lib{gcc_,stdc++-,winpthread-}'*'.dll; do
-	for dir in $tmp/x86_64-w64-mingw32/{bin,lib} $tmp/lib/gcc/x86_64-w64-mingw32/*; do
-		[ -d "$dir" ] || continue
-		file=$(echo $dir/$name)
-		[ -f "$file" ] && { runtime_dlls+="$file;"; break; }
-	done
-done
-[ -z "$runtime_dlls" ] &&
-	echo "The compiler runtime DLLs could not be found, they might be missing in the final package."
-
-# Get stuff
-irrlicht_version=1.9.0mt4
+toolchain_file=$dir/toolchain_x86_64-w64-mingw32.cmake
+irrlicht_version=1.8.4
 ogg_version=1.3.5
 vorbis_version=1.3.7
 curl_version=8.0.1
@@ -56,91 +31,196 @@ luajit_version=20230221
 leveldb_version=1.23
 zlib_version=1.2.13
 zstd_version=1.4.9
+sdl_version=2.28.5
+jpeg_version=3.0.1
+png_version=1.6.42
 
+mkdir -p $packagedir
 mkdir -p $libdir
 
-download () {
-	local url=$1
-	local filename=$2
-	[ -z "$filename" ] && filename=${url##*/}
-	local foldername=${filename%%[.-]*}
-	local extract=$3
-	[ -z "$extract" ] && extract=unzip
+cd $builddir
 
-	[ -d "./$foldername" ] && return 0
-	wget "$url" -c -O "./$filename"
-	if [ "$extract" = "unzip" ]; then
-		unzip -o "$filename" -d "$foldername"
-	elif [ "$extract" = "unzip_nofolder" ]; then
-		unzip -o "$filename"
-	else
-		return 1
-	fi
-}
+# Get stuff
+# [ -e $packagedir/irrlicht-$irrlicht_version.zip ] || wget http://minetest.kitsunemimi.pw/irrlicht-$irrlicht_version-win64.zip \
+#	-c -O $packagedir/irrlicht-$irrlicht_version.zip
+[ -e $packagedir/zlib-$zlib_version.zip ] || wget http://minetest.kitsunemimi.pw/zlib-$zlib_version-win64.zip \
+	-c -O $packagedir/zlib-$zlib_version.zip
+[ -e $packagedir/zstd-$zstd_version.zip ] || wget http://minetest.kitsunemimi.pw/zstd-$zstd_version-win64.zip \
+	-c -O $packagedir/zstd-$zstd_version.zip
+[ -e $packagedir/libogg-$ogg_version.zip ] || wget http://minetest.kitsunemimi.pw/libogg-$ogg_version-win64.zip \
+	-c -O $packagedir/libogg-$ogg_version.zip
+[ -e $packagedir/libvorbis-$vorbis_version.zip ] || wget http://minetest.kitsunemimi.pw/libvorbis-$vorbis_version-win64.zip \
+	-c -O $packagedir/libvorbis-$vorbis_version.zip
+[ -e $packagedir/curl-$curl_version.zip ] || wget http://minetest.kitsunemimi.pw/curl-$curl_version-win64.zip \
+	-c -O $packagedir/curl-$curl_version.zip
+[ -e $packagedir/gettext-$gettext_version.zip ] || wget http://minetest.kitsunemimi.pw/gettext-$gettext_version-win64.zip \
+	-c -O $packagedir/gettext-$gettext_version.zip
+[ -e $packagedir/freetype-$freetype_version.zip ] || wget http://minetest.kitsunemimi.pw/freetype-$freetype_version-win64.zip \
+	-c -O $packagedir/freetype-$freetype_version.zip
+[ -e $packagedir/sqlite3-$sqlite3_version.zip ] || wget http://minetest.kitsunemimi.pw/sqlite3-$sqlite3_version-win64.zip \
+	-c -O $packagedir/sqlite3-$sqlite3_version.zip
+[ -e $packagedir/luajit-$luajit_version.zip ] || wget http://minetest.kitsunemimi.pw/luajit-$luajit_version-win64.zip \
+	-c -O $packagedir/luajit-$luajit_version.zip
+[ -e $packagedir/libleveldb-$leveldb_version.zip ] || wget http://minetest.kitsunemimi.pw/libleveldb-$leveldb_version-win64.zip \
+	-c -O $packagedir/libleveldb-$leveldb_version.zip
+[ -e $packagedir/openal_stripped.zip ] || wget http://minetest.kitsunemimi.pw/openal_stripped64.zip \
+	-c -O $packagedir/openal_stripped.zip
+[ -e $packagedir/SDL2-devel-$sdl_version-mingw.zip ] || wget https://github.com/libsdl-org/SDL/releases/download/release-$sdl_version/SDL2-devel-$sdl_version-mingw.zip \
+	-c -O $packagedir/SDL2-devel-$sdl_version-mingw.zip
 
+
+# Extract stuff
 cd $libdir
-download "https://github.com/minetest/irrlicht/releases/download/$irrlicht_version/win64.zip" irrlicht-$irrlicht_version.zip
-download "http://minetest.kitsunemimi.pw/zlib-$zlib_version-win64.zip"
-download "http://minetest.kitsunemimi.pw/zstd-$zstd_version-win64.zip"
-download "http://minetest.kitsunemimi.pw/libogg-$ogg_version-win64.zip"
-download "http://minetest.kitsunemimi.pw/libvorbis-$vorbis_version-win64.zip"
-download "http://minetest.kitsunemimi.pw/curl-$curl_version-win64.zip"
-download "http://minetest.kitsunemimi.pw/gettext-$gettext_version-win64.zip"
-download "http://minetest.kitsunemimi.pw/freetype-$freetype_version-win64.zip" freetype-$freetype_version.zip
-download "http://minetest.kitsunemimi.pw/sqlite3-$sqlite3_version-win64.zip"
-download "http://minetest.kitsunemimi.pw/luajit-$luajit_version-win64.zip"
-download "http://minetest.kitsunemimi.pw/libleveldb-$leveldb_version-win64.zip" leveldb-$leveldb_version.zip
-download "http://minetest.kitsunemimi.pw/openal_stripped64.zip" 'openal_stripped.zip' unzip_nofolder
+# [ -d irrlicht ] || unzip -o $packagedir/irrlicht-$irrlicht_version.zip -d irrlicht
+[ -d zlib ] || unzip -o $packagedir/zlib-$zlib_version.zip -d zlib
+[ -d zstd ] || unzip -o $packagedir/zstd-$zstd_version.zip -d zstd
+[ -d libogg ] || unzip -o $packagedir/libogg-$ogg_version.zip -d libogg
+[ -d libvorbis ] || unzip -o $packagedir/libvorbis-$vorbis_version.zip -d libvorbis
+[ -d libcurl ] || unzip -o $packagedir/curl-$curl_version.zip -d libcurl
+[ -d gettext ] || unzip -o $packagedir/gettext-$gettext_version.zip -d gettext
+[ -d freetype ] || unzip -o $packagedir/freetype-$freetype_version.zip -d freetype
+[ -d sqlite3 ] || unzip -o $packagedir/sqlite3-$sqlite3_version.zip -d sqlite3
+[ -d openal_stripped ] || unzip -o $packagedir/openal_stripped.zip
+[ -d luajit ] || unzip -o $packagedir/luajit-$luajit_version.zip -d luajit
+[ -d leveldb ] || unzip -o $packagedir/libleveldb-$leveldb_version.zip -d leveldb
+[ -d SDL2 ] || (unzip -o $packagedir/SDL2-devel-$sdl_version-mingw.zip SDL2-$sdl_version/x86_64-w64-mingw32/* -d SDL2 && mv SDL2/SDL2-$sdl_version/x86_64-w64-mingw32/* SDL2)
 
-# Set source dir, downloading Minetest as needed
-if [ -n "$EXISTING_MINETEST_DIR" ]; then
-	sourcedir="$( cd "$EXISTING_MINETEST_DIR" && pwd )"
-else
-	cd $builddir
-	sourcedir=$PWD/$CORE_NAME
-	[ -d $CORE_NAME ] && { pushd $CORE_NAME; git pull; popd; } || \
-		git clone -b $CORE_BRANCH $CORE_GIT $CORE_NAME
-	if [ -z "$NO_MINETEST_GAME" ]; then
-		cd $sourcedir
-		[ -d games/$GAME_NAME ] && { pushd games/$GAME_NAME; git pull; popd; } || \
-			git clone -b $GAME_BRANCH $GAME_GIT games/$GAME_NAME
-	fi
+# Get libjpeg
+if [ ! -d libjpeg ]; then
+	wget https://download.sourceforge.net/libjpeg-turbo/libjpeg-turbo-$jpeg_version.tar.gz
+	tar -xzf libjpeg-turbo-$jpeg_version.tar.gz
+	mv libjpeg-turbo-$jpeg_version libjpeg
+	rm libjpeg-turbo-$jpeg_version.tar.gz
+	mkdir libjpeg/build
+	cd libjpeg/build
+
+	cmake .. \
+		-DCMAKE_TOOLCHAIN_FILE=$toolchain_file \
+		-DCMAKE_SYSTEM_PROCESSOR=AMD64 \
+		-DCMAKE_INSTALL_PREFIX=/tmp \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DENABLE_SHARED=OFF \
+		-DCMAKE_C_FLAGS_RELEASE="$CFLAGS"
+
+	cmake --build . -j$(nproc)
+
+	cd -
 fi
 
-git_hash=$(cd $sourcedir && git rev-parse --short HEAD)
+# Get libpng
+if [ ! -d libpng ]; then
+	wget https://download.sourceforge.net/libpng/libpng-$png_version.tar.gz
+	tar -xzf libpng-$png_version.tar.gz
+	mv libpng-$png_version libpng
+	rm libpng-$png_version.tar.gz
+	mkdir libpng/build
+	cd libpng/build
+
+	cmake .. \
+		-DCMAKE_TOOLCHAIN_FILE=$toolchain_file \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DPNG_SHARED=OFF \
+		-DPNG_TESTS=OFF \
+		-DPNG_EXECUTABLES=OFF \
+		-DZLIB_ROOT="$libdir/zlib" \
+		-DZLIB_LIBRARY="$libdir/zlib/lib/libz.a" \
+		-DZLIB_INCLUDE_DIR="$libdir/zlib/include" \
+		-DCMAKE_C_FLAGS_RELEASE="$CFLAGS"
+
+	cmake --build . -j$(nproc)
+
+	cd -
+fi
+
+# Get irrlicht
+if [ ! -d irrlicht ]; then
+	git clone --depth 1 -b SDL2 https://github.com/MoNTE48/Irrlicht irrlicht
+
+	cd irrlicht/source/Irrlicht
+
+	CC="x86_64-w64-mingw32-gcc" \
+	CXX="x86_64-w64-mingw32-g++" \
+	CPPFLAGS="$CPPFLAGS \
+		-DCMAKE_TOOLCHAIN_FILE=$toolchain_file \
+		-DNO_IRR_COMPILE_WITH_SDL_TEXTINPUT_ \
+		-DNO_IRR_COMPILE_WITH_OGLES2_ \
+		-DNO_IRR_COMPILE_WITH_DIRECT3D_9_ \
+		-I/usr/x86_64-w64-mingw32/include \
+		-I$libdir/SDL2/include/SDL2 \
+		-I$libdir/zlib/include \
+		-I$libdir/libjpeg \
+		-I$libdir/libjpeg/build \
+		-I$libdir/libpng \
+		-I$libdir/libpng/build" \
+	CXXFLAGS="$CXXFLAGS -std=gnu++17" \
+	make staticlib_win32 -j$(nproc) NDEBUG=1
+
+	cd -
+fi
+
+# Get minetest
+cd $builddir
+if [ ! "x$EXISTING_MINETEST_DIR" = "x" ]; then
+	cd /$EXISTING_MINETEST_DIR # must be absolute path
+else
+	[ -d $CORE_NAME ] && (cd $CORE_NAME && git pull) || (git clone -b $CORE_BRANCH $CORE_GIT)
+	cd $CORE_NAME
+fi
+git_hash=$(git rev-parse --short HEAD)
+
+# Get minetest_game
+if [ "x$NO_MINETEST_GAME" = "x" ]; then
+	cd games
+	[ -d $GAME_NAME ] && (cd $GAME_NAME && git pull) || (git clone -b $GAME_BRANCH $GAME_GIT)
+	cd ..
+fi
 
 # Build the thing
-cd $builddir
-[ -d build ] && rm -rf build
-mkdir build
-cd build
-
-irr_dlls=$(echo $libdir/irrlicht/lib/*.dll | tr ' ' ';')
-vorbis_dlls=$(echo $libdir/libvorbis/bin/libvorbis{,file}-*.dll | tr ' ' ';')
-gettext_dlls=$(echo $libdir/gettext/bin/lib{intl,iconv}-*.dll | tr ' ' ';')
-
-cmake -S $sourcedir -B . \
+[ -d _build ] && rm -Rf _build/
+mkdir _build
+cd _build
+cmake .. \
 	-DCMAKE_TOOLCHAIN_FILE=$toolchain_file \
 	-DCMAKE_INSTALL_PREFIX=/tmp \
 	-DVERSION_EXTRA=$git_hash \
 	-DBUILD_CLIENT=1 -DBUILD_SERVER=0 \
-	-DEXTRA_DLL="$runtime_dlls" \
 	\
 	-DENABLE_SOUND=1 \
 	-DENABLE_CURL=1 \
 	-DENABLE_GETTEXT=1 \
+	-DENABLE_FREETYPE=1 \
 	-DENABLE_LEVELDB=1 \
 	\
-	-DCMAKE_PREFIX_PATH=$libdir/irrlicht \
-	-DIRRLICHT_DLL="$irr_dlls" \
+	-DUSE_STATIC_BUILD=1 \
+	-DUSE_SDL=1 \
+	-DSDL2_LIBRARIES="$libdir/SDL2/lib/libSDL2.a" \
+	-DSDL2_INCLUDE_DIRS="$libdir/SDL2/include/SDL2" \
+	\
+	-DCMAKE_C_FLAGS=" \
+		-DNO_IRR_COMPILE_WITH_SDL_TEXTINPUT_ \
+		-DNO_IRR_COMPILE_WITH_OGLES2_ \
+		-DNO_IRR_COMPILE_WITH_DIRECT3D_9_ \
+		-D_IRR_STATIC_LIB_" \
+	-DCMAKE_CXX_FLAGS=" \
+		-DNO_IRR_COMPILE_WITH_SDL_TEXTINPUT_ \
+		-DNO_IRR_COMPILE_WITH_OGLES2_ \
+		-DNO_IRR_COMPILE_WITH_DIRECT3D_9_ \
+		-D_IRR_STATIC_LIB_" \
+	-DIRRLICHT_INCLUDE_DIR=$libdir/irrlicht/include \
+	-DIRRLICHT_LIBRARY=$libdir/irrlicht/lib/Win32-gcc/libIrrlicht.a \
 	\
 	-DZLIB_INCLUDE_DIR=$libdir/zlib/include \
-	-DZLIB_LIBRARY=$libdir/zlib/lib/libz.dll.a \
-	-DZLIB_DLL=$libdir/zlib/bin/zlib1.dll \
+	-DZLIB_LIBRARIES=$libdir/zlib/lib/libz.a \
 	\
 	-DZSTD_INCLUDE_DIR=$libdir/zstd/include \
 	-DZSTD_LIBRARY=$libdir/zstd/lib/libzstd.dll.a \
 	-DZSTD_DLL=$libdir/zstd/bin/libzstd.dll \
+	\
+	-DPNG_INCLUDE_DIR="$libdir/libpng/include" \
+	-DPNG_LIBRARIES="$libdir/libpng/build/libpng16.a" \
+	\
+	-DJPEG_INCLUDE_DIR="$libdir/libjpeg/include" \
+	-DJPEG_LIBRARIES="$libdir/libjpeg/build/libjpeg.a" \
 	\
 	-DLUA_INCLUDE_DIR=$libdir/luajit/include \
 	-DLUA_LIBRARY=$libdir/luajit/libluajit.a \
@@ -151,19 +231,21 @@ cmake -S $sourcedir -B . \
 	\
 	-DVORBIS_INCLUDE_DIR=$libdir/libvorbis/include \
 	-DVORBIS_LIBRARY=$libdir/libvorbis/lib/libvorbis.dll.a \
-	-DVORBIS_DLL="$vorbis_dlls" \
+	-DVORBIS_DLL=$libdir/libvorbis/bin/libvorbis-0.dll \
 	-DVORBISFILE_LIBRARY=$libdir/libvorbis/lib/libvorbisfile.dll.a \
+	-DVORBISFILE_DLL=$libdir/libvorbis/bin/libvorbisfile-3.dll \
 	\
 	-DOPENAL_INCLUDE_DIR=$libdir/openal_stripped/include/AL \
 	-DOPENAL_LIBRARY=$libdir/openal_stripped/lib/libOpenAL32.dll.a \
 	-DOPENAL_DLL=$libdir/openal_stripped/bin/OpenAL32.dll \
 	\
-	-DCURL_DLL=$libdir/curl/bin/libcurl-4.dll \
-	-DCURL_INCLUDE_DIR=$libdir/curl/include \
-	-DCURL_LIBRARY=$libdir/curl/lib/libcurl.dll.a \
+	-DCURL_DLL=$libdir/libcurl/bin/libcurl-4.dll \
+	-DCURL_INCLUDE_DIR=$libdir/libcurl/include \
+	-DCURL_LIBRARY=$libdir/libcurl/lib/libcurl.dll.a \
 	\
-	-DGETTEXT_MSGFMT=`command -v msgfmt` \
-	-DGETTEXT_DLL="$gettext_dlls" \
+	-DGETTEXT_MSGFMT=`which msgfmt` \
+	-DGETTEXT_DLL=$libdir/gettext/bin/libintl-8.dll \
+	-DGETTEXT_ICONV_DLL=$libdir/gettext/bin/libiconv-2.dll \
 	-DGETTEXT_INCLUDE_DIR=$libdir/gettext/include \
 	-DGETTEXT_LIBRARY=$libdir/gettext/lib/libintl.dll.a \
 	\
@@ -182,7 +264,7 @@ cmake -S $sourcedir -B . \
 
 make -j$(nproc)
 
-[ -z "$NO_PACKAGE" ] && make package
+[ "x$NO_PACKAGE" = "x" ] && make package
 
 exit 0
 # EOF

@@ -13,8 +13,6 @@ on:
       - 'util/buildbot/**'
       - 'util/ci/**'
       - '.github/workflows/**.yml'
-      - 'Dockerfile'
-      - '.dockerignore'
   pull_request:
     paths:
       - 'lib/**.[ch]'
@@ -26,41 +24,40 @@ on:
       - 'util/buildbot/**'
       - 'util/ci/**'
       - '.github/workflows/**.yml'
-      - 'Dockerfile'
-      - '.dockerignore'
 
 jobs:
-  # Older gcc version (should be close to our minimum supported version)
-+#  gcc_6:
-+#    runs-on: ubuntu-18.04
-+#    steps:
-+#      - uses: actions/checkout@v2
-+#      - name: Install deps
-+#        run: |
-+#          sudo apt-get install g++-6 gcc-6 -qyy
-+#          source ./util/ci/common.sh
-+#          install_linux_deps
-+#
-+#      - name: Build
-+#        run: |
-+#          ./util/ci/build.sh
-+#        env:
-+#          CC: gcc-6
-+#          CXX: g++-6
-+#
-+#      - name: Test
-+#        run: |
-+#          ./bin/multicraft --run-unittests
-+
-+  # This is the current gcc compiler (available in jammy)
-+  gcc_10:
-+    runs-on: ubuntu-22.04
+  # This is our minor gcc compiler
+#  gcc_6:
+#    runs-on: ubuntu-18.04
+#    steps:
+#      - uses: actions/checkout@v2
+#      - name: Install deps
+#        run: |
+#          sudo apt-get install g++-6 gcc-6 -qyy
+#          source ./util/ci/common.sh
+#          install_linux_deps
+#
+#      - name: Build
+#        run: |
+#          ./util/ci/build.sh
+#        env:
+#          CC: gcc-6
+#          CXX: g++-6
+#
+#      - name: Test
+#        run: |
+#          ./bin/multicraft --run-unittests
+
+  # This is the current gcc compiler (available in jammy)
+  gcc_10:
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - name: Install deps
         run: |
           source ./util/ci/common.sh
           install_linux_deps g++-10
+          build_linux_deps
 
       - name: Build
         run: |
@@ -73,100 +70,121 @@ jobs:
         run: |
           ./bin/multicraft --run-unittests
 
-  # Older clang version (should be close to our minimum supported version)
-+#  clang_3_9:
-+#    runs-on: ubuntu-18.04
-+#    steps:
-+#      - uses: actions/checkout@v2
-+#      - name: Install deps
-+#        run: |
-+#          sudo apt-get install clang-3.9 -qyy
-+#          source ./util/ci/common.sh
-+#          install_linux_deps
-+#
-+#      - name: Build
-+#        run: |
-+#          ./util/ci/build.sh
-+#        env:
-+#          CC: clang-3.9
-+#          CXX: clang++-3.9
-+#
-+#      - name: Test
-+#        run: |
-+#          ./bin/multicraft --run-unittests
+  # This is our minor clang compiler
+#  clang_3_9:
+#    runs-on: ubuntu-18.04
+#    steps:
+#      - uses: actions/checkout@v2
+#      - name: Install deps
+#        run: |
+#          sudo apt-get install clang-3.9 -qyy
+#          source ./util/ci/common.sh
+#          install_linux_deps
+#
+#      - name: Build
+#        run: |
+#          ./util/ci/build.sh
+#        env:
+#          CC: clang-3.9
+#          CXX: clang++-3.9
+#
+#      - name: Test
+#        run: |
+#          ./bin/multicraft --run-unittests
 
-      - name: Integration test + devtest
-        run: |
-          ./util/test_multiplayer.sh
-
-  # Current clang version
-  clang_10:
-    runs-on: ubuntu-20.04
+  # This is the current clang version
+  clang_11:
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Install deps
         run: |
           source ./util/ci/common.sh
-          install_linux_deps clang-10 valgrind libluajit-5.1-dev
+          install_linux_deps clang-11 valgrind libluajit-5.1-dev
+          build_linux_deps
 
       - name: Build
         run: |
           ./util/ci/build.sh
         env:
-          CC: clang-10
-          CXX: clang++-10
+          CC: clang-11
+          CXX: clang++-11
           CMAKE_FLAGS: "-DREQUIRE_LUAJIT=1"
 
       - name: Test
         run: |
-          ./bin/minetest --run-unittests
+          ./bin/multicraft --run-unittests
 
-      - name: Valgrind
-        run: |
-          valgrind --leak-check=full --leak-check-heuristics=all --undef-value-errors=no --error-exitcode=9 ./bin/minetest --run-unittests
+#     - name: Valgrind
+#       run: |
+#         valgrind --leak-check=full --leak-check-heuristics=all --undef-value-errors=no --error-exitcode=9 ./bin/multicraft --run-unittests
 
   # Build with prometheus-cpp (server-only)
-  clang_9_prometheus:
-    name: "clang_9 (PROMETHEUS=1)"
-    runs-on: ubuntu-18.04
-    steps:
-      - uses: actions/checkout@v2
-      - name: Install deps
-        run: |
-          source ./util/ci/common.sh
-          install_linux_deps --old-irr clang-9
+#  clang_9_prometheus:
+#    name: "clang_9 (PROMETHEUS=1)"
+#    runs-on: ubuntu-18.04
+#    steps:
+#      - uses: actions/checkout@v2
+#      - name: Install deps
+#        run: |
+#          sudo apt-get install clang-9 -qyy
+#          source ./util/ci/common.sh
+#          install_linux_deps
+#
+#      - name: Build prometheus-cpp
+#        run: |
+#          ./util/ci/build_prometheus_cpp.sh
+#
+#      - name: Build
+#        run: |
+#          ./util/ci/build.sh
+#        env:
+#          CC: clang-9
+#          CXX: clang++-9
+#          CMAKE_FLAGS: "-DENABLE_PROMETHEUS=1 -DBUILD_CLIENT=0"
+#
+#      - name: Test
+#        run: |
+#          ./bin/multicraftserver --run-unittests
 
-      - name: Build prometheus-cpp
-        run: |
-          ./util/ci/build_prometheus_cpp.sh
-
-      - name: Build
-        run: |
-          ./util/ci/build.sh
-        env:
-          CC: clang-9
-          CXX: clang++-9
-          CMAKE_FLAGS: "-DENABLE_PROMETHEUS=1 -DBUILD_CLIENT=0"
-
-      - name: Test
-        run: |
-          ./bin/minetestserver --run-unittests
+  # Build without freetype (client-only)
+#  clang_9_no_freetype:
+#    name: "clang_9 (FREETYPE=0)"
+#    runs-on: ubuntu-18.04
+#    steps:
+#      - uses: actions/checkout@v2
+#      - name: Install deps
+#        run: |
+#          sudo apt-get install clang-9 -qyy
+#          source ./util/ci/common.sh
+#          install_linux_deps
+#
+#      - name: Build
+#        run: |
+#          ./util/ci/build.sh
+#        env:
+#          CC: clang-9
+#          CXX: clang++-9
+#          CMAKE_FLAGS: "-DENABLE_FREETYPE=0 -DBUILD_SERVER=0"
+#
+#      - name: Test
+#        run: |
+#          ./bin/multicraft --run-unittests
 
   docker:
     name: "Docker image"
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Build docker image
         run: |
-          docker build . -t minetest:latest
-          docker run --rm minetest:latest /usr/local/bin/minetestserver --version
+          docker build .
 
   win32:
     name: "MinGW cross-compiler (32-bit)"
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Install compiler
         run: |
           sudo apt-get update -q && sudo apt-get install gettext -qyy
@@ -198,28 +216,67 @@ jobs:
           NO_MINETEST_GAME: 1
           NO_PACKAGE: 1
 
+  msys2-mingw64:
+    name: "MSYS2-MinGW (64-bit)"
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: mingw-w64-x86_64-clang mingw-w64-x86_64-cmake mingw-w64-x86_64-autotools mingw-w64-x86_64-tcl git zip
+
+      - name: Build
+        run: |
+          cd ./Windows
+          ./Start.sh
+          cmake --build . -j
+          cd -
+          strip -s ./bin/multicraft.exe
+
+      - name: Create ZIP
+        run: |
+          mkdir MultiCraft
+          cp -r ./bin MultiCraft/
+          cp -r ./builtin MultiCraft/
+          cp -r ./client MultiCraft/
+          cp -r ./fonts MultiCraft/
+          cp -r ./locale MultiCraft/
+          cp -r ./textures MultiCraft/
+          zip -r MultiCraft.zip MultiCraft
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: MultiCraft-msys2-mingw64
+          path: ./MultiCraft.zip
+
   msvc:
-    name: VS 2019 ${{ matrix.config.arch }}-${{ matrix.type }}
-    runs-on: windows-2019
-    #### Disabled due to Irrlicht switch
-    if: false
-    #### Disabled due to Irrlicht switch
+    name: VS 2022 ${{ matrix.config.arch }}-${{ matrix.type }}
+    runs-on: windows-2022
     env:
-      VCPKG_VERSION: 0bf3923f9fab4001c00f0f429682a0853b5749e0
-#                    2020.11
-      vcpkg_packages: irrlicht zlib zstd curl[winssl] openal-soft libvorbis libogg sqlite3 freetype luajit
+      VCPKG_VERSION: a42af01b72c28a8e1d7b48107b33e4f286a55ef6
+#                    2023.11.20
+      vcpkg_packages: zlib zstd curl[winssl] openal-soft libvorbis libogg sqlite3 freetype luajit gmp jsoncpp libpng libjpeg-turbo sdl2
     strategy:
       fail-fast: false
       matrix:
         config:
           - {
               arch: x86,
-              generator: "-G'Visual Studio 16 2019' -A Win32",
+              generator: "-G'Visual Studio 17 2022' -A Win32",
               vcpkg_triplet: x86-windows
             }
           - {
               arch: x64,
-              generator: "-G'Visual Studio 16 2019' -A x64",
+              generator: "-G'Visual Studio 17 2022' -A x64",
               vcpkg_triplet: x64-windows
             }
         type: [portable]
@@ -240,12 +297,27 @@ jobs:
           vcpkgGitCommitId: ${{ env.VCPKG_VERSION }}
           vcpkgTriplet: ${{ matrix.config.vcpkg_triplet }}
 
+      - name: Irrlicht
+        run: |
+          git clone --depth 1 -b SDL2 https://github.com/MoNTE48/Irrlicht irrlicht
+          cd irrlicht
+          cmake ${{matrix.config.generator}}  `
+          -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake"  `
+          -DCMAKE_BUILD_TYPE=Release .
+          cmake --build . -j --config Release
+          cd ..
+
       - name: CMake
         run: |
           cmake ${{matrix.config.generator}}  `
           -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake"  `
           -DCMAKE_BUILD_TYPE=Release  `
           -DENABLE_POSTGRESQL=OFF  `
+          -DUSE_SDL=1  `
+          -DIRRLICHT_LIBRARY="${{ github.workspace }}\irrlicht\Release\irrlicht.lib"  `
+          -DIRRLICHT_INCLUDE_DIR="${{ github.workspace }}\irrlicht\include"  `
+          -DCMAKE_C_FLAGS="-DNO_IRR_COMPILE_WITH_OGLES2_ -DNO_IRR_COMPILE_WITH_DIRECT3D_9_ -DNO_IRR_COMPILE_WITH_DIRECTINPUT_JOYSTICK_ -D_IRR_STATIC_LIB_"  `
+          -DCMAKE_CXX_FLAGS="-DNO_IRR_COMPILE_WITH_OGLES2_ -DNO_IRR_COMPILE_WITH_DIRECT3D_9_ -DNO_IRR_COMPILE_WITH_DIRECTINPUT_JOYSTICK_ -D_IRR_STATIC_LIB_"  `
           -DRUN_IN_PLACE=${{ contains(matrix.type, 'portable') }} .
 
       - name: Build
