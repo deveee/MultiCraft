@@ -210,7 +210,8 @@ cmake .. \
 	-DIRRLICHT_LIBRARY=$libdir/irrlicht/lib/Win32-gcc/libIrrlicht.a \
 	\
 	-DZLIB_INCLUDE_DIR=$libdir/zlib/include \
-	-DZLIB_LIBRARIES=$libdir/zlib/lib/libz.a \
+	-DZLIB_LIBRARY=$libdir/zlib/lib/libz.dll.a \
+	-DZLIB_DLL=$libdir/zlib/bin/zlib1.dll \
 	\
 	-DZSTD_INCLUDE_DIR=$libdir/zstd/include \
 	-DZSTD_LIBRARY=$libdir/zstd/lib/libzstd.dll.a \
