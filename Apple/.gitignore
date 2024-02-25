@@ -1,0 +1,8 @@
+assets
+Pods
+Podfile.lock
+deps/*
+!deps/*.sh
+xcshareddata
+xcuserdata
+*.xcworkspace
