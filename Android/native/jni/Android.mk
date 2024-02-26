@@ -127,6 +127,7 @@ LOCAL_SRC_FILES := \
 	../../src/client/render/core.cpp               \
 	../../src/client/render/factory.cpp            \
 	../../src/client/render/plain.cpp              \
+	$(wildcard ../../src/client/shadows/*.cpp)     \
 	$(wildcard ../../src/content/*.cpp)            \
 	../../src/database/database.cpp                \
 	../../src/database/database-dummy.cpp          \

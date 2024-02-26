@@ -133,8 +133,13 @@ Client::Client(
 	m_env.setLocalPlayer(new LocalPlayer(this, playername));
 
 	// Make the mod storage database and begin the save for later
+#if USE_SQLITE	
 	m_mod_storage_database =
 		new ModMetadataDatabaseSQLite3(porting::path_user + DIR_DELIM + "client");
+#else
+	m_mod_storage_database =
+		new ModMetadataDatabaseFiles(porting::path_user + DIR_DELIM + "client");
+#endif
 	m_mod_storage_database->beginSave();
 
 	if (g_settings->getBool("enable_minimap")) {

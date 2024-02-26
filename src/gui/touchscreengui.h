@@ -71,7 +71,7 @@ typedef enum
 	j_backward,
 	j_left,
 	j_right,
-	j_aux1
+	j_special1
 } touch_gui_joystick_move_id;
 
 typedef enum

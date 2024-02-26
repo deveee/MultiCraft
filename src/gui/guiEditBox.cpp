@@ -241,6 +241,26 @@ bool GUIEditBox::OnEvent(const SEvent &event)
 			if (processMouse(event))
 				return true;
 			break;
+#if defined(__ANDROID__) || defined(__IOS__)
+		case EET_TOUCH_INPUT_EVENT:
+			if (event.TouchInput.Event == irr::ETIE_PRESSED_LONG) {
+				if (!m_mouse_marking) {
+					m_long_press = true;
+					bool success = onKeyControlC(event);
+#ifdef __ANDROID__
+					if (success)
+						SDL_AndroidShowToast(
+								"Copied to clipboard", 2,
+								-1, 0, 0);
+#elif __IOS__
+					if (success)
+						porting::showToast("Copied to clipboard");
+#endif
+				}
+				return true;
+			}
+			break;
+#endif
 #if (IRRLICHT_VERSION_MT_REVISION >= 2)
 		case EET_STRING_INPUT_EVENT:
 			inputString(*event.StringInput.Str);
@@ -325,26 +345,6 @@ bool GUIEditBox::processKey(const SEvent &event)
 				new_mark_end = 0;
 			}
 			break;
-#if defined(__ANDROID__) || defined(__IOS__)
-		case EET_TOUCH_INPUT_EVENT:
-			if (event.TouchInput.Event == irr::ETIE_PRESSED_LONG) {
-				if (!m_mouse_marking) {
-					m_long_press = true;
-					bool success = onKeyControlC(event);
-#ifdef __ANDROID__
-					if (success)
-						SDL_AndroidShowToast(
-								"Copied to clipboard", 2,
-								-1, 0, 0);
-#elif __IOS__
-					if (success)
-						porting::showToast("Copied to clipboard");
-#endif
-				}
-				return true;
-			}
-			break;
-#endif
 		default:
 			return false;
 		}

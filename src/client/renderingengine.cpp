@@ -670,6 +670,22 @@ const VideoDriverInfo &RenderingEngine::getVideoDriverInfo(irr::video::E_DRIVER_
 	return driver_info_map.at((int)type);
 }
 
+const char *RenderingEngine::getVideoDriverName(irr::video::E_DRIVER_TYPE type)
+{
+	static const char *driver_ids[] = {
+			"null",
+			"software",
+			"burningsvideo",
+			"direct3d8",
+			"direct3d9",
+			"opengl",
+			"ogles1",
+			"ogles2",
+	};
+
+	return driver_ids[type];
+}
+
 #if !defined(__ANDROID__) && !defined(__IOS__)
 #if defined(XORG_USED)
 
@@ -776,7 +792,7 @@ float RenderingEngine::getDisplayDensity()
 
 v2u32 RenderingEngine::getDisplaySize()
 {
-	const RenderingEngine *engine = RenderingEngine::get_instance();
+	const RenderingEngine *engine = s_singleton;
 	if (engine == nullptr)
 		return v2u32(0, 0);
 	return engine->getWindowSize();

@@ -68,7 +68,9 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "server/player_sao.h"
 #include "server/serverinventorymgr.h"
 #include "translation.h"
+#if USE_SQLITE
 #include "database/database-sqlite3.h"
+#endif
 #include "database/database-files.h"
 #include "database/database-dummy.h"
 #include "gameparams.h"
@@ -4017,8 +4019,10 @@ ModMetadataDatabase *Server::openModStorageDatabase(const std::string &world_pat
 ModMetadataDatabase *Server::openModStorageDatabase(const std::string &backend,
 		const std::string &world_path, const Settings &world_mt)
 {
+#if USE_SQLITE
 	if (backend == "sqlite3")
 		return new ModMetadataDatabaseSQLite3(world_path);
+#endif
 
 	if (backend == "files")
 		return new ModMetadataDatabaseFiles(world_path);

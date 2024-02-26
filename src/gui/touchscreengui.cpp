@@ -696,9 +696,12 @@ touch_gui_button_id TouchScreenGUI::getButtonID(s32 x, s32 y)
 	for (u32 i = 0; i < after_last_element_id; i++) {
 		if (!m_buttons[i].guibutton)
 			continue;
- 
+
 		if (m_buttons[i].guibutton->isPointInside(core::position2d<s32>(x, y)))
 			return (touch_gui_button_id) i;
+	}
+
+	return after_last_element_id;
 }
 
 touch_gui_button_id TouchScreenGUI::getButtonID(size_t eventID)
@@ -976,7 +979,6 @@ void TouchScreenGUI::translateEvent(const SEvent &event)
 					? dxj * dxj + dyj * dyj <= button_size * button_size * 1.5 * 1.5
 					: event.TouchInput.X < m_screensize.X / 3.0f;
 			if (inside_joystick) {
-					(!m_fixed_joystick && event.TouchInput.X < m_screensize.X / 3.0f)) {
 				// If we don't already have a starting point for joystick make this the one.
 				if (!m_has_joystick_id) {
 					m_has_joystick_id           = true;

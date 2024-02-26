@@ -294,11 +294,14 @@ std::string GUIPasswordChange::getNameByID(s32 id)
 #ifdef __ANDROID__
 bool GUIPasswordChange::getAndroidUIInput()
 {
-	if (!hasAndroidUIInput())
+	if (m_jni_field_name.empty())
+ 		return false;
+
+	if (porting::getInputDialogOwner() != "modalmenu")
 		return false;
 
 	// still waiting
-	if (porting::getInputDialogState() == -1)
+	if (porting::isInputDialogActive())
 		return true;
 
 	gui::IGUIElement *e = nullptr;

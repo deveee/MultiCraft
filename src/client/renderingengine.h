@@ -53,6 +53,7 @@ public:
 
 	video::IVideoDriver *getVideoDriver() { return driver; }
 
+	static const char *getVideoDriverName(irr::video::E_DRIVER_TYPE type);
 	static const VideoDriverInfo &getVideoDriverInfo(irr::video::E_DRIVER_TYPE type);
 	static float getDisplayDensity();
 	static v2u32 getDisplaySize();

@@ -601,20 +601,6 @@ public:
 
 const static float object_hit_delay = 0.2;
 
-struct FpsControl {
-	FpsControl() : last_time(0), busy_time(0), sleep_time(0) {}
-
-	void reset();
-
-	void limit(IrrlichtDevice *device, f32 *dtime);
-
-	u32 getBusyMs() const { return busy_time / 1000; }
-
-	// all values in microseconds (us)
-	u64 last_time, busy_time, sleep_time;
-};
-
-
 /* The reason the following structs are not anonymous structs within the
  * class is that they are not used by the majority of member functions and
  * many functions that do require objects of thse types do not modify them
@@ -654,6 +640,19 @@ struct GameRunData {
 	v3f update_draw_list_last_cam_dir;
 
 	float time_of_day_smooth;
+};
+
+struct FpsControl {
+	FpsControl() : last_time(0), busy_time(0), sleep_time(0) {}
+
+	void reset();
+
+	void limit(IrrlichtDevice *device, f32 *dtime, GameRunData *run_data);
+
+	u32 getBusyMs() const { return busy_time / 1000; }
+
+	// all values in microseconds (us)
+	u64 last_time, busy_time, sleep_time;
 };
 
 class Game;
@@ -1125,7 +1124,7 @@ void Game::run()
 		// Calculate dtime =
 		//    m_rendering_engine->run() from this iteration
 		//  + Sleep time until the wanted FPS are reached
-		draw_times.limit(device, &dtime);
+		draw_times.limit(device, &dtime, &runData);
 
 #if defined(__MACH__) && defined(__APPLE__) && !defined(__IOS__) && !defined(__aarch64__)
 		if (!device->isWindowFocused()) {
@@ -1552,7 +1551,7 @@ bool Game::connectToServer(const GameStartData &start_data,
 
 		while ((result = m_rendering_engine->run())) {
 
-			fps_control.limit(device, &dtime);
+			fps_control.limit(device, &dtime, &runData);
 
 			// Update client and server
 			client->step(dtime);
@@ -1628,7 +1627,7 @@ bool Game::getServerContent(bool *aborted)
 	bool result = true;
 	while ((result = m_rendering_engine->run())) {
 
-		fps_control.limit(device, &dtime);
+		fps_control.limit(device, &dtime, &runData);
 
 		// Update client and server
 		client->step(dtime);
@@ -4181,9 +4180,9 @@ void FpsControl::reset()
 /*
  * On some computers framerate doesn't seem to be automatically limited
  */
-void FpsControl::limit(IrrlichtDevice *device, f32 *dtime)
+void FpsControl::limit(IrrlichtDevice *device, f32 *dtime, GameRunData *run_data)
 {
-	const u64 frametime_min = 1000000.0f / (
+	u64 frametime_min = 1000000.0f / (
 		device->isWindowFocused() && !g_menumgr.pausesGame()
 			? g_settings->getFloat("fps_max")
 			: g_settings->getFloat("fps_max_unfocused"));
@@ -4225,12 +4224,12 @@ void FpsControl::limit(IrrlichtDevice *device, f32 *dtime)
 
 #if defined(__ANDROID__) || defined(__IOS__)
 	if (g_menumgr.pausesGame()) {
-		runData.pause_game_timer += *dtime;
+		run_data->pause_game_timer += *dtime;
 		float disconnect_time = 180.0f;
 #ifdef __IOS__
 		disconnect_time = simple_singleplayer_mode ? 60.0f : 120.0f;
 #endif
-		if (runData.pause_game_timer > disconnect_time) {
+		if (run_data->pause_game_timer > disconnect_time) {
 			g_gamecallback->disconnect();
 			return;
 		}
