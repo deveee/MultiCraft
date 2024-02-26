@@ -22,7 +22,9 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "util/serialize.h"
 
 #include <zlib.h>
+#if !defined(__ANDROID__) && !defined(__IOS__)
 #include <zstd.h>
+#endif
 
 /* report a zlib or i/o error */
 void zerr(int ret)
@@ -198,6 +200,7 @@ void decompressZlib(std::istream &is, std::ostream &os, size_t limit)
 	inflateEnd(&z);
 }
 
+#if !defined(__ANDROID__) && !defined(__IOS__)
 struct ZSTD_Deleter {
 	void operator() (ZSTD_CStream* cstream) {
 		ZSTD_freeCStream(cstream);
@@ -207,6 +210,7 @@ struct ZSTD_Deleter {
 		ZSTD_freeDStream(dstream);
 	}
 };
+#endif
 
 #if defined(__MINGW32__) && !defined(__MINGW64__)
 /*
@@ -222,6 +226,7 @@ public:
 };
 #endif
 
+#if !defined(__ANDROID__) && !defined(__IOS__)
 void compressZstd(const u8 *data, size_t data_size, std::ostream &os, int level)
 {
 #if defined(__MINGW32__) && !defined(__MINGW64__)
@@ -321,15 +326,18 @@ void decompressZstd(std::istream &is, std::ostream &os)
 			throw SerializationError("decompressZstd: unget failed");
 	}
 }
+#endif
 
 void compress(u8 *data, u32 size, std::ostream &os, u8 version, int level)
 {
+#if !defined(__ANDROID__) && !defined(__IOS__)
 	if(version >= 29)
 	{
 		// map the zlib levels [0,9] to [1,10]. -1 becomes 0 which indicates the default (currently 3)
 		compressZstd(data, size, os, level + 1);
 		return;
 	}
+#endif
 
 	if(version >= 11)
 	{
@@ -384,11 +392,13 @@ void compress(const std::string &data, std::ostream &os, u8 version, int level)
 
 void decompress(std::istream &is, std::ostream &os, u8 version)
 {
+#if !defined(__ANDROID__) && !defined(__IOS__)
 	if(version >= 29)
 	{
 		decompressZstd(is, os);
 		return;
 	}
+#endif
 
 	if(version >= 11)
 	{
