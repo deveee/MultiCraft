@@ -36,10 +36,8 @@ enum E_SHADOW_MODE : u8
 
 struct NodeToApply
 {
-	NodeToApply(scene::ISceneNode *n,
-			E_SHADOW_MODE m = E_SHADOW_MODE::ESM_BOTH) :
-			node(n),
-			shadowMode(m){};
+	NodeToApply(scene::ISceneNode *n, E_SHADOW_MODE m = E_SHADOW_MODE::ESM_BOTH) :
+			node(n), shadowMode(m){};
 	bool operator<(const NodeToApply &other) const { return node < other.node; };
 
 	scene::ISceneNode *node;
@@ -69,18 +67,14 @@ public:
 	/// ESM_BOTH casts and receives shadows
 	/// ESM_RECEIVE only receives but does not cast shadows.
 	///
-	void addNodeToShadowList(scene::ISceneNode *node,
-			E_SHADOW_MODE shadowMode = ESM_BOTH);
+	void addNodeToShadowList(
+			scene::ISceneNode *node, E_SHADOW_MODE shadowMode = ESM_BOTH);
 	void removeNodeFromShadowList(scene::ISceneNode *node);
 
 	void update(video::ITexture *outputTarget = nullptr);
 	void drawDebug();
 
-	video::ITexture *get_texture()
-	{
-		return shadowMapTextureFinal;
-	}
-
+	video::ITexture *get_texture() { return shadowMapTextureFinal; }
 
 	bool is_active() const { return m_shadows_enabled; }
 	void setTimeOfDay(float isDay) { m_time_day = isDay; };
@@ -91,12 +85,10 @@ public:
 
 private:
 	video::ITexture *getSMTexture(const std::string &shadow_map_name,
-			video::ECOLOR_FORMAT texture_format,
-			bool force_creation = false);
+			video::ECOLOR_FORMAT texture_format, bool force_creation = false);
 
 	void renderShadowMap(video::ITexture *target, DirectionalLight &light,
-			scene::E_SCENE_NODE_RENDER_PASS pass =
-					scene::ESNRP_SOLID);
+			scene::E_SCENE_NODE_RENDER_PASS pass = scene::ESNRP_SOLID);
 	void renderShadowObjects(video::ITexture *target, DirectionalLight &light);
 	void mixShadowsQuad();
 	void updateSMTextures();
@@ -124,7 +116,7 @@ private:
 	bool m_shadows_enabled;
 	bool m_shadow_map_colored;
 	u8 m_map_shadow_update_frames; /* Use this number of frames to update map shaodw */
-	u8 m_current_frame{0}; /* Current frame */
+	u8 m_current_frame{0};		   /* Current frame */
 
 	video::ECOLOR_FORMAT m_texture_format{video::ECOLOR_FORMAT::ECF_R16F};
 	video::ECOLOR_FORMAT m_texture_format_color{video::ECOLOR_FORMAT::ECF_R16G16};

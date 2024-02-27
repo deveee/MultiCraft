@@ -35,8 +35,8 @@ void ModSpec::checkAndLog() const
 {
 	if (!string_allowed(name, MODNAME_ALLOWED_CHARS)) {
 		throw ModError("Error loading mod \"" + name +
-			"\": Mod name does not follow naming conventions: "
-				"Only characters [a-z0-9_] are allowed.");
+					   "\": Mod name does not follow naming conventions: "
+					   "Only characters [a-z0-9_] are allowed.");
 	}
 
 	// Log deprecation messages
@@ -59,8 +59,7 @@ bool parseDependsString(std::string &dep, std::unordered_set<char> &symbols)
 	dep = trim(dep);
 	symbols.clear();
 	size_t pos = dep.size();
-	while (pos > 0 &&
-			!string_allowed(dep.substr(pos - 1, 1), MODNAME_ALLOWED_CHARS)) {
+	while (pos > 0 && !string_allowed(dep.substr(pos - 1, 1), MODNAME_ALLOWED_CHARS)) {
 		// last character is a symbol, not part of the modname
 		symbols.insert(dep[pos - 1]);
 		--pos;
@@ -98,7 +97,8 @@ void parseModContents(ModSpec &spec)
 		if (info.exists("name"))
 			spec.name = info.get("name");
 		else
-			spec.deprecation_msgs.push_back("Mods not having a mod.conf file with the name is deprecated.");
+			spec.deprecation_msgs.push_back(
+					"Mods not having a mod.conf file with the name is deprecated.");
 
 		if (info.exists("author"))
 			spec.author = info.get("author");
@@ -139,7 +139,8 @@ void parseModContents(ModSpec &spec)
 			std::ifstream is((spec.path + DIR_DELIM + "depends.txt").c_str());
 
 			if (is.good())
-				spec.deprecation_msgs.push_back("depends.txt is deprecated, please use mod.conf instead.");
+				spec.deprecation_msgs.push_back(
+						"depends.txt is deprecated, please use mod.conf instead.");
 
 			while (is.good()) {
 				std::string dep;
@@ -162,7 +163,8 @@ void parseModContents(ModSpec &spec)
 		if (info.exists("description"))
 			spec.desc = info.get("description");
 		else if (fs::ReadFile(spec.path + DIR_DELIM + "description.txt", spec.desc))
-			spec.deprecation_msgs.push_back("description.txt is deprecated, please use mod.conf instead.");
+			spec.deprecation_msgs.push_back(
+					"description.txt is deprecated, please use mod.conf instead.");
 	}
 }
 
@@ -220,8 +222,7 @@ ModConfiguration::ModConfiguration(const std::string &worldpath)
 void ModConfiguration::printUnsatisfiedModsError() const
 {
 	for (const ModSpec &mod : m_unsatisfied_mods) {
-		errorstream << "mod \"" << mod.name
-			    << "\" has unsatisfied dependencies: ";
+		errorstream << "mod \"" << mod.name << "\" has unsatisfied dependencies: ";
 		for (const std::string &unsatisfied_depend : mod.unsatisfied_depends)
 			errorstream << " \"" << unsatisfied_depend << "\"";
 		errorstream << std::endl;
@@ -263,12 +264,10 @@ void ModConfiguration::addMods(const std::vector<ModSpec> &new_mods)
 				// BAD CASE: name conflict in different levels.
 				u32 oldindex = existing_mods[mod.name];
 				const ModSpec &oldmod = m_unsatisfied_mods[oldindex];
-				warningstream << "Mod name conflict detected: \""
-					      << mod.name << "\"" << std::endl
-					      << "Will not load: " << oldmod.path
-					      << std::endl
-					      << "Overridden by: " << mod.path
-					      << std::endl;
+				warningstream << "Mod name conflict detected: \"" << mod.name << "\""
+							  << std::endl
+							  << "Will not load: " << oldmod.path << std::endl
+							  << "Overridden by: " << mod.path << std::endl;
 				m_unsatisfied_mods[oldindex] = mod;
 
 				// If there was a "VERY BAD CASE" name conflict
@@ -278,12 +277,10 @@ void ModConfiguration::addMods(const std::vector<ModSpec> &new_mods)
 				// VERY BAD CASE: name conflict in the same level.
 				u32 oldindex = existing_mods[mod.name];
 				const ModSpec &oldmod = m_unsatisfied_mods[oldindex];
-				warningstream << "Mod name conflict detected: \""
-					      << mod.name << "\"" << std::endl
-					      << "Will not load: " << oldmod.path
-					      << std::endl
-					      << "Will not load: " << mod.path
-					      << std::endl;
+				warningstream << "Mod name conflict detected: \"" << mod.name << "\""
+							  << std::endl
+							  << "Will not load: " << oldmod.path << std::endl
+							  << "Will not load: " << mod.path << std::endl;
 				m_unsatisfied_mods[oldindex] = mod;
 				m_name_conflicts.insert(mod.name);
 			}
@@ -423,8 +420,8 @@ ClientModConfiguration::ClientModConfiguration(const std::string &path) :
 }
 #endif
 
-ModMetadata::ModMetadata(const std::string &mod_name, ModMetadataDatabase *database):
-	m_mod_name(mod_name), m_database(database)
+ModMetadata::ModMetadata(const std::string &mod_name, ModMetadataDatabase *database) :
+		m_mod_name(mod_name), m_database(database)
 {
 	m_database->getModEntries(m_mod_name, &m_stringvars);
 }

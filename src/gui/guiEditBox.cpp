@@ -210,7 +210,7 @@ bool GUIEditBox::OnEvent(const SEvent &event)
 
 		switch (event.EventType) {
 		case EET_GUI_EVENT:
- 			if (event.GUIEvent.EventType == EGET_ELEMENT_FOCUS_LOST) {
+			if (event.GUIEvent.EventType == EGET_ELEMENT_FOCUS_LOST) {
 #ifdef HAVE_TOUCHSCREENGUI
 				if (!TouchScreenGUI::isActive())
 #endif
@@ -223,15 +223,14 @@ bool GUIEditBox::OnEvent(const SEvent &event)
 #if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
 		case EET_SDL_TEXT_EVENT:
 			if (event.SDLTextEvent.Type == irr::ESDLET_TEXTINPUT) {
-				core::stringw text =
-						utf8_to_stringw(event.SDLTextEvent.Text);
+				core::stringw text = utf8_to_stringw(event.SDLTextEvent.Text);
 
 				for (size_t i = 0; i < text.size(); i++)
 					inputChar(text[i]);
 
 				return true;
- 			}
- 			break;
+			}
+			break;
 #endif
 		case EET_KEY_INPUT_EVENT:
 			if (processKey(event))
@@ -249,9 +248,7 @@ bool GUIEditBox::OnEvent(const SEvent &event)
 					bool success = onKeyControlC(event);
 #ifdef __ANDROID__
 					if (success)
-						SDL_AndroidShowToast(
-								"Copied to clipboard", 2,
-								-1, 0, 0);
+						SDL_AndroidShowToast("Copied to clipboard", 2, -1, 0, 0);
 #elif __IOS__
 					if (success)
 						porting::showToast("Copied to clipboard");
@@ -313,13 +310,11 @@ bool GUIEditBox::processKey(const SEvent &event)
 			break;
 		case KEY_KEY_X:
 			if (m_writable)
-				text_changed = onKeyControlX(
-						event, new_mark_begin, new_mark_end);
+				text_changed = onKeyControlX(event, new_mark_begin, new_mark_end);
 			break;
 		case KEY_KEY_V:
 			if (m_writable)
-				text_changed = onKeyControlV(
-						event, new_mark_begin, new_mark_end);
+				text_changed = onKeyControlV(event, new_mark_begin, new_mark_end);
 			break;
 		case KEY_HOME:
 			// move/highlight to start of text
@@ -354,10 +349,8 @@ bool GUIEditBox::processKey(const SEvent &event)
 			s32 p = Text.size();
 			if (m_word_wrap || m_multiline) {
 				p = getLineFromPos(m_cursor_pos);
-				p = m_broken_text_positions[p] +
-				    (s32)m_broken_text[p].size();
-				if (p > 0 && (Text[p - 1] == L'\r' ||
-							     Text[p - 1] == L'\n'))
+				p = m_broken_text_positions[p] + (s32)m_broken_text[p].size();
+				if (p > 0 && (Text[p - 1] == L'\r' || Text[p - 1] == L'\n'))
 					p -= 1;
 			}
 
@@ -449,14 +442,12 @@ bool GUIEditBox::processKey(const SEvent &event)
 			break;
 		case KEY_BACK:
 			if (m_writable)
-				text_changed = onKeyBack(
-						event, new_mark_begin, new_mark_end);
+				text_changed = onKeyBack(event, new_mark_begin, new_mark_end);
 			break;
 
 		case KEY_DELETE:
 			if (m_writable)
-				text_changed = onKeyDelete(
-						event, new_mark_begin, new_mark_end);
+				text_changed = onKeyDelete(event, new_mark_begin, new_mark_end);
 			break;
 
 		case KEY_ESCAPE:
@@ -579,9 +570,9 @@ bool GUIEditBox::onKeyControlC(const SEvent &event)
 	if (m_passwordbox || !m_operator || m_mark_begin == m_mark_end)
 		return false;
 
-	std::string s = stringw_to_utf8(Text.subString(
-			m_real_mark_begin, m_real_mark_end - m_real_mark_begin));
- 	m_operator->copyToClipboard(s.c_str());
+	std::string s = stringw_to_utf8(
+			Text.subString(m_real_mark_begin, m_real_mark_end - m_real_mark_begin));
+	m_operator->copyToClipboard(s.c_str());
 	return true;
 }
 
@@ -629,8 +620,7 @@ bool GUIEditBox::onKeyControlV(const SEvent &event, s32 &mark_begin, s32 &mark_e
 			// insert text
 			core::stringw s = Text.subString(0, m_cursor_pos);
 			s.append(inserted_text);
-			s.append(Text.subString(
-					m_cursor_pos, Text.size() - m_cursor_pos));
+			s.append(Text.subString(m_cursor_pos, Text.size() - m_cursor_pos));
 
 			if (!m_max || s.size() <= m_max) {
 				Text = s;
@@ -641,8 +631,7 @@ bool GUIEditBox::onKeyControlV(const SEvent &event, s32 &mark_begin, s32 &mark_e
 
 			core::stringw s = Text.subString(0, m_real_mark_begin);
 			s.append(inserted_text);
-			s.append(Text.subString(
-					m_real_mark_end, Text.size() - m_real_mark_end));
+			s.append(Text.subString(m_real_mark_end, Text.size() - m_real_mark_end));
 
 			if (!m_max || s.size() <= m_max) {
 				Text = s;
@@ -706,8 +695,7 @@ bool GUIEditBox::onKeyDelete(const SEvent &event, s32 &mark_begin, s32 &mark_end
 	} else {
 		// delete text before cursor
 		s = Text.subString(0, m_cursor_pos);
-		s.append(Text.subString(
-				m_cursor_pos + 1, Text.size() - m_cursor_pos - 1));
+		s.append(Text.subString(m_cursor_pos + 1, Text.size() - m_cursor_pos - 1));
 		Text = s;
 	}
 
@@ -734,7 +722,7 @@ void GUIEditBox::inputString(const core::stringw &str)
 		return;
 
 	u32 len = str.size();
-	if (Text.size()+len <= m_max || m_max == 0) {
+	if (Text.size() + len <= m_max || m_max == 0) {
 		core::stringw s;
 		if (m_mark_begin != m_mark_end) {
 			// replace marked text
@@ -747,8 +735,7 @@ void GUIEditBox::inputString(const core::stringw &str)
 			// append string
 			s = Text.subString(0, m_cursor_pos);
 			s.append(str);
-			s.append(Text.subString(m_cursor_pos,
-					Text.size() - m_cursor_pos));
+			s.append(Text.subString(m_cursor_pos, Text.size() - m_cursor_pos));
 			Text = s;
 			m_cursor_pos += len;
 		}
@@ -770,8 +757,7 @@ bool GUIEditBox::processMouse(const SEvent &event)
 #ifdef HAVE_TOUCHSCREENGUI
 		// Remove text markers for short tap in one place
 		if (TouchScreenGUI::isActive() && !m_long_press &&
-				m_cursor_press_pos == cursor_pos &&
-				Environment->hasFocus(this)) {
+				m_cursor_press_pos == cursor_pos && Environment->hasFocus(this)) {
 			setTextMarkers(cursor_pos, cursor_pos);
 		}
 #endif
@@ -790,18 +776,15 @@ bool GUIEditBox::processMouse(const SEvent &event)
 		// Start text marking when cursor was moved, so that user doesn't want
 		// to copy text.
 		if (TouchScreenGUI::isActive() && !m_long_press && !m_mouse_marking &&
-				m_cursor_press_pos != -1 &&
-				cursor_pos != m_cursor_press_pos &&
+				m_cursor_press_pos != -1 && cursor_pos != m_cursor_press_pos &&
 				Environment->hasFocus(this)) {
 			m_mouse_marking = true;
 
 			int mark_length = m_real_mark_end - m_real_mark_begin;
 
-			if (mark_length > 2 &&
-					std::abs(m_cursor_press_pos - m_mark_begin) < 3)
+			if (mark_length > 2 && std::abs(m_cursor_press_pos - m_mark_begin) < 3)
 				setTextMarkers(m_mark_end, m_cursor_press_pos);
-			else if (mark_length > 2 &&
-					std::abs(m_cursor_press_pos - m_mark_end) < 3)
+			else if (mark_length > 2 && std::abs(m_cursor_press_pos - m_mark_end) < 3)
 				setTextMarkers(m_mark_begin, m_cursor_press_pos);
 			else
 				setTextMarkers(m_cursor_press_pos, m_cursor_press_pos);
@@ -819,13 +802,11 @@ bool GUIEditBox::processMouse(const SEvent &event)
 
 		if (!Environment->hasFocus(this)) {
 			m_blink_start_time = porting::getTimeMs();
-			m_cursor_pos = getCursorPos(
-					event.MouseInput.X, event.MouseInput.Y);
+			m_cursor_pos = getCursorPos(event.MouseInput.X, event.MouseInput.Y);
 			m_cursor_press_pos = m_cursor_pos;
 
 #ifdef HAVE_TOUCHSCREENGUI
-			if (!TouchScreenGUI::isActive() ||
-					m_cursor_pos < m_real_mark_begin ||
+			if (!TouchScreenGUI::isActive() || m_cursor_pos < m_real_mark_begin ||
 					m_cursor_pos > m_real_mark_end) {
 #endif
 				m_mouse_marking = true;
@@ -836,19 +817,17 @@ bool GUIEditBox::processMouse(const SEvent &event)
 			calculateScrollPos();
 			return true;
 		} else {
-			if (!AbsoluteClippingRect.isPointInside(core::position2d<s32>(
-					    event.MouseInput.X, event.MouseInput.Y))) {
+			if (!AbsoluteClippingRect.isPointInside(
+						core::position2d<s32>(event.MouseInput.X, event.MouseInput.Y))) {
 				m_cursor_press_pos = -1;
 				return false;
 			} else {
 				// move cursor
-				m_cursor_pos = getCursorPos(
-						event.MouseInput.X, event.MouseInput.Y);
+				m_cursor_pos = getCursorPos(event.MouseInput.X, event.MouseInput.Y);
 				m_cursor_press_pos = m_cursor_pos;
 
 #ifdef HAVE_TOUCHSCREENGUI
-				if (!TouchScreenGUI::isActive() ||
-						m_cursor_pos < m_real_mark_begin ||
+				if (!TouchScreenGUI::isActive() || m_cursor_pos < m_real_mark_begin ||
 						m_cursor_pos > m_real_mark_end) {
 #endif
 					s32 newMarkBegin = m_mark_begin;

@@ -27,16 +27,15 @@ class ShadowDepthShaderCB : public video::IShaderConstantSetCallBack
 {
 public:
 	ShadowDepthShaderCB() :
-			m_light_mvp_setting("LightMVP"),
-			m_map_resolution_setting("MapResolution"),
-			m_max_far_setting("MaxFar"),
-			m_color_map_sampler_setting("ColorMapSampler")
-	{}
+			m_light_mvp_setting("LightMVP"), m_map_resolution_setting("MapResolution"),
+			m_max_far_setting("MaxFar"), m_color_map_sampler_setting("ColorMapSampler")
+	{
+	}
 
 	void OnSetMaterial(const video::SMaterial &material) override {}
 
-	void OnSetConstants(video::IMaterialRendererServices *services,
-			s32 userData) override;
+	void OnSetConstants(
+			video::IMaterialRendererServices *services, s32 userData) override;
 
 	f32 MaxFar{2048.0f}, MapRes{1024.0f};
 

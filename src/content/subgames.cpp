@@ -154,11 +154,10 @@ SubgameSpec findSubgame(const std::string &id)
 
 	std::string menuicon_path;
 #ifndef SERVER
-	menuicon_path = getImagePath(
-			game_path + DIR_DELIM + "menu" + DIR_DELIM + "icon.png");
+	menuicon_path = getImagePath(game_path + DIR_DELIM + "menu" + DIR_DELIM + "icon.png");
 #endif
-	return SubgameSpec(id, game_path, gamemod_path, mods_paths, game_name,
-			menuicon_path, game_author, game_release, moddable, hide_game);
+	return SubgameSpec(id, game_path, gamemod_path, mods_paths, game_name, menuicon_path,
+			game_author, game_release, moddable, hide_game);
 }
 
 SubgameSpec findWorldSubgame(const std::string &world_path)
@@ -209,8 +208,8 @@ std::set<std::string> getAvailableGameIds()
 
 			// If configuration file is not found or broken, ignore game
 			Settings conf;
-			std::string conf_path = gamespath + DIR_DELIM + dln.name +
-						DIR_DELIM + "game.conf";
+			std::string conf_path =
+					gamespath + DIR_DELIM + dln.name + DIR_DELIM + "game.conf";
 			if (!conf.readConfigFile(conf_path.c_str()))
 				continue;
 

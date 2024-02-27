@@ -23,8 +23,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 GUIScrollContainer::GUIScrollContainer(gui::IGUIEnvironment *env,
 		gui::IGUIElement *parent, s32 id, const core::rect<s32> &rectangle,
 		const std::string &orientation, f32 scrollfactor) :
-		gui::IGUIElement(gui::EGUIET_CUSTOM_SCROLLCONTAINER, env, parent, id,
-				rectangle),
+		gui::IGUIElement(gui::EGUIET_CUSTOM_SCROLLCONTAINER, env, parent, id, rectangle),
 		m_scrollbar(nullptr), m_scrollfactor(scrollfactor)
 #else
 GUIScrollContainer::GUIScrollContainer(gui::IGUIEnvironment *env,
@@ -55,8 +54,8 @@ bool GUIScrollContainer::OnEvent(const SEvent &event)
 		bool retval = m_scrollbar->OnEvent(event);
 
 		// a hacky fix for updating the hovering and co.
-		IGUIElement *hovered_elem = getElementFromPoint(core::position2d<s32>(
-				event.MouseInput.X, event.MouseInput.Y));
+		IGUIElement *hovered_elem = getElementFromPoint(
+				core::position2d<s32>(event.MouseInput.X, event.MouseInput.Y));
 		SEvent mov_event = event;
 		mov_event.MouseInput.Event = EMIE_MOUSE_MOVED;
 		Environment->postEventFromUser(mov_event);
@@ -70,10 +69,10 @@ bool GUIScrollContainer::OnEvent(const SEvent &event)
 #ifdef HAVE_TOUCHSCREENGUI
 	if (event.EventType == EET_MOUSE_INPUT_EVENT && m_scrollbar) {
 		if (event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN) {
-			if (isPointInside(core::position2d<s32>(
-					    event.MouseInput.X, event.MouseInput.Y))) {
-				m_swipe_start_y = event.MouseInput.Y -
-						  m_scrollbar->getPos() * m_scrollfactor;
+			if (isPointInside(
+						core::position2d<s32>(event.MouseInput.X, event.MouseInput.Y))) {
+				m_swipe_start_y =
+						event.MouseInput.Y - m_scrollbar->getPos() * m_scrollfactor;
 			}
 		} else if (event.MouseInput.Event == EMIE_LMOUSE_LEFT_UP) {
 			m_swipe_start_y = -1;
@@ -84,20 +83,16 @@ bool GUIScrollContainer::OnEvent(const SEvent &event)
 		} else if (event.MouseInput.Event == EMIE_MOUSE_MOVED) {
 			double screen_dpi = RenderingEngine::getDisplayDensity() * 96;
 
-			if (!m_swipe_started && m_orientation == VERTICAL &&
-					m_swipe_start_y != -1 &&
+			if (!m_swipe_started && m_orientation == VERTICAL && m_swipe_start_y != -1 &&
 					std::abs(m_swipe_start_y - event.MouseInput.Y +
-							m_scrollbar->getPos() *
-									m_scrollfactor) >
-							0.1 * screen_dpi) {
+							 m_scrollbar->getPos() * m_scrollfactor) > 0.1 * screen_dpi) {
 				m_swipe_started = true;
 				Environment->setFocus(this);
 			}
 
 			if (m_swipe_started) {
-				m_swipe_pos = (float)(event.MouseInput.Y -
-							      m_swipe_start_y) /
-					      m_scrollfactor;
+				m_swipe_pos =
+						(float)(event.MouseInput.Y - m_swipe_start_y) / m_scrollfactor;
 				m_scrollbar->setPos((int)m_swipe_pos);
 
 				SEvent e;
@@ -123,8 +118,7 @@ void GUIScrollContainer::draw()
 		core::list<IGUIElement *>::Iterator it = Children.begin();
 		for (; it != Children.end(); ++it)
 			if ((*it)->isNotClipped() ||
-					AbsoluteClippingRect.isRectCollided(
-							(*it)->getAbsolutePosition()))
+					AbsoluteClippingRect.isRectCollided((*it)->getAbsolutePosition()))
 				(*it)->draw();
 	}
 }

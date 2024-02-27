@@ -43,10 +43,11 @@ public:
 			m_sm_client_map_setting("ShadowMapClientMap"),
 			m_sm_client_map_trans_setting("ShadowMapClientMapTraslucent"),
 			m_sm_dynamic_sampler_setting("ShadowMapSamplerdynamic")
-	{}
+	{
+	}
 
-	virtual void OnSetConstants(video::IMaterialRendererServices *services,
-			s32 userData);
+	virtual void OnSetConstants(video::IMaterialRendererServices *services, s32 userData);
+
 private:
 	CachedPixelShaderSetting<s32> m_sm_client_map_setting;
 	CachedPixelShaderSetting<s32> m_sm_client_map_trans_setting;

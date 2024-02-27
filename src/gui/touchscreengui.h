@@ -40,7 +40,7 @@ typedef enum
 	jump_id = 0,
 	drop_id,
 	crunch_id,
-	//zoom_id,
+	// zoom_id,
 	aux1_id,
 	inventory_id,
 	escape_id,
@@ -110,14 +110,13 @@ public:
 	AutoHideButtonBar(IrrlichtDevice *device, IEventReceiver *receiver);
 
 	void init(ISimpleTextureSource *tsrc, const char *starter_img, s32 button_id,
-			const v2s32 &UpperLeft, const v2s32 &LowerRight,
-			autohide_button_bar_dir dir, float timeout);
+			const v2s32 &UpperLeft, const v2s32 &LowerRight, autohide_button_bar_dir dir,
+			float timeout);
 
 	~AutoHideButtonBar();
 
 	// add button to be shown
-	void addButton(touch_gui_button_id id, const wchar_t *caption,
-			const char *btn_image);
+	void addButton(touch_gui_button_id id, const wchar_t *caption, const char *btn_image);
 
 	// add toggle button to be shown
 	/*void addToggleButton(touch_gui_button_id id, const wchar_t *caption,
@@ -278,8 +277,7 @@ private:
 
 	// initialize a joystick button
 	std::shared_ptr<button_info> initJoystickButton(touch_gui_button_id id,
-			const rect<s32> &button_rect, s32 texture_id,
-			bool visible = true);
+			const rect<s32> &button_rect, s32 texture_id, bool visible = true);
 
 	rect<s32> getButtonRect(touch_gui_button_id id);
 

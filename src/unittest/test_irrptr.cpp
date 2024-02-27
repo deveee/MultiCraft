@@ -47,8 +47,8 @@ void TestIrrPtr::runTests(IGameDef *gamedef)
 ////////////////////////////////////////////////////////////////////////////////
 
 #define UASSERT_REFERENCE_COUNT(object, value, info)                                     \
-	UTEST((object)->getReferenceCount() == value,                                    \
-			info "Reference count is %d instead of " #value,                 \
+	UTEST((object)->getReferenceCount() == value,                                        \
+			info "Reference count is %d instead of " #value,                             \
 			(object)->getReferenceCount())
 
 void TestIrrPtr::testRefCounting()
@@ -92,9 +92,9 @@ void TestIrrPtr::testRefCounting()
 }
 
 #if defined(__clang__)
-	#pragma GCC diagnostic push
-	#pragma GCC diagnostic ignored "-Wself-assign-overloaded"
-	#pragma GCC diagnostic ignored "-Wself-move"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wself-assign-overloaded"
+#pragma GCC diagnostic ignored "-Wself-move"
 #endif
 
 void TestIrrPtr::testSelfAssignment()
@@ -137,5 +137,5 @@ void TestIrrPtr::testNullHandling()
 }
 
 #if defined(__clang__)
-	#pragma GCC diagnostic pop
+#pragma GCC diagnostic pop
 #endif

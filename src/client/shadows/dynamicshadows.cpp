@@ -44,8 +44,7 @@ void DirectionalLight::createSplitMatrices(const Camera *cam)
 	// adjusted camera positions
 	v3f camPos2 = cam->getPosition();
 	v3f camPos = v3f(camPos2.X - cam->getOffset().X * BS,
-			camPos2.Y - cam->getOffset().Y * BS,
-			camPos2.Z - cam->getOffset().Z * BS);
+			camPos2.Y - cam->getOffset().Y * BS, camPos2.Z - cam->getOffset().Z * BS);
 	camPos += look * sfNear;
 	camPos2 += look * sfNear;
 
@@ -74,19 +73,19 @@ void DirectionalLight::createSplitMatrices(const Camera *cam)
 	v3f eye = frustumCenter - eye_displacement;
 	future_frustum.position = world_center - eye_displacement;
 	future_frustum.length = vvolume;
-	future_frustum.ViewMat.buildCameraLookAtMatrixLH(eye, frustumCenter, v3f(0.0f, 1.0f, 0.0f));
+	future_frustum.ViewMat.buildCameraLookAtMatrixLH(
+			eye, frustumCenter, v3f(0.0f, 1.0f, 0.0f));
 	future_frustum.ProjOrthMat.buildProjectionMatrixOrthoLH(future_frustum.length,
-			future_frustum.length, -future_frustum.length,
-			future_frustum.length,false);
+			future_frustum.length, -future_frustum.length, future_frustum.length, false);
 	future_frustum.camera_offset = cam->getOffset();
 }
 
-DirectionalLight::DirectionalLight(const u32 shadowMapResolution,
-		const v3f &position, video::SColorf lightColor,
-		f32 farValue) :
+DirectionalLight::DirectionalLight(const u32 shadowMapResolution, const v3f &position,
+		video::SColorf lightColor, f32 farValue) :
 		diffuseColor(lightColor),
 		farPlane(farValue), mapRes(shadowMapResolution), pos(position)
-{}
+{
+}
 
 void DirectionalLight::update_frustum(const Camera *cam, Client *client, bool force)
 {
@@ -113,8 +112,10 @@ void DirectionalLight::update_frustum(const Camera *cam, Client *client, bool fo
 	v3s16 cam_offset = cam->getOffset();
 	if (cam_offset != shadow_frustum.camera_offset) {
 		v3f rotated_offset;
-		shadow_frustum.ViewMat.rotateVect(rotated_offset, intToFloat(cam_offset - shadow_frustum.camera_offset, BS));
-		shadow_frustum.ViewMat.setTranslation(shadow_frustum.ViewMat.getTranslation() + rotated_offset);
+		shadow_frustum.ViewMat.rotateVect(rotated_offset,
+				intToFloat(cam_offset - shadow_frustum.camera_offset, BS));
+		shadow_frustum.ViewMat.setTranslation(
+				shadow_frustum.ViewMat.getTranslation() + rotated_offset);
 		shadow_frustum.camera_offset = cam_offset;
 	}
 }

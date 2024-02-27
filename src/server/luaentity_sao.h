@@ -46,8 +46,7 @@ public:
 	void getStaticData(std::string *result) const;
 	u32 punch(v3f dir, const ToolCapabilities *toolcap = nullptr,
 			ServerActiveObject *puncher = nullptr,
-			float time_from_last_punch = 1000000.0f,
-			u16 initial_wear = 0);
+			float time_from_last_punch = 1000000.0f, u16 initial_wear = 0);
 	void rightClick(ServerActiveObject *clicker);
 	void setPos(const v3f &pos);
 	void moveTo(v3f pos, bool continuous);
@@ -65,8 +64,8 @@ public:
 
 	void setTextureMod(const std::string &mod);
 	std::string getTextureMod() const;
-	void setSprite(v2s16 p, int num_frames, float framelength,
-			bool select_horiz_by_yawpitch);
+	void setSprite(
+			v2s16 p, int num_frames, float framelength, bool select_horiz_by_yawpitch);
 	std::string getName();
 	bool getCollisionBox(aabb3f *toset) const;
 	bool getSelectionBox(aabb3f *toset) const;
@@ -81,8 +80,8 @@ private:
 	std::string getPropertyPacket();
 	void sendPosition(bool do_interpolate, bool is_movement_end);
 	std::string generateSetTextureModCommand() const;
-	static std::string generateSetSpriteCommand(v2s16 p, u16 num_frames,
-			f32 framelength, bool select_horiz_by_yawpitch);
+	static std::string generateSetSpriteCommand(
+			v2s16 p, u16 num_frames, f32 framelength, bool select_horiz_by_yawpitch);
 
 	std::string m_init_name;
 	std::string m_init_state;

@@ -37,8 +37,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
  * is possible though; see the @c grab free function for details and use cases.
  */
 template <class ReferenceCounted,
-		class = typename std::enable_if<std::is_base_of<IReferenceCounted,
-				ReferenceCounted>::value>::type>
+		class = typename std::enable_if<
+				std::is_base_of<IReferenceCounted, ReferenceCounted>::value>::type>
 class irr_ptr
 {
 	ReferenceCounted *value = nullptr;
@@ -53,14 +53,14 @@ public:
 	irr_ptr(irr_ptr &&b) noexcept { reset(b.release()); }
 
 	template <typename B, class = typename std::enable_if<std::is_convertible<B *,
-					      ReferenceCounted *>::value>::type>
+								  ReferenceCounted *>::value>::type>
 	irr_ptr(const irr_ptr<B> &b) noexcept
 	{
 		grab(b.get());
 	}
 
 	template <typename B, class = typename std::enable_if<std::is_convertible<B *,
-					      ReferenceCounted *>::value>::type>
+								  ReferenceCounted *>::value>::type>
 	irr_ptr(irr_ptr<B> &&b) noexcept
 	{
 		reset(b.release());
@@ -88,7 +88,7 @@ public:
 	}
 
 	template <typename B, class = typename std::enable_if<std::is_convertible<B *,
-					      ReferenceCounted *>::value>::type>
+								  ReferenceCounted *>::value>::type>
 	irr_ptr &operator=(const irr_ptr<B> &b) noexcept
 	{
 		grab(b.get());
@@ -96,7 +96,7 @@ public:
 	}
 
 	template <typename B, class = typename std::enable_if<std::is_convertible<B *,
-					      ReferenceCounted *>::value>::type>
+								  ReferenceCounted *>::value>::type>
 	irr_ptr &operator=(irr_ptr<B> &&b) noexcept
 	{
 		reset(b.release());

@@ -40,21 +40,17 @@ struct shadowFrustum
 class DirectionalLight
 {
 public:
-	DirectionalLight(const u32 shadowMapResolution,
-			const v3f &position,
-			video::SColorf lightColor = video::SColor(0xffffffff),
-			f32 farValue = 100.0f);
+	DirectionalLight(const u32 shadowMapResolution, const v3f &position,
+			video::SColorf lightColor = video::SColor(0xffffffff), f32 farValue = 100.0f);
 	~DirectionalLight() = default;
 
-	//DISABLE_CLASS_COPY(DirectionalLight)
+	// DISABLE_CLASS_COPY(DirectionalLight)
 
 	void update_frustum(const Camera *cam, Client *client, bool force = false);
 
 	// when set direction is updated to negative normalized(direction)
 	void setDirection(v3f dir);
-	v3f getDirection() const{
-		return direction;
-	};
+	v3f getDirection() const { return direction; };
 	v3f getPosition() const;
 
 	/// Gets the light's matrices.
@@ -65,29 +61,16 @@ public:
 	core::matrix4 getViewProjMatrix();
 
 	/// Gets the light's far value.
-	f32 getMaxFarValue() const
-	{
-		return farPlane;
-	}
-
+	f32 getMaxFarValue() const { return farPlane; }
 
 	/// Gets the light's color.
-	const video::SColorf &getLightColor() const
-	{
-		return diffuseColor;
-	}
+	const video::SColorf &getLightColor() const { return diffuseColor; }
 
 	/// Sets the light's color.
-	void setLightColor(const video::SColorf &lightColor)
-	{
-		diffuseColor = lightColor;
-	}
+	void setLightColor(const video::SColorf &lightColor) { diffuseColor = lightColor; }
 
 	/// Gets the shadow map resolution for this light.
-	u32 getMapResolution() const
-	{
-		return mapRes;
-	}
+	u32 getMapResolution() const { return mapRes; }
 
 	bool should_update_map_shadow{true};
 

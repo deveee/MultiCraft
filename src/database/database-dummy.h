@@ -24,7 +24,9 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "database.h"
 #include "irrlichttypes.h"
 
-class Database_Dummy : public MapDatabase, public PlayerDatabase, public ModMetadataDatabase
+class Database_Dummy : public MapDatabase,
+					   public PlayerDatabase,
+					   public ModMetadataDatabase
 {
 public:
 	bool saveBlock(const v3s16 &pos, const std::string &data);
@@ -38,8 +40,8 @@ public:
 	void listPlayers(std::vector<std::string> &res);
 
 	bool getModEntries(const std::string &modname, StringMap *storage);
-	bool setModEntry(const std::string &modname,
-			const std::string &key, const std::string &value);
+	bool setModEntry(
+			const std::string &modname, const std::string &key, const std::string &value);
 	bool removeModEntry(const std::string &modname, const std::string &key);
 	void listMods(std::vector<std::string> *res);
 

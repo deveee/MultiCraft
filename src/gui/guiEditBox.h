@@ -62,10 +62,7 @@ public:
 
 	//! Checks if an override color is enabled
 	/** \return true if the override color is enabled, false otherwise */
-	virtual bool isOverrideColorEnabled(void) const
-	{
-		return m_override_color_enabled;
-	}
+	virtual bool isOverrideColorEnabled(void) const { return m_override_color_enabled; }
 
 	//! Enables or disables word wrap for using the edit box as multiline text editor.
 	virtual void setWordWrap(bool enable);

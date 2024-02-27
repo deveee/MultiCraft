@@ -32,7 +32,7 @@ static void writeChunk(std::ostringstream &target, const std::string &chunk_str)
 	assert(chunk_str.size() - 4 < U32_MAX);
 	writeU32(target, chunk_str.size() - 4); // Write length minus the identifier
 	target << chunk_str;
-	writeU32(target, crc32(0,(const u8*)chunk_str.data(), chunk_str.size()));
+	writeU32(target, crc32(0, (const u8 *)chunk_str.data(), chunk_str.size()));
 }
 
 std::string encodePNG(const u8 *data, u32 width, u32 height, s32 compression)
@@ -54,9 +54,9 @@ std::string encodePNG(const u8 *data, u32 width, u32 height, s32 compression)
 		std::ostringstream IDAT(std::ios::binary);
 		IDAT << "IDAT";
 		std::ostringstream scanlines(std::ios::binary);
-		for(u32 i = 0; i < height; i++) {
+		for (u32 i = 0; i < height; i++) {
 			scanlines.write("\x00", 1); // Null predictor
-			scanlines.write((const char*) data + width * 4 * i, width * 4);
+			scanlines.write((const char *)data + width * 4 * i, width * 4);
 		}
 		compressZlib(scanlines.str(), IDAT, compression);
 		writeChunk(file, IDAT.str());
