@@ -178,6 +178,7 @@ void TestCompression::testZlibLargeData()
 
 void TestCompression::testZstdLargeData()
 {
+#if 0
 	infostream << "Test: Testing zstd wrappers with a large amount "
 		"of pseudorandom data" << std::endl;
 
@@ -210,6 +211,7 @@ void TestCompression::testZstdLargeData()
 				"index out[%i]=%i differs from in[%i]=%i",
 				i, str_decompressed[i], i, data_in[i]);
 	}
+#endif
 }
 
 void TestCompression::testZlibLimit()

@@ -22,7 +22,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "util/serialize.h"
 
 #include <zlib.h>
-#if !defined(__ANDROID__) && !defined(__IOS__)
+#if 0
 #include <zstd.h>
 #endif
 
@@ -200,7 +200,7 @@ void decompressZlib(std::istream &is, std::ostream &os, size_t limit)
 	inflateEnd(&z);
 }
 
-#if !defined(__ANDROID__) && !defined(__IOS__)
+#if 0
 struct ZSTD_Deleter {
 	void operator() (ZSTD_CStream* cstream) {
 		ZSTD_freeCStream(cstream);
@@ -226,7 +226,7 @@ public:
 };
 #endif
 
-#if !defined(__ANDROID__) && !defined(__IOS__)
+#if 0
 void compressZstd(const u8 *data, size_t data_size, std::ostream &os, int level)
 {
 #if defined(__MINGW32__) && !defined(__MINGW64__)
@@ -330,7 +330,7 @@ void decompressZstd(std::istream &is, std::ostream &os)
 
 void compress(u8 *data, u32 size, std::ostream &os, u8 version, int level)
 {
-#if !defined(__ANDROID__) && !defined(__IOS__)
+#if 0
 	if(version >= 29)
 	{
 		// map the zlib levels [0,9] to [1,10]. -1 becomes 0 which indicates the default (currently 3)
@@ -392,7 +392,7 @@ void compress(const std::string &data, std::ostream &os, u8 version, int level)
 
 void decompress(std::istream &is, std::ostream &os, u8 version)
 {
-#if !defined(__ANDROID__) && !defined(__IOS__)
+#if 0
 	if(version >= 29)
 	{
 		decompressZstd(is, os);
