@@ -257,7 +257,7 @@ endif(ENABLE_SPATIAL)
 
 
 find_package(ZLIB REQUIRED)
-find_package(Zstd REQUIRED)
+#find_package(Zstd REQUIRED)
 
 
 if(NOT MSVC)
@@ -299,7 +299,7 @@ if(WIN32)
 	# DLLs are automatically copied to the output directory by vcpkg when VCPKG_APPLOCAL_DEPS=ON
 	if(NOT VCPKG_APPLOCAL_DEPS)
 		set(ZLIB_DLL "" CACHE FILEPATH "Path to Zlib DLL for installation (optional)")
-		set(ZSTD_DLL "" CACHE FILEPATH "Path to Zstd DLL for installation (optional)")
+		#set(ZSTD_DLL "" CACHE FILEPATH "Path to Zstd DLL for installation (optional)")
 		if(ENABLE_SOUND)
 			set(OPENAL_DLL "" CACHE FILEPATH "Path to OpenAL32.dll for installation (optional)")
 			set(OGG_DLL "" CACHE FILEPATH "Path to libogg.dll for installation (optional)")
@@ -516,7 +516,7 @@ include_directories(
 	${IRRLICHT_INCLUDE_DIR}
 	${ZLIB_INCLUDE_DIR}
 	${PNG_INCLUDE_DIR}
-	${ZSTD_INCLUDE_DIR}
+	#${ZSTD_INCLUDE_DIR}
 	${SQLITE3_INCLUDE_DIR}
 	${LUA_INCLUDE_DIR}
 	${CHACHA_INCLUDE_DIR}
@@ -559,7 +559,7 @@ if(BUILD_CLIENT)
 		${JPEG_LIBRARIES}
 		${BZIP2_LIBRARIES}
 		${PNG_LIBRARIES}
-		${ZSTD_LIBRARY}
+		#${ZSTD_LIBRARY}
 		${X11_LIBRARIES}
 		${SOUND_LIBRARIES}
 		${SQLITE3_LIBRARY}
@@ -668,7 +668,7 @@ if(BUILD_SERVER)
 	target_link_libraries(
 		${PROJECT_NAME}server
 		${ZLIB_LIBRARIES}
-		${ZSTD_LIBRARY}
+		#${ZSTD_LIBRARY}
 		${SQLITE3_LIBRARY}
 		${JSON_LIBRARY}
 		${LUA_LIBRARY}
@@ -917,9 +917,9 @@ if(WIN32)
 		if(ZLIB_DLL)
 			install(FILES ${ZLIB_DLL} DESTINATION ${BINDIR})
 		endif()
-		if(ZSTD_DLL)
-			install(FILES ${ZSTD_DLL} DESTINATION ${BINDIR})
-		endif()
+		#if(ZSTD_DLL)
+		#	install(FILES ${ZSTD_DLL} DESTINATION ${BINDIR})
+		#endif()
 		if(BUILD_CLIENT AND FREETYPE_DLL)
 			install(FILES ${FREETYPE_DLL} DESTINATION ${BINDIR})
 		endif()

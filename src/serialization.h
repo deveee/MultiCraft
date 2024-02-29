@@ -90,9 +90,11 @@ void compressZlib(const u8 *data, size_t data_size, std::ostream &os, int level 
 void compressZlib(const std::string &data, std::ostream &os, int level = -1);
 void decompressZlib(std::istream &is, std::ostream &os, size_t limit = 0);
 
+#if 0
 void compressZstd(const u8 *data, size_t data_size, std::ostream &os, int level = 0);
 void compressZstd(const std::string &data, std::ostream &os, int level = 0);
 void decompressZstd(std::istream &is, std::ostream &os);
+#endif
 
 // These choose between zlib and a self-made one according to version
 void compress(const SharedBuffer<u8> &data, std::ostream &os, u8 version, int level = -1);
