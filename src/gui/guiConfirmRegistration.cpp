@@ -28,11 +28,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <IGUIButton.h>
 #include <IGUIStaticText.h>
 #include <IGUIFont.h>
+#include "guiEditBoxWithScrollbar.h"
 #include "porting.h"
-
-#if USE_FREETYPE && IRRLICHT_VERSION_MAJOR == 1 && IRRLICHT_VERSION_MINOR < 9
-	#include "intlGUIEditBox.h"
-#endif
 
 #ifdef HAVE_TOUCHSCREENGUI
 	#include "client/renderingengine.h"
@@ -147,15 +144,9 @@ void GUIConfirmRegistration::regenerateGui(v2u32 screensize)
 		porting::mt_snprintf(info_text_buf, sizeof(info_text_buf),
 				info_text_template.c_str(), m_playername.c_str());
 
-		wchar_t *info_text_buf_wide = utf8_to_wide_c(info_text_buf);
-#if USE_FREETYPE && IRRLICHT_VERSION_MAJOR == 1 && IRRLICHT_VERSION_MINOR < 9
-		gui::IGUIEditBox *e = new gui::intlGUIEditBox(info_text_buf_wide, true,
-				Environment, this, ID_intotext, rect2, false, true);
-#else
-		gui::IGUIEditBox *e = new GUIEditBoxWithScrollBar(info_text_buf_wide, true,
-				Environment, this, ID_intotext, rect2, false, true);
-#endif
-		delete[] info_text_buf_wide;
+		std::wstring info_text_w = utf8_to_wide(info_text_buf);
+		gui::IGUIEditBox *e = new GUIEditBoxWithScrollBar(info_text_w.c_str(),
+				true, Environment, this, ID_intotext, rect2, false, true);
 		e->drop();
 		e->setMultiLine(true);
 		e->setWordWrap(true);

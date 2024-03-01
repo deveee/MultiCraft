@@ -29,6 +29,7 @@ public:
 	TestClientActiveObject() : ClientActiveObject(0, nullptr, nullptr) {}
 	~TestClientActiveObject() = default;
 	ActiveObjectType getType() const { return ACTIVEOBJECT_TYPE_TEST; }
+	virtual void addToScene(ITextureSource *tsrc, scene::ISceneManager *smgr) {}
 };
 
 class TestClientActiveObjectMgr : public TestBase
@@ -74,8 +75,7 @@ void TestClientActiveObjectMgr::testFreeID()
 		aoids.push_back(tcao->getId());
 
 		// Ensure next id is not in registered list
-		UASSERT(std::find(aoids.begin(), aoids.end(), caomgr.getFreeId()) ==
-				aoids.end());
+		UASSERT(std::find(aoids.begin(), aoids.end(), caomgr.getFreeId()) == aoids.end());
 	}
 
 	caomgr.clear();

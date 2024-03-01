@@ -30,8 +30,8 @@ void ProfilerGraph::put(const Profiler::GraphValues &values)
 		m_log.erase(m_log.begin());
 }
 
-void ProfilerGraph::draw(s32 x_left, s32 y_bottom, video::IVideoDriver *driver,
-		gui::IGUIFont *font) const
+void ProfilerGraph::draw(
+		s32 x_left, s32 y_bottom, video::IVideoDriver *driver, gui::IGUIFont *font) const
 {
 	// Do *not* use UNORDERED_MAP here as the order needs
 	// to be the same for each call to prevent flickering
@@ -58,12 +58,9 @@ void ProfilerGraph::draw(s32 x_left, s32 y_bottom, video::IVideoDriver *driver,
 
 	// Assign colors
 	static const video::SColor usable_colors[] = {video::SColor(255, 255, 100, 100),
-			video::SColor(255, 90, 225, 90),
-			video::SColor(255, 100, 100, 255),
-			video::SColor(255, 255, 150, 50),
-			video::SColor(255, 220, 220, 100)};
-	static const u32 usable_colors_count =
-			sizeof(usable_colors) / sizeof(*usable_colors);
+			video::SColor(255, 90, 225, 90), video::SColor(255, 100, 100, 255),
+			video::SColor(255, 255, 150, 50), video::SColor(255, 220, 220, 100)};
+	static const u32 usable_colors_count = sizeof(usable_colors) / sizeof(*usable_colors);
 	u32 next_color_i = 0;
 
 	for (auto &i : m_meta) {
@@ -94,20 +91,28 @@ void ProfilerGraph::draw(s32 x_left, s32 y_bottom, video::IVideoDriver *driver,
 				show_min = 0;
 		}
 
-		s32 texth = 15;
+		const s32 texth = 15;
 		char buf[10];
-		porting::mt_snprintf(buf, sizeof(buf), "%.3g", show_max);
+		if (floorf(show_max) == show_max)
+			porting::mt_snprintf(buf, sizeof(buf), "%.5g", show_max);
+		else
+			porting::mt_snprintf(buf, sizeof(buf), "%.3g", show_max);
 		font->draw(utf8_to_wide(buf).c_str(),
-				core::rect<s32>(textx, y - graphh, textx2,
-						y - graphh + texth),
+				core::rect<s32>(textx, y - graphh, textx2, y - graphh + texth),
 				meta.color);
-		porting::mt_snprintf(buf, sizeof(buf), "%.3g", show_min);
+
+		if (floorf(show_min) == show_min)
+			porting::mt_snprintf(buf, sizeof(buf), "%.5g", show_min);
+		else
+			porting::mt_snprintf(buf, sizeof(buf), "%.3g", show_min);
 		font->draw(utf8_to_wide(buf).c_str(),
 				core::rect<s32>(textx, y - texth, textx2, y), meta.color);
+
 		font->draw(utf8_to_wide(id).c_str(),
 				core::rect<s32>(textx, y - graphh / 2 - texth / 2, textx2,
 						y - graphh / 2 + texth / 2),
 				meta.color);
+
 		s32 graph1y = y;
 		s32 graph1h = graphh;
 		bool relativegraph = (show_min != 0 && show_min != show_max);
@@ -145,18 +150,16 @@ void ProfilerGraph::draw(s32 x_left, s32 y_bottom, video::IVideoDriver *driver,
 				if (lastscaledvalue_exists) {
 					s32 ivalue1 = lastscaledvalue * graph1h;
 					s32 ivalue2 = scaledvalue * graph1h;
-					driver->draw2DLine(
-							v2s32(x - 1, graph1y - ivalue1),
-							v2s32(x, graph1y - ivalue2),
-							meta.color);
+					driver->draw2DLine(v2s32(x - 1, graph1y - ivalue1),
+							v2s32(x, graph1y - ivalue2), meta.color);
 				}
 
 				lastscaledvalue = scaledvalue;
 				lastscaledvalue_exists = true;
 			} else {
 				s32 ivalue = scaledvalue * graph1h;
-				driver->draw2DLine(v2s32(x, graph1y),
-						v2s32(x, graph1y - ivalue), meta.color);
+				driver->draw2DLine(
+						v2s32(x, graph1y), v2s32(x, graph1y - ivalue), meta.color);
 			}
 
 			x++;

@@ -17,6 +17,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
+#include "IrrCompileConfig.h"
 #include "guiChatConsole.h"
 #include "chat.h"
 #include "client/client.h"
@@ -29,13 +30,10 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "client/fontengine.h"
 #include "log.h"
 #include "gettext.h"
+#include "irrlicht_changes/CGUITTFont.h"
 #include <algorithm>
 #include <string>
 #include "touchscreengui.h"
-
-#if USE_FREETYPE
-	#include "irrlicht_changes/CGUITTFont.h"
-#endif
 
 #ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
 #include <SDL.h>
@@ -44,6 +42,11 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 inline u32 clamp_u8(s32 value)
 {
 	return (u32) MYMIN(MYMAX(value, 0), 255);
+}
+
+inline bool isInCtrlKeys(const irr::EKEY_CODE& kc)
+{
+	return kc == KEY_LCONTROL || kc == KEY_RCONTROL || kc == KEY_CONTROL;
 }
 
 GUIChatConsole* GUIChatConsole::m_chat_console = nullptr;
@@ -101,6 +104,10 @@ GUIChatConsole::GUIChatConsole(
 
 	// set default cursor options
 	setCursor(true, true, 2.0, 0.1);
+
+	// track ctrl keys for mouse event
+	m_is_ctrl_down = false;
+	m_cache_clickable_chat_weblinks = g_settings->getBool("clickable_chat_weblinks");
 }
 
 GUIChatConsole::~GUIChatConsole()
@@ -438,19 +445,16 @@ void GUIChatConsole::drawText()
 			core::rect<s32> destrect(x, y, x + text_size, y + m_fontsize.Y);
 			x += text_size;
 
-#if USE_FREETYPE
 			if (m_font->getType() == irr::gui::EGFT_CUSTOM) {
-				// Draw colored text if FreeType is enabled
-				irr::gui::CGUITTFont *tmp = dynamic_cast<irr::gui::CGUITTFont *>(m_font);
+				// Draw colored text if possible
+				gui::CGUITTFont *tmp = static_cast<gui::CGUITTFont*>(m_font);
 				tmp->draw(
 					fragment.text,
 					destrect,
 					false,
 					false,
 					&AbsoluteClippingRect);
-			} else
-#endif
-			{
+			} else {
 				// Otherwise use standard text
 				m_font->draw(
 					fragment.text.c_str(),
@@ -855,8 +859,21 @@ bool GUIChatConsole::OnEvent(const SEvent& event)
 {
 	ChatPrompt &prompt = m_chat_backend->getPrompt();
 
-	if(event.EventType == EET_KEY_INPUT_EVENT && event.KeyInput.PressedDown)
+	if (event.EventType == EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
 	{
+		// CTRL up
+		if (isInCtrlKeys(event.KeyInput.Key))
+		{
+			m_is_ctrl_down = false;
+		}
+	}
+	else if(event.EventType == EET_KEY_INPUT_EVENT && event.KeyInput.PressedDown)
+	{
+		// CTRL down
+		if (isInCtrlKeys(event.KeyInput.Key)) {
+			m_is_ctrl_down = true;
+		}
+
 		// Key input
 		if (KeyPress(event.KeyInput) == getKeySetting("keymap_console")) {
 			closeConsole();
@@ -1176,13 +1193,7 @@ bool GUIChatConsole::OnEvent(const SEvent& event)
 				deletePromptSelection();
 			}
 
-			#if defined(__linux__) && (IRRLICHT_VERSION_MAJOR == 1 && IRRLICHT_VERSION_MINOR < 9)
-				wchar_t wc = L'_';
-				mbtowc( &wc, (char *) &event.KeyInput.Char, sizeof(event.KeyInput.Char) );
-				prompt.input(wc);
-			#else
-				prompt.input(event.KeyInput.Char);
-			#endif
+			prompt.input(event.KeyInput.Char);
 			return true;
 		}
 	}
@@ -1209,11 +1220,24 @@ bool GUIChatConsole::OnEvent(const SEvent& event)
 #endif
 	else if(event.EventType == EET_MOUSE_INPUT_EVENT)
 	{
-		if(event.MouseInput.Event == EMIE_MOUSE_WHEEL)
+		if (event.MouseInput.Event == EMIE_MOUSE_WHEEL)
 		{
 			s32 rows = myround(-3.0 * event.MouseInput.Wheel);
 			m_chat_backend->scroll(rows);
 			m_vscrollbar->setPos(m_vscrollbar->getPos() + rows);
+		}
+		// Middle click or ctrl-click opens weblink, if enabled in config
+		else if(m_cache_clickable_chat_weblinks && (
+				event.MouseInput.Event == EMIE_MMOUSE_PRESSED_DOWN ||
+				(event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN && m_is_ctrl_down)
+				))
+		{
+			// If clicked within console output region
+			if (event.MouseInput.Y / m_fontsize.Y < (m_height / m_fontsize.Y) - 1 )
+			{
+				// Translate pixel position to font position
+				middleClick(event.MouseInput.X / m_fontsize.X, event.MouseInput.Y / m_fontsize.Y);
+			}
 		} else if (event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN) {
 			u32 row = m_chat_backend->getConsoleBuffer().getRows();
 			s32 prompt_y = row * m_fontsize.Y + m_height - m_desired_height;
@@ -1383,8 +1407,15 @@ bool GUIChatConsole::OnEvent(const SEvent& event)
 	else if (event.EventType == EET_GUI_EVENT) {
 		if (event.GUIEvent.EventType == EGET_SCROLL_BAR_CHANGED) {
 			updateVScrollBar();
-		}
+ 		}
+ 	}
+#if (IRRLICHT_VERSION_MT_REVISION >= 2)
+	else if(event.EventType == EET_STRING_INPUT_EVENT)
+	{
+		prompt.input(std::wstring(event.StringInput.Str->c_str()));
+		return true;
 	}
+#endif
 
 	return Parent ? Parent->OnEvent(event) : false;
 }
@@ -1397,6 +1428,66 @@ void GUIChatConsole::setVisible(bool visible)
 	if (!visible) {
 		m_height = 0;
 		recalculateConsolePosition();
+	}
+}
+
+void GUIChatConsole::middleClick(s32 col, s32 row)
+{
+	// Prevent accidental rapid clicking
+	static u64 s_oldtime = 0;
+	u64 newtime = porting::getTimeMs();
+
+	// 0.6 seconds should suffice
+	if (newtime - s_oldtime < 600)
+		return;
+	s_oldtime = newtime;
+
+	const std::vector<ChatFormattedFragment> &
+			frags = m_chat_backend->getConsoleBuffer().getFormattedLine(row).fragments;
+	std::string weblink = ""; // from frag meta
+
+	// Identify targetted fragment, if exists
+	int indx = frags.size() - 1;
+	if (indx < 0) {
+		// Invalid row, frags is empty
+		return;
+	}
+	// Scan from right to left, offset by 1 font space because left margin
+	while (indx > -1 && (u32)col < frags[indx].column + 1) {
+		--indx;
+	}
+	if (indx > -1) {
+		weblink = frags[indx].weblink;
+		// Note if(indx < 0) then a frag somehow had a corrupt column field
+	}
+
+	/*
+	// Debug help. Please keep this in case adjustments are made later.
+	std::string ws;
+	ws = "Middleclick: (" + std::to_string(col) + ',' + std::to_string(row) + ')' + " frags:";
+	// show all frags <position>(<length>) for the clicked row
+	for (u32 i=0;i<frags.size();++i) {
+		if (indx == int(i))
+			// tag the actual clicked frag
+			ws += '*';
+		ws += std::to_string(frags.at(i).column) + '('
+			+ std::to_string(frags.at(i).text.size()) + "),";
+	}
+	actionstream << ws << std::endl;
+	*/
+
+	// User notification
+	if (weblink.size() != 0) {
+		std::ostringstream msg;
+		msg << " * ";
+		if (porting::open_url(weblink)) {
+			msg << gettext("Opening webpage");
+		}
+		else {
+			msg << gettext("Failed to open webpage");
+		}
+		msg << " '" << weblink << "'";
+		m_chat_backend->addUnparsedMessage(utf8_to_wide(msg.str()));
 	}
 }
 

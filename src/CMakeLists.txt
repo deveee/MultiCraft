@@ -71,7 +71,7 @@ if(NOT USE_CURL)
 endif()
 
 
-option(ENABLE_GETTEXT "Use GetText for internationalization" TRUE)
+option(ENABLE_GETTEXT "Use GetText for internationalization" ${BUILD_CLIENT})
 set(USE_GETTEXT FALSE)
 
 if(ENABLE_GETTEXT)
@@ -79,14 +79,13 @@ if(ENABLE_GETTEXT)
 	if(GETTEXTLIB_FOUND)
 		if(WIN32)
 			message(STATUS "GetText library: ${GETTEXT_LIBRARY}")
-			message(STATUS "GetText DLL: ${GETTEXT_DLL}")
-			message(STATUS "GetText iconv DLL: ${GETTEXT_ICONV_DLL}")
+			message(STATUS "GetText DLL(s): ${GETTEXT_DLL}")
 		endif()
 		set(USE_GETTEXT TRUE)
 		message(STATUS "GetText enabled; locales found: ${GETTEXT_AVAILABLE_LOCALES}")
 	endif(GETTEXTLIB_FOUND)
 else()
-	mark_as_advanced(GETTEXT_ICONV_DLL GETTEXT_INCLUDE_DIR GETTEXT_LIBRARY GETTEXT_MSGFMT)
+	mark_as_advanced(GETTEXT_INCLUDE_DIR GETTEXT_LIBRARY GETTEXT_MSGFMT)
 	message(STATUS "GetText disabled.")
 endif()
 
@@ -125,11 +124,11 @@ if(ENABLE_TOUCH)
 endif()
 
 if(BUILD_CLIENT)
-	if(ENABLE_GLES)
-		find_package(OpenGLES2 REQUIRED)
-	else()
-		# transitive dependency from Irrlicht (see longer explanation below)
-		if(NOT WIN32)
+	# transitive dependency from Irrlicht (see longer explanation below)
+	if(NOT WIN32)
+		if(ENABLE_GLES)
+			find_package(OpenGLES2 REQUIRED)
+		else()
 			set(OPENGL_GL_PREFERENCE "LEGACY" CACHE STRING
 				"See CMake Policy CMP0072 for reference. GLVND is broken on some nvidia setups")
 			set(OpenGL_GL_PREFERENCE ${OPENGL_GL_PREFERENCE})
@@ -139,17 +138,9 @@ if(BUILD_CLIENT)
 	endif()
 endif()
 
-
-option(ENABLE_FREETYPE "Enable FreeType2 (TrueType fonts and basic unicode support)" TRUE)
-set(USE_FREETYPE FALSE)
-
-if(ENABLE_FREETYPE)
-	find_package(Freetype)
-	if(FREETYPE_FOUND)
-		message(STATUS "Freetype enabled.")
-		set(USE_FREETYPE TRUE)
-	endif()
-endif(ENABLE_FREETYPE)
+if(BUILD_CLIENT)
+	find_package(Freetype REQUIRED)
+endif()
 
 option(ENABLE_CURSES "Enable ncurses console" TRUE)
 set(USE_CURSES FALSE)
@@ -169,7 +160,17 @@ option(ENABLE_POSTGRESQL "Enable PostgreSQL backend" TRUE)
 set(USE_POSTGRESQL FALSE)
 
 if(ENABLE_POSTGRESQL)
-	find_package("PostgreSQL")
+	if(CMAKE_VERSION VERSION_LESS "3.20")
+		find_package(PostgreSQL QUIET)
+		# Before CMake 3.20 FindPostgreSQL.cmake always looked for server includes
+		# but we don't need them, so continue anyway if only those are missing.
+		if(PostgreSQL_INCLUDE_DIR AND PostgreSQL_LIBRARY)
+			set(PostgreSQL_FOUND TRUE)
+			set(PostgreSQL_INCLUDE_DIRS ${PostgreSQL_INCLUDE_DIR})
+		endif()
+	else()
+		find_package(PostgreSQL)
+	endif()
 
 	if(PostgreSQL_FOUND)
 		set(USE_POSTGRESQL TRUE)
@@ -218,6 +219,7 @@ endif(ENABLE_REDIS)
 
 find_package(SQLite3 REQUIRED)
 
+
 OPTION(ENABLE_PROMETHEUS "Enable prometheus client support" FALSE)
 set(USE_PROMETHEUS FALSE)
 
@@ -254,6 +256,10 @@ if(ENABLE_SPATIAL)
 endif(ENABLE_SPATIAL)
 
 
+find_package(ZLIB REQUIRED)
+find_package(Zstd REQUIRED)
+
+
 if(NOT MSVC)
 	set(USE_GPROF FALSE CACHE BOOL "Use -pg flag for g++")
 endif()
@@ -286,26 +292,26 @@ if(WIN32)
 	else() # Probably MinGW = GCC
 		set(PLATFORM_LIBS "")
 	endif()
-	set(PLATFORM_LIBS ws2_32.lib version.lib shlwapi.lib ${PLATFORM_LIBS})
+	set(PLATFORM_LIBS ws2_32.lib version.lib shlwapi.lib winmm.lib ${PLATFORM_LIBS})
 
-	# Zlib stuff
-	find_path(ZLIB_INCLUDE_DIR "zlib.h" DOC "Zlib include directory")
-	find_library(ZLIB_LIBRARIES "zlib" DOC "Path to zlib library")
+	set(EXTRA_DLL "" CACHE FILEPATH "Optional paths to additional DLLs that should be packaged")
 
-	# Dll's are automatically copied to the output directory by vcpkg when VCPKG_APPLOCAL_DEPS=ON
+	# DLLs are automatically copied to the output directory by vcpkg when VCPKG_APPLOCAL_DEPS=ON
 	if(NOT VCPKG_APPLOCAL_DEPS)
-		find_file(ZLIB_DLL NAMES "zlib.dll" "zlib1.dll" DOC "Path to zlib.dll for installation (optional)")
+		set(ZLIB_DLL "" CACHE FILEPATH "Path to Zlib DLL for installation (optional)")
+		set(ZSTD_DLL "" CACHE FILEPATH "Path to Zstd DLL for installation (optional)")
 		if(ENABLE_SOUND)
 			set(OPENAL_DLL "" CACHE FILEPATH "Path to OpenAL32.dll for installation (optional)")
 			set(OGG_DLL "" CACHE FILEPATH "Path to libogg.dll for installation (optional)")
-			set(VORBIS_DLL "" CACHE FILEPATH "Path to libvorbis.dll for installation (optional)")
-			set(VORBISFILE_DLL "" CACHE FILEPATH "Path to libvorbisfile.dll for installation (optional)")
+			set(VORBIS_DLL "" CACHE FILEPATH "Path to Vorbis DLLs for installation (optional)")
+		endif()
+		if(USE_GETTEXT)
+			set(GETTEXT_DLL "" CACHE FILEPATH "Path to Intl/Iconv DLLs for installation (optional)")
 		endif()
 		if(USE_LUAJIT)
 			set(LUA_DLL "" CACHE FILEPATH "Path to luajit-5.1.dll for installation (optional)")
 		endif()
 	endif()
-
 else()
 	# Unix probably
 	if(BUILD_CLIENT)
@@ -313,35 +319,11 @@ else()
 			find_package(X11 REQUIRED)
 		endif(NOT HAIKU AND NOT APPLE)
 
-		##
-		# The following dependencies are transitive dependencies from Irrlicht.
-		# Minetest itself does not use them, but we link them so that statically
-		# linking Irrlicht works.
-		if(NOT HAIKU AND NOT APPLE)
-			# This way Xxf86vm is found on OpenBSD too
-			find_library(XXF86VM_LIBRARY Xxf86vm)
-			mark_as_advanced(XXF86VM_LIBRARY)
-			set(CLIENT_PLATFORM_LIBS ${CLIENT_PLATFORM_LIBS} ${XXF86VM_LIBRARY})
-		endif(NOT HAIKU AND NOT APPLE)
-
 		find_package(JPEG REQUIRED)
 		find_package(BZip2 REQUIRED)
 		find_package(PNG REQUIRED)
-		if(APPLE)
-			find_library(CARBON_LIB Carbon REQUIRED)
-			find_library(COCOA_LIB Cocoa REQUIRED)
-			find_library(IOKIT_LIB IOKit REQUIRED)
-			mark_as_advanced(
-				CARBON_LIB
-				COCOA_LIB
-				IOKIT_LIB
-			)
-			SET(CLIENT_PLATFORM_LIBS ${CLIENT_PLATFORM_LIBS} ${CARBON_LIB} ${COCOA_LIB} ${IOKIT_LIB})
-		endif(APPLE)
-		##
-	endif(BUILD_CLIENT)
+	endif()
 
-	find_package(ZLIB REQUIRED)
 	set(PLATFORM_LIBS -lpthread ${CMAKE_DL_LIBS})
 	if(APPLE)
 		set(PLATFORM_LIBS "-framework CoreFoundation" ${PLATFORM_LIBS})
@@ -534,13 +516,13 @@ include_directories(
 	${IRRLICHT_INCLUDE_DIR}
 	${ZLIB_INCLUDE_DIR}
 	${PNG_INCLUDE_DIR}
-	${SOUND_INCLUDE_DIRS}
+	${ZSTD_INCLUDE_DIR}
 	${SQLITE3_INCLUDE_DIR}
 	${LUA_INCLUDE_DIR}
 	${CHACHA_INCLUDE_DIR}
 	${GMP_INCLUDE_DIR}
 	${JSON_INCLUDE_DIR}
-	${X11_INCLUDE_DIR}
+	${LUA_BIT_INCLUDE_DIR}
 	${PROJECT_SOURCE_DIR}/script
 )
 
@@ -548,8 +530,12 @@ if(USE_GETTEXT)
 	include_directories(${GETTEXT_INCLUDE_DIR})
 endif()
 
-if(USE_FREETYPE)
-	include_directories(${FREETYPE_INCLUDE_DIRS})
+if(BUILD_CLIENT)
+	include_directories(
+		${FREETYPE_INCLUDE_DIRS}
+		${SOUND_INCLUDE_DIRS}
+		${X11_INCLUDE_DIR}
+	)
 endif()
 
 if(USE_CURL)
@@ -557,8 +543,11 @@ if(USE_CURL)
 endif()
 
 
-set(EXECUTABLE_OUTPUT_PATH "${CMAKE_SOURCE_DIR}/bin")
-
+# When cross-compiling assume the user doesn't want to run the executable anyway,
+# otherwise place it in <source dir>/bin/ since Minetest can only run from there.
+if(NOT CMAKE_CROSSCOMPILING)
+	set(EXECUTABLE_OUTPUT_PATH "${CMAKE_SOURCE_DIR}/bin")
+endif()
 
 if(BUILD_CLIENT)
 	add_executable(${PROJECT_NAME} ${client_SRCS} ${extra_windows_SRCS})
@@ -570,14 +559,17 @@ if(BUILD_CLIENT)
 		${JPEG_LIBRARIES}
 		${BZIP2_LIBRARIES}
 		${PNG_LIBRARIES}
+		${ZSTD_LIBRARY}
 		${X11_LIBRARIES}
 		${SOUND_LIBRARIES}
 		${SQLITE3_LIBRARY}
 		${LUA_LIBRARY}
 		${GMP_LIBRARY}
 		${JSON_LIBRARY}
+		${LUA_BIT_LIBRARY}
+		${FREETYPE_LIBRARY}
 		${PLATFORM_LIBS}
-		${CLIENT_PLATFORM_LIBS}
+		${SDL2_LIBRARIES}
 		luautf8
 		luachacha
 		chacha
@@ -640,17 +632,11 @@ if(BUILD_CLIENT)
 			endif()
 		endif()
 	endif()
-	if(USE_FREETYPE)
-		if(FREETYPE_PKGCONFIG_FOUND)
-			set_target_properties(${PROJECT_NAME}
-				PROPERTIES
-				COMPILE_FLAGS "${FREETYPE_CFLAGS_STR}"
-			)
-		endif()
-		target_link_libraries(
-			${PROJECT_NAME}
-			${FREETYPE_LIBRARY}
-		)
+	if(FREETYPE_PKGCONFIG_FOUND)
+		set_target_properties(${PROJECT_NAME}
+			PROPERTIES
+			COMPILE_FLAGS "${FREETYPE_CFLAGS_STR}"
+	)
 	endif()
 	if (USE_CURSES)
 		target_link_libraries(${PROJECT_NAME} ${CURSES_LIBRARIES})
@@ -676,12 +662,17 @@ endif(BUILD_CLIENT)
 if(BUILD_SERVER)
 	add_executable(${PROJECT_NAME}server ${server_SRCS} ${extra_windows_SRCS})
 	add_dependencies(${PROJECT_NAME}server GenerateVersion)
+
+	# Doesn't work without PRIVATE/PUBLIC/INTERFACE mode specified.
+	target_include_directories(${PROJECT_NAME}server PRIVATE ${IRRLICHT_INCLUDES})
 	target_link_libraries(
 		${PROJECT_NAME}server
 		${ZLIB_LIBRARIES}
+		${ZSTD_LIBRARY}
 		${SQLITE3_LIBRARY}
 		${JSON_LIBRARY}
 		${LUA_LIBRARY}
+		${LUA_BIT_LIBRARY}
 		${GMP_LIBRARY}
 		${PLATFORM_LIBS}
 		luautf8
@@ -746,13 +737,15 @@ endif(BUILD_SERVER)
 # see issue #4638
 set(GETTEXT_BLACKLISTED_LOCALES
 	ar
+	dv
 	he
-	ky
+	hi
+	kn
 	ms_Arab
 	th
 )
 
-option(APPLY_LOCALE_BLACKLIST "Use a blacklist to avoid broken locales" TRUE)
+option(APPLY_LOCALE_BLACKLIST "Use a blacklist to avoid known broken locales" TRUE)
 
 if (GETTEXTLIB_FOUND AND APPLY_LOCALE_BLACKLIST)
 	set(GETTEXT_USED_LOCALES "")
@@ -762,6 +755,8 @@ if (GETTEXTLIB_FOUND AND APPLY_LOCALE_BLACKLIST)
 		endif()
 	endforeach()
 	message(STATUS "Locale blacklist applied; Locales used: ${GETTEXT_USED_LOCALES}")
+elseif (GETTEXTLIB_FOUND)
+	set(GETTEXT_USED_LOCALES ${GETTEXT_AVAILABLE_LOCALES})
 endif()
 
 # Set some optimizations and tweaks
@@ -791,7 +786,7 @@ if(MSVC)
 
 	# Flags that cannot be shared between cl and clang-cl
 	# https://clang.llvm.org/docs/UsersManual.html#clang-cl
-	if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+	if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fuse-ld=lld")
 
 		# Disable pragma-pack warning
@@ -803,12 +798,13 @@ if(MSVC)
 	endif()
 else()
 	# GCC or compatible compilers such as Clang
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 	if(WARN_ALL)
 		set(RELEASE_WARNING_FLAGS "-Wall")
 	else()
 		set(RELEASE_WARNING_FLAGS "")
 	endif()
-	if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+	if(CMAKE_CXX_COMPILER_ID MATCHES "(Apple)?Clang")
 		set(WARNING_FLAGS "${WARNING_FLAGS} -Wsign-compare")
 	endif()
 
@@ -819,7 +815,16 @@ else()
 		check_c_source_compiles("#ifndef __aarch64__\n#error\n#endif\nint main(){}" IS_AARCH64)
 		if(IS_AARCH64)
 			# Move text segment below LuaJIT's 47-bit limit (see issue #9367)
-			SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-Ttext-segment=0x200000000")
+			if(CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
+				# FreeBSD uses lld, and lld does not support -Ttext-segment, suggesting
+				# --image-base instead. Not sure if it's equivalent change for the purpose 
+				# but at least if fixes build on FreeBSD/aarch64
+				# XXX: the condition should also be changed to check for lld regardless of
+				# os, bit CMake doesn't have anything like CMAKE_LINKER_IS_LLD yet
+				SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--image-base=0x200000000")
+			else()
+				SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-Ttext-segment=0x200000000")
+			endif()
 		endif()
 	endif()
 
@@ -833,6 +838,16 @@ else()
 	# - we don't deal with Inf/NaN or signed zero
 	set(MATH_FLAGS "-fno-math-errno -fno-trapping-math -ffinite-math-only -fno-signed-zeros")
 
+	# Enable SSE for floating point math on 32-bit x86 by default
+	# reasoning see minetest issue #11810 and https://gcc.gnu.org/wiki/FloatingPointMath
+	if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+		check_c_source_compiles("#ifndef __i686__\n#error\n#endif\nint main(){}" IS_I686)
+		if(IS_I686)
+			message(STATUS "Detected Intel x86: using SSE instead of x87 FPU")
+			set(OTHER_FLAGS "${OTHER_FLAGS} -mfpmath=sse -msse")
+		endif()
+	endif()
+
 	set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG ${RELEASE_WARNING_FLAGS} ${WARNING_FLAGS} ${OTHER_FLAGS} -Wall -pipe -funroll-loops")
 	if(CMAKE_SYSTEM_NAME MATCHES "(Darwin|BSD|DragonFly)")
 		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Os")
@@ -845,7 +860,7 @@ else()
 		else()
 			set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${MATH_FLAGS}")
 		endif()
-	endif(CMAKE_SYSTEM_NAME MATCHES "(Darwin|BSD|DragonFly)")
+	endif()
 	set(CMAKE_CXX_FLAGS_SEMIDEBUG "-g -O1 -Wall ${WARNING_FLAGS} ${OTHER_FLAGS}")
 	set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -Wall ${WARNING_FLAGS} ${OTHER_FLAGS}")
 
@@ -862,6 +877,9 @@ endif()
 # Installation
 
 if(WIN32)
+	if(EXTRA_DLL)
+		install(FILES ${EXTRA_DLL} DESTINATION ${BINDIR})
+	endif()
 	if(VCPKG_APPLOCAL_DEPS)
 		# Collect the dll's from the output path
 		install(DIRECTORY ${EXECUTABLE_OUTPUT_PATH}/Release/
@@ -882,7 +900,7 @@ if(WIN32)
 				FILES_MATCHING PATTERN "*.dll")
 	else()
 		# Use the old-style way to install dll's
-		if(USE_SOUND)
+		if(BUILD_CLIENT AND USE_SOUND)
 			if(OPENAL_DLL)
 				install(FILES ${OPENAL_DLL} DESTINATION ${BINDIR})
 			endif()
@@ -892,9 +910,6 @@ if(WIN32)
 			if(VORBIS_DLL)
 				install(FILES ${VORBIS_DLL} DESTINATION ${BINDIR})
 			endif()
-			if(VORBISFILE_DLL)
-				install(FILES ${VORBISFILE_DLL} DESTINATION ${BINDIR})
-			endif()
 		endif()
 		if(CURL_DLL)
 			install(FILES ${CURL_DLL} DESTINATION ${BINDIR})
@@ -902,7 +917,10 @@ if(WIN32)
 		if(ZLIB_DLL)
 			install(FILES ${ZLIB_DLL} DESTINATION ${BINDIR})
 		endif()
-		if(FREETYPE_DLL)
+		if(ZSTD_DLL)
+			install(FILES ${ZSTD_DLL} DESTINATION ${BINDIR})
+		endif()
+		if(BUILD_CLIENT AND FREETYPE_DLL)
 			install(FILES ${FREETYPE_DLL} DESTINATION ${BINDIR})
 		endif()
 		if(SQLITE3_DLL)
@@ -913,6 +931,12 @@ if(WIN32)
 		endif()
 		if(LUA_DLL)
 			install(FILES ${LUA_DLL} DESTINATION ${BINDIR})
+		endif()
+		if(BUILD_CLIENT AND IRRLICHT_DLL)
+			install(FILES ${IRRLICHT_DLL} DESTINATION ${BINDIR})
+		endif()
+		if(BUILD_CLIENT AND USE_GETTEXT AND GETTEXT_DLL)
+			install(FILES ${GETTEXT_DLL} DESTINATION ${BINDIR})
 		endif()
 	endif()
 endif()
@@ -941,29 +965,8 @@ if(BUILD_CLIENT)
 		endforeach()
 	endif()
 
-	if(USE_FREETYPE)
-		install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../fonts" DESTINATION "${SHAREDIR}"
-				FILES_MATCHING PATTERN "*.ttf" PATTERN "*.txt")
-	else()
-		install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../fonts" DESTINATION "${SHAREDIR}"
-				FILES_MATCHING PATTERN "*.png" PATTERN "*.xml")
-	endif()
-
-	if(WIN32)
-		if(NOT VCPKG_APPLOCAL_DEPS)
-			if(IRRLICHT_DLL)
-				install(FILES ${IRRLICHT_DLL} DESTINATION ${BINDIR})
-			endif()
-			if(USE_GETTEXT)
-				if(DEFINED GETTEXT_DLL)
-					install(FILES ${GETTEXT_DLL} DESTINATION ${BINDIR})
-				endif()
-				if(DEFINED GETTEXT_ICONV_DLL)
-					install(FILES ${GETTEXT_ICONV_DLL} DESTINATION ${BINDIR})
-				endif()
-			endif()
-		endif()
-	endif()
+	install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../fonts" DESTINATION "${SHAREDIR}"
+			FILES_MATCHING PATTERN "*.ttf" PATTERN "*.txt")
 endif(BUILD_CLIENT)
 
 if(BUILD_SERVER)

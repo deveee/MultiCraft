@@ -40,12 +40,10 @@ struct SubgameSpec
 
 	SubgameSpec(const std::string &id = "", const std::string &path = "",
 			const std::string &gamemods_path = "",
-			const std::set<std::string> &addon_mods_paths =
-					std::set<std::string>(),
-			const std::string &name = "",
-			const std::string &menuicon_path = "",
-			const std::string &author = "", int release = 0,
-			const bool moddable = true, const bool hidden = false) :
+			const std::set<std::string> &addon_mods_paths = std::set<std::string>(),
+			const std::string &name = "", const std::string &menuicon_path = "",
+			const std::string &author = "", int release = 0, const bool moddable = true,
+			const bool hidden = false) :
 			id(id),
 			name(name), author(author), release(release), path(path),
 			gamemods_path(gamemods_path), addon_mods_paths(addon_mods_paths),
@@ -61,6 +59,8 @@ SubgameSpec findWorldSubgame(const std::string &world_path);
 
 std::set<std::string> getAvailableGameIds();
 std::vector<SubgameSpec> getAvailableGames();
+// Get the list of paths to mods in the environment variable $MINETEST_MOD_PATH
+std::vector<std::string> getEnvModPaths();
 
 bool getWorldExists(const std::string &world_path);
 //! Try to get the displayed name of a world
@@ -80,10 +80,7 @@ struct WorldSpec
 	{
 	}
 
-	bool isValid() const
-	{
-		return (!name.empty() && !path.empty() && !gameid.empty());
-	}
+	bool isValid() const { return (!name.empty() && !path.empty() && !gameid.empty()); }
 };
 
 std::vector<WorldSpec> getAvailableWorlds();

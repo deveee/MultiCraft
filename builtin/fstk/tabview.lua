@@ -178,7 +178,7 @@ local function get_formspec(self, popup_w, popup_h, popup_fs)
 		fs[#fs + 1] = "bgcolor[;neither]"
 		fs[#fs + 1] = "listcolors[#000;#000;#000;#dff6f5;#302c2e]"
 		fs[#fs + 1] = fmt("background9[1.25,0;%s,%s;%sbg_common.png;false;32]",
-			w, h + 1.15, defaulttexturedir_esc)
+			w, h + 1.15, defaulttexturedir)
 
 		add_button_header(self, fs, w)
 
@@ -211,7 +211,7 @@ local function get_formspec(self, popup_w, popup_h, popup_fs)
 			fs[#fs + 1] = fmt("container[%s,%s]", (w + 2.5 - popup_w) / 2,
 				(h + 1.15 - popup_h) / 2)
 			fs[#fs + 1] = fmt("style[popup_bg;bgimg=%sbg_common.png;bgimg_middle=32]",
-				defaulttexturedir_esc)
+				defaulttexturedir)
 			fs[#fs + 1] = fmt("image_button[0,0;%s,%s;;popup_bg;;false;false]",
 				popup_w, popup_h)
 			fs[#fs + 1] = popup_fs
@@ -243,14 +243,9 @@ local function handle_buttons(self,fields)
 		return true
 	end
 
-	if self.tablist[self.last_tab_index].button_handler ~= nil then
-		return
-			self.tablist[self.last_tab_index].button_handler(
-					self,
-					fields,
-					self.tablist[self.last_tab_index].name,
-					self.tablist[self.last_tab_index].tabdata
-					)
+	local tab = self.tablist[self.last_tab_index]
+	if tab.button_handler ~= nil then
+		return tab.button_handler(self, fields, tab.name, tab.tabdata)
 	end
 
 	return false
@@ -268,14 +263,9 @@ local function handle_events(self,event)
 		return true
 	end
 
-	if self.tablist[self.last_tab_index].evt_handler ~= nil then
-		return
-			self.tablist[self.last_tab_index].evt_handler(
-					self,
-					event,
-					self.tablist[self.last_tab_index].name,
-					self.tablist[self.last_tab_index].tabdata
-					)
+	local tab = self.tablist[self.last_tab_index]
+	if tab.evt_handler ~= nil then
+		return tab.evt_handler(self, event, tab.name, tab.tabdata)
 	end
 
 	return false
@@ -347,7 +337,7 @@ function set_tab_by_name(self, name)
 			switch_to_tab(self, i)
 
 			if name ~= "local" then
-				mm_texture.set_dirt_bg()
+--				mm_texture.set_dirt_bg()
 			end
 
 			return true

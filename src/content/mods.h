@@ -31,6 +31,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "config.h"
 #include "metadata.h"
 
+class ModMetadataDatabase;
+
 #define MODNAME_ALLOWED_CHARS "abcdefghijklmnopqrstuvwxyz0123456789_"
 
 struct ModSpec
@@ -49,6 +51,9 @@ struct ModSpec
 	bool part_of_modpack = false;
 	bool is_modpack = false;
 
+	// For logging purposes
+	std::vector<const char *> deprecation_msgs;
+
 	// if modpack:
 	std::map<std::string, ModSpec> modpack_content;
 	ModSpec(const std::string &name = "", const std::string &path = "") :
@@ -59,6 +64,8 @@ struct ModSpec
 			name(name), path(path), part_of_modpack(part_of_modpack)
 	{
 	}
+
+	void checkAndLog() const;
 };
 
 // Retrieves depends, optdepends, is_modpack and modpack_content
@@ -81,10 +88,7 @@ public:
 
 	const std::vector<ModSpec> &getMods() const { return m_sorted_mods; }
 
-	const std::vector<ModSpec> &getUnsatisfiedMods() const
-	{
-		return m_unsatisfied_mods;
-	}
+	const std::vector<ModSpec> &getUnsatisfiedMods() const { return m_unsatisfied_mods; }
 
 	void printUnsatisfiedModsError() const;
 
@@ -97,8 +101,8 @@ protected:
 	// adds all mods in the set.
 	void addMods(const std::vector<ModSpec> &new_mods);
 
-	void addModsFromConfig(const std::string &settings_path,
-			const std::set<std::string> &mods);
+	void addModsFromConfig(
+			const std::string &settings_path, const std::set<std::string> &mods);
 
 	void checkConflictsAndDeps();
 
@@ -144,20 +148,16 @@ class ModMetadata : public Metadata
 {
 public:
 	ModMetadata() = delete;
-	ModMetadata(const std::string &mod_name);
+	ModMetadata(const std::string &mod_name, ModMetadataDatabase *database);
 	~ModMetadata() = default;
 
 	virtual void clear();
 
-	bool save(const std::string &root_path);
-	bool load(const std::string &root_path);
-
-	bool isModified() const { return m_modified; }
 	const std::string &getModName() const { return m_mod_name; }
 
 	virtual bool setString(const std::string &name, const std::string &var);
 
 private:
 	std::string m_mod_name;
-	bool m_modified = false;
+	ModMetadataDatabase *m_database;
 };

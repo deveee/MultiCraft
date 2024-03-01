@@ -211,7 +211,6 @@ public:
 	u32 getWidth() const;
 	// Count used slots
 	u32 getUsedSlots() const;
-	u32 getFreeSlots() const;
 
 	// Get reference to item
 	const ItemStack& getItem(u32 i) const;
@@ -298,6 +297,7 @@ public:
 	void serialize(std::ostream &os, bool incremental = false) const;
 	void deSerialize(std::istream &is);
 
+	// Creates a new list if none exists or truncates existing lists
 	InventoryList * addList(const std::string &name, u32 size);
 	InventoryList * getList(const std::string &name);
 	const InventoryList * getList(const std::string &name) const;
@@ -335,7 +335,7 @@ public:
 	}
 private:
 	// -1 if not found
-	const s32 getListIndex(const std::string &name) const;
+	s32 getListIndex(const std::string &name) const;
 
 	std::vector<InventoryList*> m_lists;
 	IItemDefManager *m_itemdef;

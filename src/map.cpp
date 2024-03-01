@@ -141,13 +141,6 @@ MapBlock * Map::getBlockNoCreate(v3s16 p3d)
 	return block;
 }
 
-bool Map::isNodeUnderground(v3s16 p)
-{
-	v3s16 blockpos = getNodeBlockPos(p);
-	MapBlock *block = getBlockNoCreateNoEx(blockpos);
-	return block && block->getIsUnderground();
-}
-
 bool Map::isValidPosition(v3s16 p)
 {
 	v3s16 blockpos = getNodeBlockPos(p);
@@ -863,7 +856,7 @@ void Map::transformLiquids(std::map<v3s16, MapBlock*> &modified_blocks,
 		m_transforming_liquid.push_back(iter);
 
 	voxalgo::update_lighting_nodes(this, changed_nodes, modified_blocks);
-
+	env->getScriptIface()->on_liquid_transformed(changed_nodes);
 
 	/* ----------------------------------------------------------------------
 	 * Manage the queue so that it does not grow indefinately
@@ -1490,11 +1483,7 @@ MapSector *ServerMap::createSector(v2s16 p2d)
 	/*
 		Do not create over max mapgen limit
 	*/
-	const s16 max_limit_bp = MAX_MAP_GENERATION_LIMIT / MAP_BLOCKSIZE;
-	if (p2d.X < -max_limit_bp ||
-			p2d.X >  max_limit_bp ||
-			p2d.Y < -max_limit_bp ||
-			p2d.Y >  max_limit_bp)
+	if (blockpos_over_max_limit(v3s16(p2d.X, 0, p2d.Y)))
 		throw InvalidPositionException("createSector(): pos. over max mapgen limit");
 
 	/*
@@ -1502,9 +1491,6 @@ MapSector *ServerMap::createSector(v2s16 p2d)
 	*/
 
 	sector = new MapSector(this, p2d, m_gamedef);
-
-	// Sector position on map in nodes
-	//v2s16 nodepos2d = p2d * MAP_BLOCKSIZE;
 
 	/*
 		Insert to container
@@ -1586,6 +1572,11 @@ MapBlock *ServerMap::getBlockOrEmerge(v3s16 p3d)
 		m_emerge->enqueueBlockEmerge(PEER_ID_INEXISTENT, p3d, false);
 
 	return block;
+}
+
+bool ServerMap::isBlockInQueue(v3s16 pos)
+{
+	return m_emerge && m_emerge->isBlockInQueue(pos);
 }
 
 // N.B.  This requires no synchronization, since data will not be modified unless

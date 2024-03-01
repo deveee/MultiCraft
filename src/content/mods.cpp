@@ -22,20 +22,44 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <json/json.h>
 #include <algorithm>
 #include "content/mods.h"
+#include "database/database.h"
 #include "filesys.h"
 #include "log.h"
 #include "content/subgames.h"
 #include "settings.h"
 #include "porting.h"
 #include "convert_json.h"
+#include "script/common/c_internal.h"
+
+void ModSpec::checkAndLog() const
+{
+	if (!string_allowed(name, MODNAME_ALLOWED_CHARS)) {
+		throw ModError("Error loading mod \"" + name +
+					   "\": Mod name does not follow naming conventions: "
+					   "Only characters [a-z0-9_] are allowed.");
+	}
+
+	// Log deprecation messages
+	auto handling_mode = get_deprecated_handling_mode();
+	if (!deprecation_msgs.empty() && handling_mode != DeprecatedHandlingMode::Ignore) {
+		std::ostringstream os;
+		os << "Mod " << name << " at " << path << ":" << std::endl;
+		for (auto msg : deprecation_msgs)
+			os << "\t" << msg << std::endl;
+
+		if (handling_mode == DeprecatedHandlingMode::Error)
+			throw ModError(os.str());
+		else
+			warningstream << os.str();
+	}
+}
 
 bool parseDependsString(std::string &dep, std::unordered_set<char> &symbols)
 {
 	dep = trim(dep);
 	symbols.clear();
 	size_t pos = dep.size();
-	while (pos > 0 &&
-			!string_allowed(dep.substr(pos - 1, 1), MODNAME_ALLOWED_CHARS)) {
+	while (pos > 0 && !string_allowed(dep.substr(pos - 1, 1), MODNAME_ALLOWED_CHARS)) {
 		// last character is a symbol, not part of the modname
 		symbols.insert(dep[pos - 1]);
 		--pos;
@@ -47,17 +71,6 @@ bool parseDependsString(std::string &dep, std::unordered_set<char> &symbols)
 void parseModContents(ModSpec &spec)
 {
 	// NOTE: this function works in mutual recursion with getModsInPath
-	Settings info;
-	info.readConfigFile((spec.path + DIR_DELIM + "mod.conf").c_str());
-
-	if (info.exists("name"))
-		spec.name = info.get("name");
-
-	if (info.exists("author"))
-		spec.author = info.get("author");
-
-	if (info.exists("release"))
-		spec.release = info.getS32("release");
 
 	spec.depends.clear();
 	spec.optdepends.clear();
@@ -78,6 +91,21 @@ void parseModContents(ModSpec &spec)
 		spec.modpack_content = getModsInPath(spec.path, true);
 
 	} else {
+		Settings info;
+		info.readConfigFile((spec.path + DIR_DELIM + "mod.conf").c_str());
+
+		if (info.exists("name"))
+			spec.name = info.get("name");
+		else
+			spec.deprecation_msgs.push_back(
+					"Mods not having a mod.conf file with the name is deprecated.");
+
+		if (info.exists("author"))
+			spec.author = info.get("author");
+
+		if (info.exists("release"))
+			spec.release = info.getS32("release");
+
 		// Attempt to load dependencies from mod.conf
 		bool mod_conf_has_depends = false;
 		if (info.exists("depends")) {
@@ -109,6 +137,11 @@ void parseModContents(ModSpec &spec)
 			std::vector<std::string> dependencies;
 
 			std::ifstream is((spec.path + DIR_DELIM + "depends.txt").c_str());
+
+			if (is.good())
+				spec.deprecation_msgs.push_back(
+						"depends.txt is deprecated, please use mod.conf instead.");
+
 			while (is.good()) {
 				std::string dep;
 				std::getline(is, dep);
@@ -127,14 +160,11 @@ void parseModContents(ModSpec &spec)
 			}
 		}
 
-		if (info.exists("description")) {
+		if (info.exists("description"))
 			spec.desc = info.get("description");
-		} else {
-			std::ifstream is((spec.path + DIR_DELIM + "description.txt")
-							 .c_str());
-			spec.desc = std::string((std::istreambuf_iterator<char>(is)),
-					std::istreambuf_iterator<char>());
-		}
+		else if (fs::ReadFile(spec.path + DIR_DELIM + "description.txt", spec.desc))
+			spec.deprecation_msgs.push_back(
+					"description.txt is deprecated, please use mod.conf instead.");
 	}
 }
 
@@ -192,8 +222,7 @@ ModConfiguration::ModConfiguration(const std::string &worldpath)
 void ModConfiguration::printUnsatisfiedModsError() const
 {
 	for (const ModSpec &mod : m_unsatisfied_mods) {
-		errorstream << "mod \"" << mod.name
-			    << "\" has unsatisfied dependencies: ";
+		errorstream << "mod \"" << mod.name << "\" has unsatisfied dependencies: ";
 		for (const std::string &unsatisfied_depend : mod.unsatisfied_depends)
 			errorstream << " \"" << unsatisfied_depend << "\"";
 		errorstream << std::endl;
@@ -235,12 +264,10 @@ void ModConfiguration::addMods(const std::vector<ModSpec> &new_mods)
 				// BAD CASE: name conflict in different levels.
 				u32 oldindex = existing_mods[mod.name];
 				const ModSpec &oldmod = m_unsatisfied_mods[oldindex];
-				warningstream << "Mod name conflict detected: \""
-					      << mod.name << "\"" << std::endl
-					      << "Will not load: " << oldmod.path
-					      << std::endl
-					      << "Overridden by: " << mod.path
-					      << std::endl;
+				warningstream << "Mod name conflict detected: \"" << mod.name << "\""
+							  << std::endl
+							  << "Will not load: " << oldmod.path << std::endl
+							  << "Overridden by: " << mod.path << std::endl;
 				m_unsatisfied_mods[oldindex] = mod;
 
 				// If there was a "VERY BAD CASE" name conflict
@@ -250,12 +277,10 @@ void ModConfiguration::addMods(const std::vector<ModSpec> &new_mods)
 				// VERY BAD CASE: name conflict in the same level.
 				u32 oldindex = existing_mods[mod.name];
 				const ModSpec &oldmod = m_unsatisfied_mods[oldindex];
-				warningstream << "Mod name conflict detected: \""
-					      << mod.name << "\"" << std::endl
-					      << "Will not load: " << oldmod.path
-					      << std::endl
-					      << "Will not load: " << mod.path
-					      << std::endl;
+				warningstream << "Mod name conflict detected: \"" << mod.name << "\""
+							  << std::endl
+							  << "Will not load: " << oldmod.path << std::endl
+							  << "Will not load: " << mod.path << std::endl;
 				m_unsatisfied_mods[oldindex] = mod;
 				m_name_conflicts.insert(mod.name);
 			}
@@ -395,83 +420,29 @@ ClientModConfiguration::ClientModConfiguration(const std::string &path) :
 }
 #endif
 
-ModMetadata::ModMetadata(const std::string &mod_name) : m_mod_name(mod_name)
+ModMetadata::ModMetadata(const std::string &mod_name, ModMetadataDatabase *database) :
+		m_mod_name(mod_name), m_database(database)
 {
+	m_database->getModEntries(m_mod_name, &m_stringvars);
 }
 
 void ModMetadata::clear()
 {
+	for (const auto &pair : m_stringvars) {
+		m_database->removeModEntry(m_mod_name, pair.first);
+	}
 	Metadata::clear();
-	m_modified = true;
-}
-
-bool ModMetadata::save(const std::string &root_path)
-{
-	Json::Value json;
-	for (StringMap::const_iterator it = m_stringvars.begin();
-			it != m_stringvars.end(); ++it) {
-		json[it->first] = it->second;
-	}
-
-	if (!fs::PathExists(root_path)) {
-		if (!fs::CreateAllDirs(root_path)) {
-			errorstream << "ModMetadata[" << m_mod_name
-				    << "]: Unable to save. '" << root_path
-				    << "' tree cannot be created." << std::endl;
-			return false;
-		}
-	} else if (!fs::IsDir(root_path)) {
-		errorstream << "ModMetadata[" << m_mod_name << "]: Unable to save. '"
-			    << root_path << "' is not a directory." << std::endl;
-		return false;
-	}
-
-	bool w_ok = fs::safeWriteToFile(
-			root_path + DIR_DELIM + m_mod_name, fastWriteJson(json));
-
-	if (w_ok) {
-		m_modified = false;
-	} else {
-		errorstream << "ModMetadata[" << m_mod_name << "]: failed write file."
-			    << std::endl;
-	}
-	return w_ok;
-}
-
-bool ModMetadata::load(const std::string &root_path)
-{
-	m_stringvars.clear();
-
-	std::ifstream is((root_path + DIR_DELIM + m_mod_name).c_str(),
-			std::ios_base::binary);
-	if (!is.good()) {
-		return false;
-	}
-
-	Json::Value root;
-	Json::CharReaderBuilder builder;
-	builder.settings_["collectComments"] = false;
-	std::string errs;
-
-	if (!Json::parseFromStream(builder, is, &root, &errs)) {
-		errorstream << "ModMetadata[" << m_mod_name
-			    << "]: failed read data "
-			       "(Json decoding failure). Message: "
-			    << errs << std::endl;
-		return false;
-	}
-
-	const Json::Value::Members attr_list = root.getMemberNames();
-	for (const auto &it : attr_list) {
-		Json::Value attr_value = root[it];
-		m_stringvars[it] = attr_value.asString();
-	}
-
-	return true;
 }
 
 bool ModMetadata::setString(const std::string &name, const std::string &var)
 {
-	m_modified = Metadata::setString(name, var);
-	return m_modified;
+	if (Metadata::setString(name, var)) {
+		if (var.empty()) {
+			m_database->removeModEntry(m_mod_name, name);
+		} else {
+			m_database->setModEntry(m_mod_name, name, var);
+		}
+		return true;
+	}
+	return false;
 }

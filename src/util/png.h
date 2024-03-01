@@ -1,6 +1,6 @@
 /*
 Minetest
-Copyright (C) 2010-2016 nerzhul, Loic Blot <loic.blot@unix-experience.fr>
+Copyright (C) 2021 hecks
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU Lesser General Public License as published by
@@ -17,23 +17,11 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-#include "test.h"
+#pragma once
 
-#include "exceptions.h"
-#include "remoteplayer.h"
-#include "server.h"
+#include <string>
+#include "irrlichttypes.h"
 
-class TestPlayer : public TestBase
-{
-public:
-	TestPlayer() { TestManager::registerTestModule(this); }
-	const char *getName() { return "TestPlayer"; }
-
-	void runTests(IGameDef *gamedef);
-};
-
-static TestPlayer g_test_instance;
-
-void TestPlayer::runTests(IGameDef *gamedef)
-{
-}
+/*	Simple PNG encoder. Encodes an RGBA image with no predictors.
+	Returns a binary string. */
+std::string encodePNG(const u8 *data, u32 width, u32 height, s32 compression);

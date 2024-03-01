@@ -2,7 +2,6 @@
 Copyright (C) 2014 sapier
 Copyright (C) 2018 srifqi, Muhammad Rifqi Priyo Susanto
 		<muhammadrifqipriyosusanto@gmail.com>
-Copyright (C) 2014-2022 Maksim Gamarnik [MoNTE48] Maksym48@pm.me
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU Lesser General Public License as published by
@@ -34,12 +33,10 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <iostream>
 #include <algorithm>
 
-#include <ISceneCollisionManager.h>
-
 using namespace irr::core;
 
 const char *button_imagenames[] = {
-	"jump_btn.png",
+ 	"jump_btn.png",
 	"drop_btn.png",
 	"down_btn.png",
 	//"zoom.png",
@@ -87,10 +84,10 @@ static irr::EKEY_CODE id2keycode(touch_gui_button_id id)
 			key = "sneak";
 			break;
 		/*case zoom_id:
-			key = "zoom";
+ 			key = "zoom";
 			break;*/
-		case special1_id:
-			key = "special1";
+		case aux1_id:
+			key = "aux1";
 			break;
 		/*case fly_id:
 			key = "freemove";
@@ -435,7 +432,7 @@ TouchScreenGUI::TouchScreenGUI(IrrlichtDevice *device, IEventReceiver *receiver)
 	m_touchscreen_threshold = g_settings->getU16("touchscreen_threshold");
 	m_touch_sensitivity = rangelim(g_settings->getFloat("touch_sensitivity"), 0.1, 1.0);
 	m_fixed_joystick = g_settings->getBool("fixed_virtual_joystick");
-	m_joystick_triggers_special1 = g_settings->getBool("virtual_joystick_triggers_aux");
+	m_joystick_triggers_aux1 = g_settings->getBool("virtual_joystick_triggers_aux1");
 	m_screensize = m_device->getVideoDriver()->getScreenSize();
 	button_size = std::min(m_screensize.Y / 4.5f,
 			RenderingEngine::getDisplayDensity() *
@@ -515,13 +512,13 @@ rect<s32> TouchScreenGUI::getButtonRect(touch_gui_button_id id)
 		return rect<s32>(m_screensize.X - button_size * 1.7,
 				m_screensize.Y - button_size * 1.5,
 				m_screensize.X,
-				m_screensize.Y);
+			m_screensize.Y);
 	//case zoom_id:
 	//	return rect<s32>(m_screensize.X - (1.25 * button_size),
 	//			m_screensize.Y - (4 * button_size),
 	//			m_screensize.X - (0.25 * button_size),
 	//			m_screensize.Y - (3 * button_size));
-	case special1_id:
+	case aux1_id:
 		return rect<s32>(m_screensize.X - button_size * 1.8,
 				m_screensize.Y - button_size * 4,
 				m_screensize.X - button_size * 0.3,
@@ -632,11 +629,16 @@ void TouchScreenGUI::init(ISimpleTextureSource *tsrc)
 	// init zoom button
 	// initButton(zoom_id, getButtonRect(zoom_id), L"z", false);
 
-	// init special1/aux button
-	if (!m_joystick_triggers_special1)
-		initButton(special1_id, getButtonRect(special1_id), L"spc1", false);
+	// init aux1 button
+	if (!m_joystick_triggers_aux1)
+		initButton(aux1_id,
+				rect<s32>(m_screensize.X - (1.25 * button_size),
+						m_screensize.Y - (2.5 * button_size),
+						m_screensize.X - (0.25 * button_size),
+						m_screensize.Y - (1.5 * button_size)),
+				L"spc1", false);
 
-/*	m_settingsbar.init(m_texturesource, "gear_icon.png", settings_starter_id,
+	/*m_settingsbar.init(m_texturesource, "gear_icon.png", settings_starter_id,
 		v2s32(m_screensize.X - (1.25 * button_size),
 			m_screensize.Y - ((SETTINGS_BAR_Y_OFFSET + 1.0) * button_size)
 				+ (0.5 * button_size)),
@@ -649,6 +651,9 @@ void TouchScreenGUI::init(ISimpleTextureSource *tsrc)
 	m_settingsbar.addButton(noclip_id,  L"noclip",    "noclip_btn.png");
 	m_settingsbar.addButton(fast_id,    L"fast",      "fast_btn.png");
 	m_settingsbar.addButton(debug_id,   L"debug",     "debug_btn.png");
+	m_settingsbar.addButton(camera_id,  L"camera",    "camera_btn.png");
+	m_settingsbar.addButton(range_id,   L"rangeview", "rangeview_btn.png");
+	m_settingsbar.addButton(minimap_id, L"minimap",   "minimap_btn.png");
 
 	// Chat is shown by default, so chat_hide_btn.png is shown first.
 	m_settingsbar.addToggleButton(toggle_chat_id, L"togglechat",
@@ -781,6 +786,7 @@ void TouchScreenGUI::handleReleaseEvent(size_t evt_id)
 {
 	touch_gui_button_id button = getButtonID(evt_id);
 
+
 	if (button != after_last_element_id) {
 		// handle button events
 		handleButtonEvent(button, evt_id, false);
@@ -819,7 +825,7 @@ void TouchScreenGUI::handleReleaseEvent(size_t evt_id)
 						->getSceneCollisionManager()
 						->getRayFromScreenCoordinates(
 							v2s32(m_move_downlocation.X, m_move_downlocation.Y));
-		}
+ 		}
 	}
 
 	// handle joystick
@@ -1077,8 +1083,8 @@ void TouchScreenGUI::translateEvent(const SEvent &event)
 					(!m_fixed_joystick &&
 					dx * dx + dy * dy > m_touchscreen_threshold * m_touchscreen_threshold)) {
 				moveJoystick(event, dx, dy);
-			}
-		}
+ 			}
+ 		}
 
 		if (!m_has_move_id && !m_has_joystick_id)
 			handleChangedButton(event);
@@ -1135,7 +1141,7 @@ bool TouchScreenGUI::quickTapDetection()
 	// ignore the occasional touch
 	u64 delta = porting::getDeltaMs(m_move_downtime, porting::getTimeMs());
 	if (delta < 50)
-		return false;
+ 		return false;
 
 	auto *translated = new SEvent();
 	memset(translated, 0, sizeof(SEvent));
@@ -1167,7 +1173,7 @@ bool TouchScreenGUI::quickTapDetection()
 void TouchScreenGUI::applyJoystickStatus()
 {
 	for (u32 i = 0; i < 5; i++) {
-		if (i == 4 && !m_joystick_triggers_special1)
+		if (i == 4 && !m_joystick_triggers_aux1)
 			continue;
 
 		SEvent translated{};
@@ -1248,6 +1254,7 @@ void TouchScreenGUI::step(float dtime)
 	if (m_has_move_id &&
 			(!m_move_has_really_moved) &&
 			(!m_move_sent_as_mouse_event)) {
+
 		u64 delta = porting::getDeltaMs(m_move_downtime, porting::getTimeMs());
 
 		if (delta > MIN_DIG_TIME_MS) {
@@ -1255,7 +1262,7 @@ void TouchScreenGUI::step(float dtime)
 					->getSceneManager()
 					->getSceneCollisionManager()
 					->getRayFromScreenCoordinates(
-							v2s32(m_move_downlocation.X, m_move_downlocation.Y));
+							v2s32(m_move_downlocation.X,m_move_downlocation.Y));
 
 			SEvent translated;
 			memset(&translated, 0, sizeof(SEvent));

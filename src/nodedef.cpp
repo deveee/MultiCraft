@@ -207,8 +207,19 @@ void TileDef::serialize(std::ostream &os, u16 protocol_version) const
 	u8 version = 6;
 	writeU8(os, version);
 
-	os << serializeString16(name);
+	if (protocol_version > 39) {
+		os << serializeString16(name);
+	} else {
+		// Before f018737, TextureSource::getTextureAverageColor did not handle
+		// missing textures. "[png" can be used as base texture, but is not known
+		// on older clients. Hence use "blank.png" to avoid this problem.
+		if (!name.empty() && name[0] == '[')
+			os << serializeString16("blank.png^" + name);
+		else
+			os << serializeString16(name);
+	}
 	animation.serialize(os, version);
+
 	bool has_scale = scale > 0;
 	u16 flags = 0;
 	if (backface_culling)
@@ -403,6 +414,8 @@ void ContentFeatures::reset()
 	palette_name = "";
 	palette = NULL;
 	node_dig_prediction = "air";
+	move_resistance = 0;
+	liquid_move_physics = false;
 }
 
 void ContentFeatures::setAlphaFromLegacy(u8 legacy_alpha)
@@ -489,7 +502,16 @@ void ContentFeatures::serialize(std::ostream &os, u16 protocol_version) const
 	writeU32(os, damage_per_second);
 
 	// liquid
-	writeU8(os, liquid_type);
+	LiquidType liquid_type_bc = liquid_type;
+	if (protocol_version <= 39) {
+		// Since commit 7f25823, liquid drawtypes can be used even with LIQUID_NONE
+		// solution: force liquid type accordingly to accepted values
+		if (drawtype == NDT_LIQUID)
+			liquid_type_bc = LIQUID_SOURCE;
+		else if (drawtype == NDT_FLOWINGLIQUID)
+			liquid_type_bc = LIQUID_FLOWING;
+	}
+	writeU8(os, liquid_type_bc);
 	os << serializeString16(liquid_alternative_flowing);
 	os << serializeString16(liquid_alternative_source);
 	writeU8(os, liquid_viscosity);
@@ -512,9 +534,12 @@ void ContentFeatures::serialize(std::ostream &os, u16 protocol_version) const
 	writeU8(os, legacy_facedir_simple);
 	writeU8(os, legacy_wallmounted);
 
+	// new attributes
 	os << serializeString16(node_dig_prediction);
 	writeU8(os, leveled_max);
 	writeU8(os, alpha);
+	writeU8(os, move_resistance);
+	writeU8(os, liquid_move_physics);
 }
 
 void ContentFeatures::deSerialize(std::istream &is)
@@ -584,9 +609,11 @@ void ContentFeatures::deSerialize(std::istream &is)
 
 	// liquid
 	liquid_type = (enum LiquidType) readU8(is);
+	liquid_move_physics = liquid_type != LIQUID_NONE;
 	liquid_alternative_flowing = deSerializeString16(is);
 	liquid_alternative_source = deSerializeString16(is);
 	liquid_viscosity = readU8(is);
+	move_resistance = liquid_viscosity; // set default move_resistance
 	liquid_renewable = readU8(is);
 	liquid_range = readU8(is);
 	drowning = readU8(is);
@@ -618,6 +645,16 @@ void ContentFeatures::deSerialize(std::istream &is)
 		if (is.eof())
 			throw SerializationError("");
 		alpha = static_cast<enum AlphaMode>(tmp);
+
+		tmp = readU8(is);
+		if (is.eof())
+			throw SerializationError("");
+		move_resistance = tmp;
+
+		tmp = readU8(is);
+		if (is.eof())
+			throw SerializationError("");
+		liquid_move_physics = tmp;
 	} catch(SerializationError &e) {};
 }
 
@@ -776,8 +813,10 @@ void ContentFeatures::updateTextures(ITextureSource *tsrc, IShaderSource *shdsrc
 	TileDef tdef[6];
 	for (u32 j = 0; j < 6; j++) {
 		tdef[j] = tiledef[j];
-		if (tdef[j].name.empty())
-			tdef[j].name = "unknown_node.png";
+		if (tdef[j].name.empty()) {
+			tdef[j].name = "no_texture.png";
+			tdef[j].backface_culling = false;
+		}
 	}
 	// also the overlay tiles
 	TileDef tdef_overlay[6];
@@ -785,8 +824,9 @@ void ContentFeatures::updateTextures(ITextureSource *tsrc, IShaderSource *shdsrc
 		tdef_overlay[j] = tiledef_overlay[j];
 	// also the special tiles
 	TileDef tdef_spec[6];
-	for (u32 j = 0; j < CF_SPECIAL_COUNT; j++)
+	for (u32 j = 0; j < CF_SPECIAL_COUNT; j++) {
 		tdef_spec[j] = tiledef_special[j];
+	}
 
 	bool is_liquid = false;
 
@@ -941,7 +981,8 @@ void ContentFeatures::updateTextures(ITextureSource *tsrc, IShaderSource *shdsrc
 
 	if (param_type_2 == CPT2_COLOR ||
 			param_type_2 == CPT2_COLORED_FACEDIR ||
-			param_type_2 == CPT2_COLORED_WALLMOUNTED)
+			param_type_2 == CPT2_COLORED_WALLMOUNTED ||
+			param_type_2 == CPT2_COLORED_DEGROTATE)
 		palette = tsrc->getPalette(palette_name);
 
 	if (drawtype == NDT_MESH && !mesh.empty()) {
@@ -1031,6 +1072,10 @@ void NodeDefManager::clear()
 	{
 		ContentFeatures f;
 		f.name = "unknown";
+		TileDef unknownTile;
+		unknownTile.name = "unknown_node.png";
+		for (int t = 0; t < 6; t++)
+			f.tiledef[t] = unknownTile;
 		// Insert directly into containers
 		content_t c = CONTENT_UNKNOWN;
 		m_content_features[c] = f;
@@ -1431,9 +1476,7 @@ void NodeDefManager::applyTextureOverrides(const std::vector<TextureOverride> &o
 	}
 }
 
-void NodeDefManager::updateTextures(IGameDef *gamedef,
-	void (*progress_callback)(void *progress_args, u32 progress, u32 max_progress),
-	void *progress_callback_args)
+void NodeDefManager::updateTextures(IGameDef *gamedef, void *progress_callback_args)
 {
 #ifndef SERVER
 	infostream << "NodeDefManager::updateTextures(): Updating "
@@ -1442,8 +1485,8 @@ void NodeDefManager::updateTextures(IGameDef *gamedef,
 	Client *client = (Client *)gamedef;
 	ITextureSource *tsrc = client->tsrc();
 	IShaderSource *shdsrc = client->getShaderSource();
-	scene::IMeshManipulator *meshmanip =
-		RenderingEngine::get_scene_manager()->getMeshManipulator();
+	auto smgr = client->getSceneManager();
+	scene::IMeshManipulator *meshmanip = smgr->getMeshManipulator();
 	TextureSettings tsettings;
 	tsettings.readSettings();
 
@@ -1452,7 +1495,7 @@ void NodeDefManager::updateTextures(IGameDef *gamedef,
 	for (u32 i = 0; i < size; i++) {
 		ContentFeatures *f = &(m_content_features[i]);
 		f->updateTextures(tsrc, shdsrc, meshmanip, client, tsettings);
-		progress_callback(progress_callback_args, i, size);
+		client->showUpdateProgressTexture(progress_callback_args, i, size);
 	}
 #endif
 }
@@ -1672,8 +1715,7 @@ bool NodeDefManager::nodeboxConnects(MapNode from, MapNode to,
 
 NodeResolver::NodeResolver()
 {
-	m_nodenames.reserve(16);
-	m_nnlistsizes.reserve(4);
+	reset();
 }
 
 
@@ -1775,4 +1817,17 @@ bool NodeResolver::getIdsFromNrBacklog(std::vector<content_t> *result_out,
 	}
 
 	return success;
+}
+
+void NodeResolver::reset(bool resolve_done)
+{
+	m_nodenames.clear();
+	m_nodenames_idx = 0;
+	m_nnlistsizes.clear();
+	m_nnlistsizes_idx = 0;
+
+	m_resolve_done = resolve_done;
+
+	m_nodenames.reserve(16);
+	m_nnlistsizes.reserve(4);
 }

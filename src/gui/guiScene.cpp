@@ -21,7 +21,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #include <SViewFrustum.h>
 #include <IAnimatedMeshSceneNode.h>
-#include <ILightSceneNode.h>
 #include "porting.h"
 
 GUIScene::GUIScene(gui::IGUIEnvironment *env, scene::ISceneManager *smgr,
@@ -76,7 +75,7 @@ void GUIScene::setTexture(u32 idx, video::ITexture *texture)
 
 void GUIScene::draw()
 {
-	m_driver->clearZBuffer();
+	m_driver->clearBuffers(video::ECBF_DEPTH);
 
 	// Control rotation speed based on time
 	u64 new_time = porting::getTimeMs();

@@ -421,19 +421,6 @@ void InvRef::create(lua_State *L, const InventoryLocation &loc)
 	luaL_getmetatable(L, className);
 	lua_setmetatable(L, -2);
 }
-void InvRef::createPlayer(lua_State *L, RemotePlayer *player)
-{
-	NO_MAP_LOCK_REQUIRED;
-	InventoryLocation loc;
-	loc.setPlayer(player->getName());
-	create(L, loc);
-}
-void InvRef::createNodeMeta(lua_State *L, v3s16 p)
-{
-	InventoryLocation loc;
-	loc.setNodeMeta(p);
-	create(L, loc);
-}
 
 void InvRef::Register(lua_State *L)
 {
@@ -456,7 +443,7 @@ void InvRef::Register(lua_State *L)
 
 	lua_pop(L, 1);  // drop metatable
 
-	luaL_openlib(L, 0, methods, 0);  // fill methodtable
+	luaL_register(L, nullptr, methods);  // fill methodtable
 	lua_pop(L, 1);  // drop methodtable
 
 	// Cannot be created from Lua

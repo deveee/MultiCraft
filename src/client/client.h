@@ -45,6 +45,7 @@ struct ClientEvent;
 struct MeshMakeData;
 struct ChatMessage;
 class MapBlockMesh;
+class RenderingEngine;
 class IWritableTextureSource;
 class IWritableShaderSource;
 class IWritableItemDefManager;
@@ -52,6 +53,7 @@ class ISoundManager;
 class NodeDefManager;
 //class IWritableCraftDefManager;
 class ClientMediaDownloader;
+class SingleMediaDownloader;
 struct MapDrawControl;
 class ModChannelMgr;
 class MtEventManager;
@@ -123,6 +125,7 @@ public:
 			NodeDefManager *nodedef,
 			ISoundManager *sound,
 			MtEventManager *event,
+			RenderingEngine *rendering_engine,
 			bool ipv6,
 			GameUI *game_ui
 	);
@@ -243,6 +246,7 @@ public:
 	void sendDamage(u16 damage);
 	void sendRespawn();
 	void sendReady();
+	void sendHaveMedia(const std::vector<u32> &tokens);
 
 	ClientEnvironment& getEnv() { return m_env; }
 	ITextureSource *tsrc() { return getTextureSource(); }
@@ -321,18 +325,22 @@ public:
 		m_access_denied = true;
 		m_access_denied_reason = reason;
 	}
+	inline void setFatalError(const LuaError &e)
+	{
+		setFatalError(std::string("Lua: ") + e.what());
+	}
 
 	// Renaming accessDeniedReason to better name could be good as it's used to
 	// disconnect client when CSM failed.
 	const std::string &accessDeniedReason() const { return m_access_denied_reason; }
 
-	const bool itemdefReceived() const
+	bool itemdefReceived() const
 	{ return m_itemdef_received; }
-	const bool nodedefReceived() const
+	bool nodedefReceived() const
 	{ return m_nodedef_received; }
-	const bool mediaReceived() const
+	bool mediaReceived() const
 	{ return !m_media_downloader; }
-	const bool activeObjectsReceived() const
+	bool activeObjectsReceived() const
 	{ return m_activeobjects_received; }
 
 	u16 getProtoVersion()
@@ -345,6 +353,7 @@ public:
 	float mediaReceiveProgress();
 
 	void afterContentReceived();
+	void showUpdateProgressTexture(void *args, u32 progress, u32 max_progress);
 
 	float getRTT();
 	float getCurRate();
@@ -353,6 +362,7 @@ public:
 	void setCamera(Camera* camera) { m_camera = camera; }
 
 	Camera* getCamera () { return m_camera; }
+	scene::ISceneManager *getSceneManager();
 
 	bool shouldShowMinimap() const;
 
@@ -370,10 +380,13 @@ public:
 	{ return checkPrivilege(priv); }
 	virtual scene::IAnimatedMesh* getMesh(const std::string &filename, bool cache = false);
 	const std::string* getModFile(std::string filename);
+	ModMetadataDatabase *getModStorageDatabase() override { return m_mod_storage_database; }
 
-	std::string getModStoragePath() const override;
 	bool registerModStorage(ModMetadata *meta) override;
 	void unregisterModStorage(const std::string &name) override;
+
+	// Migrates away old files-based mod storage if necessary
+	void migrateModStorage();
 
 	// The following set of functions is used by ClientMediaDownloader
 	// Insert a media file appropriately into the appropriate manager
@@ -474,6 +487,7 @@ private:
 	NodeDefManager *m_nodedef;
 	ISoundManager *m_sound;
 	MtEventManager *m_event;
+	RenderingEngine *m_rendering_engine;
 
 
 	MeshUpdateThread m_mesh_update_thread;
@@ -535,9 +549,13 @@ private:
 	bool m_activeobjects_received = false;
 	bool m_mods_loaded = false;
 
+	std::vector<std::string> m_remote_media_servers;
+	// Media downloader, only exists during init
 	ClientMediaDownloader *m_media_downloader;
 	// Set of media filenames pushed by server at runtime
 	std::unordered_set<std::string> m_media_pushed_files;
+	// Pending downloads of dynamic media (key: token)
+	std::vector<std::pair<u32, std::shared_ptr<SingleMediaDownloader>>> m_pending_media_downloads;
 
 	// time_of_day speed approximation for old protocol
 	bool m_time_of_day_set = false;
@@ -579,6 +597,7 @@ private:
 	// Client modding
 	ClientScripting *m_script = nullptr;
 	std::unordered_map<std::string, ModMetadata *> m_mod_storages;
+	ModMetadataDatabase *m_mod_storage_database = nullptr;
 	float m_mod_storage_save_timer = 10.0f;
 	std::vector<ModSpec> m_mods;
 	StringMap m_mod_vfs;

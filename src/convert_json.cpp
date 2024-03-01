@@ -17,9 +17,10 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-#include <vector>
 #include <iostream>
 #include <sstream>
+#include <memory>
+#include <vector>
 
 #include "convert_json.h"
 #include "content/mods.h"
@@ -68,12 +69,17 @@ Json::Value fetchJsonValue(const std::string &url,
 	return root;
 }
 
-std::string fastWriteJson(const Json::Value &value)
+void fastWriteJson(const Json::Value &value, std::ostream &to)
 {
-	std::ostringstream oss;
 	Json::StreamWriterBuilder builder;
 	builder["indentation"] = "";
 	std::unique_ptr<Json::StreamWriter> writer(builder.newStreamWriter());
-	writer->write(value, &oss);
+	writer->write(value, &to);
+}
+
+std::string fastWriteJson(const Json::Value &value)
+{
+	std::ostringstream oss;
+	fastWriteJson(value, oss);
 	return oss.str();
 }

@@ -20,17 +20,16 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "lua_api/l_settings.h"
 #include "lua_api/l_internal.h"
 #include "cpp_api/s_security.h"
+#include "threading/mutex_auto_lock.h"
 #include "util/string.h" // FlagDesc
 #include "settings.h"
 #include "noise.h"
 #include "log.h"
 
 
-/* This protects the following from being set:
- * 'secure.*' settings
- * some security-relevant settings
- *   (better solution pending)
- * some mapgen settings
+/* This protects:
+ * 'secure.*' settings from being set
+ * some mapgen settings from being set
  *   (not security-criticial, just to avoid messing up user configs)
  */
 #define CHECK_SETTING_SECURITY(L, name) \
@@ -42,7 +41,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 static inline int checkSettingSecurity(lua_State* L, const std::string &name)
 {
 	if (ScriptApiSecurity::isSecure(L) && name.compare(0, 7, "secure.") == 0)
-		throw LuaError("Attempted to set secure setting.");
+		throw LuaError("Attempt to set secure setting.");
 
 	bool is_mainmenu = false;
 #ifndef SERVER
@@ -53,17 +52,6 @@ static inline int checkSettingSecurity(lua_State* L, const std::string &name)
 			"minetest.set_mapgen_setting() should be used instead." << std::endl;
 		infostream << script_get_backtrace(L) << std::endl;
 		return -1;
-	}
-
-	const char *disallowed[] = {
-		"main_menu_script", "shader_path", "texture_path", "screenshot_path",
-		"serverlist_file", "serverlist_url", "map-dir", "contentdb_url",
-	};
-	if (!is_mainmenu) {
-		for (const char *name2 : disallowed) {
-			if (name == name2)
-				throw LuaError("Attempted to set disallowed setting.");
-		}
 	}
 
 	return 0;
@@ -291,20 +279,36 @@ int LuaSettings::l_write(lua_State* L)
 	return 1;
 }
 
+static void push_settings_table(lua_State *L, const Settings *settings)
+{
+	std::vector<std::string> keys = settings->getNames();
+	lua_newtable(L);
+	for (const std::string &key : keys) {
+		std::string value;
+		Settings *group = nullptr;
+
+		if (settings->getNoEx(key, value)) {
+			lua_pushstring(L, value.c_str());
+		} else if (settings->getGroupNoEx(key, group)) {
+			// Recursively push tables
+			push_settings_table(L, group);
+		} else {
+			// Impossible case (multithreading) due to MutexAutoLock
+			continue;
+		}
+
+		lua_setfield(L, -2, key.c_str());
+	}
+}
+
 // to_table(self) -> {[key1]=value1,...}
 int LuaSettings::l_to_table(lua_State* L)
 {
 	NO_MAP_LOCK_REQUIRED;
 	LuaSettings* o = checkobject(L, 1);
 
-	std::vector<std::string> keys = o->m_settings->getNames();
-
-	lua_newtable(L);
-	for (const std::string &key : keys) {
-		lua_pushstring(L, o->m_settings->get(key).c_str());
-		lua_setfield(L, -2, key.c_str());
-	}
-
+	MutexAutoLock(o->m_settings->m_mutex);
+	push_settings_table(L, o->m_settings);
 	return 1;
 }
 
@@ -330,7 +334,7 @@ void LuaSettings::Register(lua_State* L)
 
 	lua_pop(L, 1);  // drop metatable
 
-	luaL_openlib(L, 0, methods, 0);  // fill methodtable
+	luaL_register(L, nullptr, methods);  // fill methodtable
 	lua_pop(L, 1);  // drop methodtable
 
 	// Can be created from Lua (Settings(filename))

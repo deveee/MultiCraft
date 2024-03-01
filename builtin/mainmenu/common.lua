@@ -14,14 +14,11 @@
 --You should have received a copy of the GNU Lesser General Public License along
 --with this program; if not, write to the Free Software Foundation, Inc.,
 --51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
---------------------------------------------------------------------------------
+
 -- Global menu data
---------------------------------------------------------------------------------
 menudata = {}
 
---------------------------------------------------------------------------------
 -- Local cached values
---------------------------------------------------------------------------------
 local min_supp_proto, max_supp_proto
 
 function common_update_cached_supp_proto()
@@ -29,18 +26,15 @@ function common_update_cached_supp_proto()
 	max_supp_proto = core.get_max_supp_proto()
 end
 common_update_cached_supp_proto()
---------------------------------------------------------------------------------
--- Menu helper functions
---------------------------------------------------------------------------------
 
---------------------------------------------------------------------------------
+-- Menu helper functions
+
 local function render_client_count(n)
 	if     n > 999 then return '999'
-	elseif n >= 0 then return tostring(n)
+	elseif n >= 0  then return tostring(n)
 	else return '?' end
 end
 
---------------------------------------------------------------------------------
 function image_column(tooltip)
 	return "image,tooltip=" .. core.formspec_escape(tooltip) .. "," ..
 		"0=" .. core.formspec_escape(defaulttexturedir .. "blank.png") .. "," ..
@@ -56,8 +50,6 @@ function image_column(tooltip)
 		"11=" .. core.formspec_escape(defaulttexturedir .. "server_ping_1.png")
 end
 
-
---------------------------------------------------------------------------------
 function render_serverlist_row(spec, is_favorite)
 	if not spec then
 		spec = {}
@@ -80,83 +72,78 @@ function render_serverlist_row(spec, is_favorite)
 		end
 	end
 
-	local grey_out = not is_server_protocol_compat(spec.proto_min, spec.proto_max)
+	local grey_out = not spec.is_compatible
 
-	local details
+	local details = {}
 	if is_favorite then
-		details = "1,"
+		table.insert(details, "1")
 	elseif spec.server_id == "multicraft" then
-		details = "2,"
+		table.insert(details, "2")
 	else
-		details = "3,"
+		table.insert(details, "3")
 	end
 
-	if spec.lag then
-		local lag = spec.lag * 1000
-		if lag <= 100 then
-			details = details .. "14,"
-		elseif lag <= 150 then
-			details = details .. "13,"
+	if spec.lag or spec.ping then
+		local lag = (spec.lag or 0) * 1000 + (spec.ping or 0) * 250
+		if lag <= 125 then
+			table.insert(details, "14")
+		elseif lag <= 175 then
+			table.insert(details, "13")
 		elseif lag <= 250 then
-			details = details .. "12,"
+			table.insert(details, "12")
 		else
-			details = details .. "11,"
+			table.insert(details, "11")
 		end
 	else
-		details = details .. "11,"
+		table.insert(details, "11")
 	end
 
-	if spec.clients and spec.clients_max then
+	table.insert(details, ",")
+
+	local color = (grey_out and "#aaaaaa") or ((spec.is_favorite and "#ddddaa") or "#ffffff")
+	if spec.clients and (spec.clients_max or 0) > 0 then
 		local clients_percent = 100 * spec.clients / spec.clients_max
 
 		-- Choose a color depending on how many clients are connected
 		-- (relatively to clients_max)
 		local clients_color
-		if     grey_out               then clients_color = '#aaaaaa'
-		elseif spec.clients    == 0   then clients_color = ''        -- 0 players: default/white
+		if     grey_out		      then clients_color = '#aaaaaa'
+		elseif spec.clients == 0      then clients_color = ''        -- 0 players: default/white
 		elseif clients_percent <= 60  then clients_color = '#a1e587' -- 0-60%: green
 		elseif clients_percent <= 90  then clients_color = '#ffdc97' -- 60-90%: yellow
 		elseif clients_percent == 100 then clients_color = '#dd5b5b' -- full server: red (darker)
 		else                               clients_color = '#ffba97' -- 90-100%: orange
 		end
 
-		details = details .. clients_color .. ',' ..
-			render_client_count(spec.clients) .. ',/,' ..
-			render_client_count(spec.clients_max) .. ','
-
-	elseif grey_out then
-		details = details .. '#aaaaaa,?,/,?,'
+		table.insert(details, clients_color)
+		table.insert(details, render_client_count(spec.clients) .. " / " ..
+			render_client_count(spec.clients_max))
 	else
-		details = details .. ',?,/,?,'
+		table.insert(details, color)
+		table.insert(details, "?")
 	end
 
 	if spec.creative then
-		details = details .. "5,"
+		table.insert(details, "5") -- creative icon
 	elseif spec.pvp then
-		details = details .. "6,"
+		table.insert(details, "6") -- pvp icon
 	elseif spec.damage then
-		details = details .. "4,"
+		table.insert(details, "4") -- heart icon
 	else
-		details = details .. "0,"
+		table.insert(details, "0")
 	end
 
-	return details .. (grey_out and '#aaaaaa,' or ',') .. text
-end
+	table.insert(details, color)
+	table.insert(details, text)
 
---------------------------------------------------------------------------------
-os.tempfolder = function()
-	local temp = core.get_temp_path()
-	return temp .. DIR_DELIM .. "MT_" .. math.random(0, 10000)
+	return table.concat(details, ",")
 end
-
---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
 os.tmpname = function()
-	local path = os.tempfolder()
-	io.open(path, "w"):close()
-	return path
+	error('do not use') -- instead use core.get_temp_path()
 end
-
 --------------------------------------------------------------------------------
+
 function menu_render_worldlist()
 	local retval = {}
 
@@ -180,7 +167,6 @@ function menu_render_worldlist()
 	return table.concat(retval, ",")
 end
 
---------------------------------------------------------------------------------
 function menu_handle_key_up_down(fields, textlist, settingname)
 	local oldidx, newidx = core.get_textlist_index(textlist), 1
 	if fields.key_up or fields.key_down then
@@ -196,7 +182,6 @@ function menu_handle_key_up_down(fields, textlist, settingname)
 	return false
 end
 
---------------------------------------------------------------------------------
 function text2textlist(xpos, ypos, width, height, tl_name, textlen, text, transparency)
 	local textlines = core.wrap_text(text, textlen, true)
 	local retval = "textlist[" .. xpos .. "," .. ypos .. ";" .. width ..
@@ -214,7 +199,6 @@ function text2textlist(xpos, ypos, width, height, tl_name, textlen, text, transp
 	return retval
 end
 
---------------------------------------------------------------------------------
 function is_server_protocol_compat(server_proto_min, server_proto_max)
 	if (not server_proto_min) or (not server_proto_max) then
 		-- There is no info. Assume the best and act as if we would be compatible.
@@ -222,7 +206,7 @@ function is_server_protocol_compat(server_proto_min, server_proto_max)
 	end
 	return min_supp_proto <= server_proto_max and max_supp_proto >= server_proto_min
 end
---------------------------------------------------------------------------------
+
 function is_server_protocol_compat_or_error(server_proto_min, server_proto_max)
 	if not is_server_protocol_compat(server_proto_min, server_proto_max) then
 		local server_prot_ver_info, client_prot_ver_info
@@ -250,7 +234,7 @@ function is_server_protocol_compat_or_error(server_proto_min, server_proto_max)
 
 	return true
 end
---------------------------------------------------------------------------------
+
 function menu_worldmt(selected, setting, value)
 	local world = menudata.worldlist:get_list()[selected]
 	if world then

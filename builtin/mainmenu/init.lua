@@ -38,7 +38,7 @@ dofile(menupath .. DIR_DELIM .. "async_event.lua")
 dofile(menupath .. DIR_DELIM .. "common.lua")
 dofile(menupath .. DIR_DELIM .. "pkgmgr.lua")
 dofile(menupath .. DIR_DELIM .. "serverlistmgr.lua")
-dofile(menupath .. DIR_DELIM .. "textures.lua")
+dofile(menupath .. DIR_DELIM .. "game_theme.lua")
 
 dofile(menupath .. DIR_DELIM .. "dlg_config_world.lua")
 dofile(menupath .. DIR_DELIM .. "dlg_settings_advanced.lua")
@@ -47,13 +47,14 @@ dofile(menupath .. DIR_DELIM .. "dlg_create_world.lua")
 dofile(menupath .. DIR_DELIM .. "dlg_delete_content.lua")
 dofile(menupath .. DIR_DELIM .. "dlg_delete_world.lua")
 dofile(menupath .. DIR_DELIM .. "dlg_rename_modpack.lua")
+
 dofile(menupath .. DIR_DELIM .. "dlg_version_info.lua")
 
 local tabs = {}
 
 tabs.settings = dofile(menupath .. DIR_DELIM .. "tab_settings.lua")
 tabs.content  = dofile(menupath .. DIR_DELIM .. "tab_content.lua")
-tabs.credits  = dofile(menupath .. DIR_DELIM .. "tab_credits.lua")
+tabs.about    = dofile(menupath .. DIR_DELIM .. "tab_about.lua")
 tabs.local_game = dofile(menupath .. DIR_DELIM .. "tab_local.lua")
 tabs.play_online = dofile(menupath .. DIR_DELIM .. "tab_online.lua")
 
@@ -88,7 +89,7 @@ function menudata.init_tabs()
 	menudata.worldlist:add_sort_mechanism("alphabetic", sort_worlds_alphabetic)
 	menudata.worldlist:set_sortmode("alphabetic")
 
-	mm_texture.init()
+	mm_game_theme.init()
 
 	-- Create main tabview
 	local tv_main = tabview_create("maintab", {x = 12, y = 5.4}, {x = 0.1, y = 0})
@@ -120,8 +121,8 @@ function menudata.init_tabs()
 	})
 
 	tv_main:add_side_button({
-		tooltip = fgettext("Credits"),
-		tab_name = "credits",
+		tooltip = fgettext("About"),
+		tab_name = "about",
 		texture_prefix = "authors"
 	})
 
@@ -134,7 +135,7 @@ function menudata.init_tabs()
 
 	tv_main:add(tabs.content)
 	tv_main:add(tabs.settings)
-	tv_main:add(tabs.credits)
+	tv_main:add(tabs.about)
 
 	tv_main:set_global_event_handler(main_event_handler)
 	tv_main:set_fixed_size(false)
@@ -146,7 +147,7 @@ function menudata.init_tabs()
 
 	if last_tab ~= "local" then
 		core.set_clouds(false)
-		mm_texture.set_dirt_bg()
+--		mm_texture.set_dirt_bg()
 	end
 
 	-- In case the folder of the last selected game has been deleted,
@@ -154,7 +155,7 @@ function menudata.init_tabs()
 	if tv_main.current_tab == "local" then
 		local game = pkgmgr.find_by_gameid(core.settings:get("menu_last_game"))
 		if game == nil then
-			mm_texture.reset()
+			mm_game_theme.reset()
 		end
 	end
 
@@ -164,8 +165,6 @@ function menudata.init_tabs()
 	tv_main:show()
 
 	ui.update()
-
---	core.sound_play("main_menu", true)
 end
 
 menudata.init_tabs()

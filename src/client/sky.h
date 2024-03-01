@@ -17,6 +17,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
+#pragma once
+
 #include "irrlichttypes_extrabloated.h"
 #include <ISceneNode.h>
 #include <array>
@@ -24,8 +26,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "irr_ptr.h"
 #include "shader.h"
 #include "skyparams.h"
-
-#pragma once
 
 #define SKY_MATERIAL_COUNT 12
 
@@ -36,7 +36,7 @@ class Sky : public scene::ISceneNode
 {
 public:
 	//! constructor
-	Sky(s32 id, ITextureSource *tsrc, IShaderSource *ssrc);
+	Sky(s32 id, RenderingEngine *rendering_engine, ITextureSource *tsrc, IShaderSource *ssrc);
 
 	virtual void OnRegisterSceneNode();
 
@@ -77,7 +77,7 @@ public:
 	void setMoonScale(f32 moon_scale) { m_moon_params.scale = moon_scale; }
 
 	void setStarsVisible(bool stars_visible) { m_star_params.visible = stars_visible; }
-	void setStarCount(u16 star_count, bool force_update);
+	void setStarCount(u16 star_count);
 	void setStarColor(video::SColor star_color) { m_star_params.starcolor = star_color; }
 	void setStarScale(f32 star_scale) { m_star_params.scale = star_scale; updateStars(); }
 
@@ -104,6 +104,8 @@ public:
 	void addTextureToSkybox(const  std::string &texture, int material_id,
 		ITextureSource *tsrc);
 	const video::SColorf &getCurrentStarColor() const { return m_star_color; }
+
+	float getSkyBodyOrbitTilt() const { return m_sky_body_orbit_tilt; }
 
 private:
 	aabb3f m_box;
@@ -148,7 +150,7 @@ private:
 	bool m_visible = true;
 	// Used when m_visible=false
 	video::SColor m_fallback_bg_color = video::SColor(255, 255, 255, 255);
-	bool m_first_update = true;
+	bool m_first_update = true; // Set before the sky is updated for the first time
 	float m_time_of_day;
 	float m_time_brightness;
 	bool m_sunlight_seen;
@@ -159,6 +161,7 @@ private:
 	bool m_directional_colored_fog;
 	bool m_in_clouds = true; // Prevent duplicating bools to remember old values
 	bool m_enable_shaders = false;
+	float m_sky_body_orbit_tilt = 0.0f;
 
 	video::SColorf m_bgcolor_bright_f = video::SColorf(1.0f, 1.0f, 1.0f, 1.0f);
 	video::SColorf m_skycolor_bright_f = video::SColorf(1.0f, 1.0f, 1.0f, 1.0f);
@@ -203,5 +206,8 @@ private:
 	void draw_stars(video::IVideoDriver *driver, float wicked_time_of_day);
 	void place_sky_body(std::array<video::S3DVertex, 4> &vertices,
 		float horizon_position,	float day_position);
-	void setSkyDefaults();
 };
+
+// calculates value for sky body positions for the given observed time of day
+// this is used to draw both Sun/Moon and shadows
+float getWickedTimeOfDay(float time_of_day);

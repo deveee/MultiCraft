@@ -24,6 +24,7 @@ on:
       - '.github/workflows/**.yml'
 
 jobs:
+
   clang_format:
     runs-on: ubuntu-22.04
     steps:
@@ -34,8 +35,8 @@ jobs:
 
       - name: Run clang-format
         run: |
-          source ./util/ci/lint.sh
-          perform_lint
+          source ./util/ci/clang-format.sh
+          check_format
         env:
           CLANG_FORMAT: clang-format-11
 

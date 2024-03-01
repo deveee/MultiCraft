@@ -32,8 +32,8 @@ static inline void check_lua_type(lua_State *L, int index, const char *name, int
 	if (t != type) {
 		std::string traceback = script_get_backtrace(L);
 		throw LuaError(std::string("Invalid ") + (name) + " (expected " +
-				lua_typename(L, (type)) + " got " + lua_typename(L, t) +
-				").\n" + traceback);
+					   lua_typename(L, (type)) + " got " + lua_typename(L, t) + ").\n" +
+					   traceback);
 	}
 }
 

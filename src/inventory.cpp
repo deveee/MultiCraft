@@ -460,7 +460,6 @@ void InventoryList::deSerialize(std::istream &is)
 		std::getline(is, line, '\n');
 
 		std::istringstream iss(line);
-		//iss.imbue(std::locale("C"));
 
 		std::string name;
 		std::getline(iss, name, ' ');
@@ -559,11 +558,6 @@ u32 InventoryList::getUsedSlots() const
 			num++;
 	}
 	return num;
-}
-
-u32 InventoryList::getFreeSlots() const
-{
-	return getSize() - getUsedSlots();
 }
 
 const ItemStack& InventoryList::getItem(u32 i) const
@@ -938,18 +932,15 @@ void Inventory::deSerialize(std::istream &is)
 InventoryList * Inventory::addList(const std::string &name, u32 size)
 {
 	setModified();
+
+	// Remove existing lists
 	s32 i = getListIndex(name);
-	if(i != -1)
-	{
-		if(m_lists[i]->getSize() != size)
-		{
-			delete m_lists[i];
-			m_lists[i] = new InventoryList(name, size, m_itemdef);
-			m_lists[i]->setModified();
-		}
+	if (i != -1) {
+		delete m_lists[i];
+		m_lists[i] = new InventoryList(name, size, m_itemdef);
+		m_lists[i]->setModified();
 		return m_lists[i];
 	}
-
 
 	//don't create list with invalid name
 	if (name.find(' ') != std::string::npos)
@@ -999,7 +990,7 @@ const InventoryList *Inventory::getList(const std::string &name) const
 	return m_lists[i];
 }
 
-const s32 Inventory::getListIndex(const std::string &name) const
+s32 Inventory::getListIndex(const std::string &name) const
 {
 	for(u32 i=0; i<m_lists.size(); i++)
 	{

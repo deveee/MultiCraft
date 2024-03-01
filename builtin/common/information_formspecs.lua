@@ -26,7 +26,8 @@ local LIST_FORMSPEC_DESCRIPTION = [[
 		button_exit[5,7;3,1;quit;%s]
 	]]
 
-local formspec_escape = core.formspec_escape
+local F = core.formspec_escape
+local S = core.get_translator("__builtin")
 local check_player_privs = core.check_player_privs
 
 
@@ -57,10 +58,11 @@ core.after(0, load_mod_command_tree)
 
 local function build_chatcommands_formspec(name, sel, copy)
 	local rows = {}
-	rows[1] = "#FFF,0,Command,Parameters"
+	rows[1] = "#FFF,0,"..F(S("Command"))..","..F(S("Parameters"))
 
-	local description = "For more information, click on any entry in the list.\n" ..
-		"Double-click to copy the entry to the chat history."
+	local description = S("For more information, click on "
+		.. "any entry in the list.").. "\n" ..
+		S("Double-click to copy the entry to the chat history.")
 
 	for i, data in ipairs(mod_cmds) do
 		for _, cmds in ipairs(data[2]) do
@@ -90,9 +92,9 @@ local function build_chatcommands_formspec(name, sel, copy)
 
 	return LIST_FORMSPEC_DESCRIPTION:format(
 			get_background(name),
-			"Available commands: (see also: /help <cmd>)",
+			F(S("Available commands: (see also: /help <cmd>)")),
 			table.concat(rows, ","), sel or 0,
-			description, "Close"
+			F(description), F(S("Close"))
 		)
 end
 
@@ -107,20 +109,20 @@ local function build_privs_formspec(name)
 	table.sort(privs, function(a, b) return a[1] < b[1] end)
 
 	local rows = {}
-	rows[1] = "#FFF,0,Privilege,Description"
+	rows[1] = "#FFF,0,"..F(S("Privilege"))..","..F(S("Description"))
 
 	local player_privs = core.get_player_privs(name)
 	for i, data in ipairs(privs) do
 		rows[#rows + 1] = ("%s,0,%s,%s"):format(
 			player_privs[data[1]] and COLOR_GREEN or COLOR_GRAY,
-				data[1], formspec_escape(data[2].description))
+				data[1], F(data[2].description))
 	end
 
 	return LIST_FORMSPEC:format(
 			get_background(name),
-			"Available privileges:",
+			F(S("Available privileges:")),
 			table.concat(rows, ","),
-			"Close"
+			F(S("Close"))
 		)
 end
 
@@ -140,29 +142,12 @@ core.register_on_player_receive_fields(function(player, formname, fields)
 	end
 end)
 
+function core.show_general_help_formspec(name)
+	core.show_formspec(name, "__builtin:help_cmds",
+		build_chatcommands_formspec(name))
+end
 
-local help_command = core.registered_chatcommands["help"]
-local old_help_func = help_command.func
-
-help_command.func = function(name, param)
-	local admin = core.settings:get("name")
-
-	-- If the admin ran help, put the output in the chat buffer as well to
-	-- work with the server terminal
-	if param == "privs" then
-		core.show_formspec(name, "__builtin:help_privs",
-			build_privs_formspec(name))
-		if name ~= admin then
-			return true
-		end
-	end
-	if param == "" or param == "all" then
-		core.show_formspec(name, "__builtin:help_cmds",
-			build_chatcommands_formspec(name))
-		if name ~= admin then
-			return true
-		end
-	end
-
-	return old_help_func(name, param)
+function core.show_privs_help_formspec(name)
+	core.show_formspec(name, "__builtin:help_privs",
+		build_privs_formspec(name))
 end

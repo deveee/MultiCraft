@@ -905,7 +905,7 @@ public:
 			for (ActiveABM &aabm : *m_aabms[c]) {
 				if ((p.Y < aabm.min_y) || (p.Y > aabm.max_y))
 					continue;
-				
+
 				if (myrand() % aabm.chance != 0)
 					continue;
 
@@ -1561,6 +1561,21 @@ void ServerEnvironment::step(float dtime)
 
 	// Send outdated detached inventories
 	m_server->sendDetachedInventories(PEER_ID_INEXISTENT, true);
+}
+
+ServerEnvironment::BlockStatus ServerEnvironment::getBlockStatus(v3s16 blockpos)
+{
+	if (m_active_blocks.contains(blockpos))
+		return BS_ACTIVE;
+
+	const MapBlock *block = m_map->getBlockNoCreateNoEx(blockpos);
+	if (block && !block->isDummy())
+		return BS_LOADED;
+
+	if (m_map->isBlockInQueue(blockpos))
+		return BS_EMERGING;
+
+	return BS_UNKNOWN;
 }
 
 u32 ServerEnvironment::addParticleSpawner(float exptime)

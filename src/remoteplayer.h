@@ -21,7 +21,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #pragma once
 
 #include "player.h"
-#include "cloudparams.h"
 #include "skyparams.h"
 
 class PlayerSAO;
@@ -47,7 +46,7 @@ public:
 	PlayerSAO *getPlayerSAO() { return m_sao; }
 	void setPlayerSAO(PlayerSAO *sao) { m_sao = sao; }
 
-	const RemotePlayerChatResult canSendChatMessage();
+	RemotePlayerChatResult canSendChatMessage();
 
 	void setHotbarItemcount(s32 hotbar_itemcount)
 	{
@@ -82,10 +81,7 @@ public:
 		return hud_hotbar_selected_image;
 	}
 
-	void setSky(const SkyboxParams &skybox_params)
-	{
-		m_skybox_params = skybox_params;
-	}
+	void setSky(const SkyboxParams &skybox_params) { m_skybox_params = skybox_params; }
 
 	const SkyboxParams &getSkyParams() const { return m_skybox_params; }
 

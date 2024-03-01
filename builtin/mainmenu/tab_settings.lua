@@ -43,6 +43,14 @@ local labels = {
 		fgettext("2x"),
 		fgettext("4x"),
 		fgettext("8x")
+	},
+	shadow_levels = {
+		fgettext("Disabled"),
+		fgettext("Very Low"),
+		fgettext("Low"),
+		fgettext("Medium"),
+		fgettext("High"),
+		fgettext("Ultra High")
 	}
 }
 
@@ -51,7 +59,8 @@ local dd_options = {
 	node_highlighting = {"box", "halo", "none"},
 	filters = {"", "bilinear_filter", "trilinear_filter"},
 	mipmap = {"", "mip_map", "anisotropic_filter"},
-	antialiasing = {"0", "2", "4", "8"}
+	antialiasing = {"0", "2", "4", "8"},
+	shadow_levels = {"0", "1", "2", "3", "4", "5"}
 }
 
 local getSettingIndex = {
@@ -91,6 +100,15 @@ local getSettingIndex = {
 		local antialiasing_setting = core.settings:get("fsaa")
 		for i = 1, #dd_options.antialiasing do
 			if antialiasing_setting == dd_options.antialiasing[i] then
+				return i
+			end
+		end
+		return 1
+	end,
+	ShadowMapping = function()
+		local shadow_setting = core.settings:get("shadow_levels")
+		for i = 1, #dd_options.shadow_levels do
+			if shadow_setting == dd_options.shadow_levels[i] then
 				return i
 			end
 		end
@@ -204,18 +222,12 @@ local function handle_settings_buttons(this, fields, tabname, tabdata)
 		adv_settings_dlg:set_parent(this)
 		this:hide()
 		adv_settings_dlg:show()
-		--mm_texture.update("singleplayer", current_game())
+		--mm_game_theme.update("singleplayer", current_game())
 		return true
 	end
 
 	if fields["cb_shaders"] then
-		if (core.settings:get("video_driver") == "direct3d8" or
-				core.settings:get("video_driver") == "direct3d9") then
-			core.settings:set("enable_shaders", "false")
-			gamedata.errormessage = fgettext("To enable shaders the OpenGL driver needs to be used.")
-		else
-			core.settings:set_bool("enable_shaders", not core.settings:get_bool("enable_shaders"))
-		end
+		core.settings:set_bool("enable_shaders", not core.settings:get_bool("enable_shaders"))
 		return true
 	end
 
@@ -260,6 +272,36 @@ local function handle_settings_buttons(this, fields, tabname, tabdata)
 		core.show_keys_menu()
 		return true
 	end
+
+	for i = 1, #labels.shadow_levels do
+		if fields["dd_shadows"] == labels.shadow_levels[i] then
+			core.settings:set("shadow_levels", dd_options.shadow_levels[2][i])
+			ddhandled = true
+		end
+	end
+
+--[[	if fields["dd_shadows"] == labels.shadow_levels[1] then
+		core.settings:set("enable_dynamic_shadows", "false")
+	else
+		local shadow_presets = {
+			[2] = { 80,  512,  "true", 0, "false" },
+			[3] = { 120, 1024, "true", 1, "false" },
+			[4] = { 350, 2048, "true", 1, "false" },
+			[5] = { 350, 2048, "true", 2,  "true" },
+			[6] = { 450, 4096, "true", 2,  "true" },
+		}
+		local s = shadow_presets[table.indexof(labels.shadow_levels, fields["dd_shadows"])]
+		if s then
+			core.settings:set("enable_dynamic_shadows", "true")
+			core.settings:set("shadow_map_max_distance", s[1])
+			core.settings:set("shadow_map_texture_size", s[2])
+			core.settings:set("shadow_map_texture_32bit", s[3])
+			core.settings:set("shadow_filters", s[4])
+			core.settings:set("shadow_map_color", s[5])
+		end
+	end
+--]]
+	return ddhandled
 end
 
 return {

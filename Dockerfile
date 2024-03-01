@@ -20,7 +20,7 @@ WORKDIR /usr/src/multicraft
 
 RUN apk add --no-cache git build-base irrlicht-dev cmake bzip2-dev libpng-dev \
 		jpeg-dev libxxf86vm-dev mesa-dev sqlite-dev libogg-dev \
-		libvorbis-dev openal-soft-dev curl-dev freetype-dev zlib-dev \
+		libvorbis-dev openal-soft-dev curl-dev freetype-dev zlib-dev zstd-dev \
 		gmp-dev jsoncpp-dev postgresql-dev luajit-dev ca-certificates && \
 	git clone --depth=1 -b ${MINETEST_GAME_VERSION} https://github.com/minetest/minetest_game.git ./games/minetest_game && \
 	rm -fr ./games/minetest_game/.git
@@ -51,7 +51,7 @@ RUN mkdir build && \
 
 FROM alpine:3.14
 
-RUN apk add --no-cache sqlite-libs curl gmp libstdc++ libgcc libpq luajit && \
+RUN apk add --no-cache sqlite-libs curl gmp libstdc++ libgcc libpq luajit zstd-libs && \
 	adduser -D multicraft --uid 30000 -h /var/lib/multicraft && \
 	chown -R multicraft:multicraft /var/lib/multicraft
 

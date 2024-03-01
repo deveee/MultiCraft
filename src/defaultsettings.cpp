@@ -65,7 +65,7 @@ void set_default_settings()
 	settings->setDefault("client_unload_unused_data_timeout", "600");
 	settings->setDefault("client_mapblock_limit", "7500");
 	settings->setDefault("enable_build_where_you_stand", "false");
-	settings->setDefault("curl_timeout", "5000");
+	settings->setDefault("curl_timeout", "20000");
 	settings->setDefault("curl_parallel_limit", "8");
 	settings->setDefault("curl_file_download_timeout", "300000");
 	settings->setDefault("curl_verify_cert", "true");
@@ -74,6 +74,8 @@ void set_default_settings()
 	settings->setDefault("max_out_chat_queue_size", "20");
 	settings->setDefault("pause_on_lost_focus", "true");
 	settings->setDefault("enable_register_confirmation", "true");
+	settings->setDefault("clickable_chat_weblinks", "false");
+	settings->setDefault("chat_weblink_color", "#8888FF");
 
 	// Keymap
 	settings->setDefault("remote_port", "30000");
@@ -89,7 +91,7 @@ void set_default_settings()
 	settings->setDefault("keymap_drop", "KEY_KEY_Q");
 	settings->setDefault("keymap_zoom", "KEY_KEY_Z");
 	settings->setDefault("keymap_inventory", "KEY_KEY_I");
-	settings->setDefault("keymap_special1", "KEY_KEY_E");
+	settings->setDefault("keymap_aux1", "KEY_KEY_E");
 	settings->setDefault("keymap_chat", "KEY_KEY_T");
 	settings->setDefault("keymap_cmd", "/");
 	settings->setDefault("keymap_cmd_local", ".");
@@ -106,6 +108,7 @@ void set_default_settings()
 	settings->setDefault("keymap_increase_volume", "");
 	settings->setDefault("keymap_decrease_volume", "");
 	settings->setDefault("keymap_cinematic", "");
+	settings->setDefault("keymap_toggle_block_bounds", "");
 	settings->setDefault("keymap_toggle_hud", "KEY_F1");
 	settings->setDefault("keymap_toggle_chat", "KEY_F2");
 	settings->setDefault("keymap_toggle_fog", "KEY_F3");
@@ -185,12 +188,12 @@ void set_default_settings()
 	settings->setDefault("screen_h", "768");
 	settings->setDefault("autosave_screensize", "true");
 	settings->setDefault("fullscreen", "false");
-	settings->setDefault("fullscreen_bpp", "24");
 	settings->setDefault("vsync", "false");
 	settings->setDefault("fov", "72");
 	settings->setDefault("leaves_style", "fancy");
 	settings->setDefault("connected_glass", "false");
 	settings->setDefault("smooth_lighting", "true");
+	settings->setDefault("performance_tradeoffs", "false");
 	settings->setDefault("lighting_alpha", "0.0");
 	settings->setDefault("lighting_beta", "1.5");
 	settings->setDefault("display_gamma", "1.0");
@@ -274,6 +277,18 @@ void set_default_settings()
 	settings->setDefault("enable_waving_leaves", "false");
 	settings->setDefault("enable_waving_plants", "false");
 
+	// Effects Shadows
+	settings->setDefault("enable_dynamic_shadows", "false");
+	settings->setDefault("shadow_strength", "0.2");
+	settings->setDefault("shadow_map_max_distance", "200.0");
+	settings->setDefault("shadow_map_texture_size", "2048");
+	settings->setDefault("shadow_map_texture_32bit", "true");
+	settings->setDefault("shadow_map_color", "false");
+	settings->setDefault("shadow_filters", "1");
+	settings->setDefault("shadow_poisson_filter", "true");
+	settings->setDefault("shadow_update_frames", "8");
+	settings->setDefault("shadow_soft_radius", "1.0");
+	settings->setDefault("shadow_sky_body_orbit_tilt", "0.0");
 
 	// Input
 	settings->setDefault("invert_mouse", "false");
@@ -289,7 +304,7 @@ void set_default_settings()
 #if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
 	settings->setDefault("enable_joysticks", "true");
 #else
-	settings->setDefault("enable_joysticks", "false");
+ 	settings->setDefault("enable_joysticks", "false");
 #endif
 	settings->setDefault("joystick_id", "0");
 	settings->setDefault("joystick_type", "");
@@ -301,8 +316,7 @@ void set_default_settings()
 	settings->setDefault("main_menu_path", "");
 	settings->setDefault("serverlist_file", "favoriteservers.json");
 
-#if USE_FREETYPE
-	settings->setDefault("freetype", "true");
+	// General font settings
 	std::string MultiCraftFont = porting::getDataPath("fonts" DIR_DELIM "MultiCraftFont.ttf");
 
 #if !defined(__ANDROID__) && !defined(__APPLE__)
@@ -316,16 +330,16 @@ void set_default_settings()
 	settings->setDefault("font_path_bold", MultiCraftFont);
 	settings->setDefault("font_path_bold_italic", MultiCraftFont);
 #endif
-
 	settings->setDefault("font_bold", "false");
 	settings->setDefault("font_italic", "false");
 	settings->setDefault("font_shadow", "1");
 	settings->setDefault("font_shadow_alpha", "127");
-
+	settings->setDefault("font_size_divisible_by", "1");
 	settings->setDefault("mono_font_path", MultiCraftFont);
 	settings->setDefault("mono_font_path_italic", MultiCraftFont);
 	settings->setDefault("mono_font_path_bold", MultiCraftFont);
 	settings->setDefault("mono_font_path_bold_italic", MultiCraftFont);
+	settings->setDefault("mono_font_size_divisible_by", "1");
 
 	settings->setDefault("emoji_font_path", porting::getDataPath("fonts" DIR_DELIM "NotoEmoji.ttf"));
 
@@ -335,20 +349,7 @@ void set_default_settings()
 	settings->setDefault("fallback_font_path", MultiCraftFont);
 #endif
 
-	settings->setDefault("fallback_font_shadow", "1");
-	settings->setDefault("fallback_font_shadow_alpha", "128");
-
 	std::string font_size_str = std::to_string(TTF_DEFAULT_FONT_SIZE);
-
-	settings->setDefault("font_size", font_size_str); // fallback_font_size
-#else
-	settings->setDefault("freetype", "false");
-	settings->setDefault("font_path", porting::getDataPath("fonts" DIR_DELIM "mono_dejavu_sans"));
-	settings->setDefault("mono_font_path", porting::getDataPath("fonts" DIR_DELIM "mono_dejavu_sans"));
-
-	std::string font_size_str = std::to_string(DEFAULT_FONT_SIZE);
-#endif
-	// General font settings
 	settings->setDefault("font_size", font_size_str);
 	settings->setDefault("mono_font_size", font_size_str);
 	settings->setDefault("chat_font_size", "0"); // Default "font_size"
@@ -428,7 +429,7 @@ void set_default_settings()
 	settings->setDefault("chat_message_limit_per_10sec", "5.0");
 	settings->setDefault("chat_message_limit_trigger_kick", "50");
 	settings->setDefault("sqlite_synchronous", "2");
-	settings->setDefault("map_compression_level_disk", "3");
+	settings->setDefault("map_compression_level_disk", "-1");
 	settings->setDefault("map_compression_level_net", "-1");
 	settings->setDefault("full_block_send_enable_min_time_from_building", "2.0");
 	settings->setDefault("dedicated_server_step", "0.09");
@@ -472,7 +473,7 @@ void set_default_settings()
 	// Mapgen
 	settings->setDefault("mg_name", "v7p");
 	settings->setDefault("water_level", "1");
-	settings->setDefault("mapgen_limit", "31000");
+	settings->setDefault("mapgen_limit", "31007");
 	settings->setDefault("chunksize", "5");
 	settings->setDefault("fixed_map_seed", "");
 	settings->setDefault("max_block_generate_distance", "10");
@@ -486,7 +487,6 @@ void set_default_settings()
 	settings->setDefault("server_name", "");
 	settings->setDefault("server_description", "");
 
-	settings->setDefault("high_precision_fpu", "true");
 	settings->setDefault("enable_console", "false");
 	settings->setDefault("screen_dpi", "72");
 	settings->setDefault("display_density_factor", "1");
@@ -497,8 +497,8 @@ void set_default_settings()
 
 	// Altered settings for macOS
 #if defined(__MACH__) && defined(__APPLE__) && !defined(__IOS__)
-	settings->setDefault("screen_w", "0");
-	settings->setDefault("screen_h", "0");
+ 	settings->setDefault("screen_w", "0");
+ 	settings->setDefault("screen_h", "0");
 	settings->setDefault("keymap_camera_mode", "KEY_KEY_C");
 	settings->setDefault("vsync", "true");
 
@@ -521,15 +521,15 @@ void set_default_settings()
 	settings->setDefault("touchscreen_threshold", "20");
 	settings->setDefault("touch_sensitivity", "0.2");
 	settings->setDefault("fixed_virtual_joystick", "true");
-	settings->setDefault("virtual_joystick_triggers_aux", "false");
+	settings->setDefault("virtual_joystick_triggers_aux1", "false");
 	settings->setDefault("fast_move", "true");
 #endif
 
 	// Mobile Platform
 #if defined(__ANDROID__) || defined(__IOS__)
 	settings->setDefault("fullscreen", "true");
-	settings->setDefault("emergequeue_limit_diskonly", "16");
-	settings->setDefault("emergequeue_limit_generate", "16");
+ 	settings->setDefault("emergequeue_limit_diskonly", "16");
+ 	settings->setDefault("emergequeue_limit_generate", "16");
 	settings->setDefault("curl_verify_cert", "false");
 	settings->setDefault("doubletap_jump", "true");
 	settings->setDefault("gui_scaling_filter_txr2img", "false");
@@ -690,7 +690,7 @@ void set_default_settings()
 		settings->setDefault("touch_sensitivity", "0.33");
 	} else if SDVersion4and7Inch {
 		// 4.7" iPhone
-		settings->setDefault("hud_scaling", "0.6");
+ 		settings->setDefault("hud_scaling", "0.6");
 		settings->setDefault("touch_sensitivity", "0.27");
 	} else if SDVersion5and5Inch {
 		// 5.5" iPhone Plus
@@ -703,7 +703,7 @@ void set_default_settings()
 		settings->setDefault("selectionbox_width", "6");
 	} else if SDVersion6and5Inch {
 		// 6.5" iPhone
-		settings->setDefault("hud_scaling", "0.85");
+ 		settings->setDefault("hud_scaling", "0.85");
 		settings->setDefault("touch_sensitivity", "0.35");
 		settings->setDefault("selectionbox_width", "6");
 	} else if SDVersion7and9Inch {
@@ -740,7 +740,7 @@ void set_default_settings()
 
 		settings->setDefault("hud_move_upwards", std::to_string(upwards));
 		settings->setDefault("round_screen", std::to_string(round));
-	}
+ 	}
 #endif // iOS
 #endif
 }

@@ -1,6 +1,6 @@
 /*
 Minetest
-Copyright (C) 2017 bendeutsch, Ben Deutsch <ben@bendeutsch.de>
+Copyright (C) 2021 Liso <anlismon@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU Lesser General Public License as published by
@@ -17,14 +17,20 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-#pragma once
+#include "client/shadows/shadowsshadercallbacks.h"
 
-struct CloudParams
+void ShadowDepthShaderCB::OnSetConstants(
+		video::IMaterialRendererServices *services, s32 userData)
 {
-	float density;
-	video::SColor color_bright;
-	video::SColor color_ambient;
-	float thickness;
-	float height;
-	v2f speed;
-};
+	video::IVideoDriver *driver = services->getVideoDriver();
+
+	core::matrix4 lightMVP = driver->getTransform(video::ETS_PROJECTION);
+	lightMVP *= driver->getTransform(video::ETS_VIEW);
+	lightMVP *= driver->getTransform(video::ETS_WORLD);
+
+	m_light_mvp_setting.set(lightMVP.pointer(), services);
+	m_map_resolution_setting.set(&MapRes, services);
+	m_max_far_setting.set(&MaxFar, services);
+	s32 TextureId = 0;
+	m_color_map_sampler_setting.set(&TextureId, services);
+}

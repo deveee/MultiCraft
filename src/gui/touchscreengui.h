@@ -1,6 +1,5 @@
 /*
 Copyright (C) 2014 sapier
-Copyright (C) 2014-2022 Maksim Gamarnik [MoNTE48] Maksym48@pm.me
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU Lesser General Public License as published by
@@ -42,7 +41,7 @@ typedef enum
 	drop_id,
 	crunch_id,
 	// zoom_id,
-	special1_id,
+	aux1_id,
 	inventory_id,
 	escape_id,
 	minimap_id,
@@ -111,14 +110,13 @@ public:
 	AutoHideButtonBar(IrrlichtDevice *device, IEventReceiver *receiver);
 
 	void init(ISimpleTextureSource *tsrc, const char *starter_img, s32 button_id,
-			const v2s32 &UpperLeft, const v2s32 &LowerRight,
-			autohide_button_bar_dir dir, float timeout);
+			const v2s32 &UpperLeft, const v2s32 &LowerRight, autohide_button_bar_dir dir,
+			float timeout);
 
 	~AutoHideButtonBar();
 
 	// add button to be shown
-	void addButton(touch_gui_button_id id, const wchar_t *caption,
-			const char *btn_image);
+	void addButton(touch_gui_button_id id, const wchar_t *caption, const char *btn_image);
 
 	// add toggle button to be shown
 	/*void addToggleButton(touch_gui_button_id id, const wchar_t *caption,
@@ -234,7 +232,7 @@ private:
 
 	// forward, backward, left, right
 	touch_gui_button_id m_joystick_names[5] = {
-			forward_id, backward_id, left_id, right_id, /*special1_id*/};
+			forward_id, backward_id, left_id, right_id, /*aux1_id*/};
 	bool m_joystick_status[5] = {false, false, false, false, false};
 
 	/*
@@ -256,7 +254,7 @@ private:
 	size_t m_joystick_id;
 	bool m_joystick_has_really_moved = false;
 	bool m_fixed_joystick = false;
-	bool m_joystick_triggers_special1 = false;
+	bool m_joystick_triggers_aux1 = false;
 	std::shared_ptr<button_info> m_joystick_btn_off = nullptr;
 	std::shared_ptr<button_info> m_joystick_btn_bg = nullptr;
 	std::shared_ptr<button_info> m_joystick_btn_center = nullptr;
@@ -279,8 +277,7 @@ private:
 
 	// initialize a joystick button
 	std::shared_ptr<button_info> initJoystickButton(touch_gui_button_id id,
-			const rect<s32> &button_rect, s32 texture_id,
-			bool visible = true);
+			const rect<s32> &button_rect, s32 texture_id, bool visible = true);
 
 	rect<s32> getButtonRect(touch_gui_button_id id);
 

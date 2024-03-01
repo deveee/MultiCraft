@@ -84,7 +84,7 @@ public:
 	void showTranslatedStatusText(const char *str);
 	inline void clearStatusText() { m_statustext.clear(); }
 
-	const bool isChatVisible()
+	bool isChatVisible()
 	{
 		return m_flags.show_chat && m_recent_chat_count != 0 && m_profiler_current_page == 0;
 	}
@@ -109,6 +109,8 @@ public:
 
 private:
 	Flags m_flags;
+
+	float m_drawtime_avg = 0;
 
 	gui::IGUIStaticText *m_guitext = nullptr;  // First line of debug text
 	gui::IGUIStaticText *m_guitext2 = nullptr; // Second line of debug text

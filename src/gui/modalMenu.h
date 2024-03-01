@@ -80,6 +80,7 @@ protected:
 	std::string m_jni_field_name;
 #endif
 #ifdef HAVE_TOUCHSCREENGUI
+	v2s32 m_down_pos;
 	bool m_touchscreen_visible = true;
 #endif
 

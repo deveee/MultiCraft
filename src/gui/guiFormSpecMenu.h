@@ -154,6 +154,7 @@ public:
 			gui::IGUIElement* parent, s32 id,
 			IMenuManager *menumgr,
 			Client *client,
+			gui::IGUIEnvironment *guienv,
 			ISimpleTextureSource *tsrc,
 			ISoundManager *sound_manager,
 			IFormSource* fs_src,
@@ -164,8 +165,9 @@ public:
 	~GUIFormSpecMenu();
 
 	static void create(GUIFormSpecMenu *&cur_formspec, Client *client,
-		JoystickController *joystick, IFormSource *fs_src, TextDest *txt_dest,
-		const std::string &formspecPrepend, ISoundManager *sound_manager);
+		gui::IGUIEnvironment *guienv, JoystickController *joystick, IFormSource *fs_src,
+		TextDest *txt_dest, const std::string &formspecPrepend,
+		ISoundManager *sound_manager);
 
 	void setFormSpec(const std::string &formspec_string,
 			const InventoryLocation &current_inventory_location)
@@ -229,7 +231,7 @@ public:
 		return m_selected_item;
 	}
 
-	const u16 getSelectedAmount() const
+	u16 getSelectedAmount() const
 	{
 		return m_selected_amount;
 	}
@@ -280,6 +282,8 @@ protected:
 	v2s32 getElementBasePos(const std::vector<std::string> *v_pos);
 	v2s32 getRealCoordinateBasePos(const std::vector<std::string> &v_pos);
 	v2s32 getRealCoordinateGeometry(const std::vector<std::string> &v_geom);
+	bool precheckElement(const std::string &name, const std::string &element,
+		size_t args_min, size_t args_max, std::vector<std::string> &parts);
 
 	std::unordered_map<std::string, std::vector<StyleSpec>> theme_by_type;
 	std::unordered_map<std::string, std::vector<StyleSpec>> theme_by_name;
@@ -367,6 +371,7 @@ private:
 		v2s32 size;
 		v2f32 offset;
 		v2f32 anchor;
+		v2f32 padding;
 		core::rect<s32> rect;
 		v2s32 basepos;
 		v2u32 screensize;
@@ -448,6 +453,8 @@ private:
 	void parsePosition(parserData *data, const std::string &element);
 	bool parseAnchorDirect(parserData *data, const std::string &element);
 	void parseAnchor(parserData *data, const std::string &element);
+	bool parsePaddingDirect(parserData *data, const std::string &element);
+	void parsePadding(parserData *data, const std::string &element);
 	bool parseStyle(parserData *data, const std::string &element, bool style_type);
 	void parseSetFocus(const std::string &element);
 	void parseModel(parserData *data, const std::string &element);

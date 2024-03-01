@@ -50,6 +50,7 @@ struct image_definition {
 /* forward declarations                                                       */
 /******************************************************************************/
 class GUIEngine;
+class RenderingEngine;
 class MainMenuScripting;
 class Clouds;
 struct MainMenuData;
@@ -150,6 +151,7 @@ public:
 	 */
 	GUIEngine(JoystickController *joystick,
 			gui::IGUIElement *parent,
+			RenderingEngine *rendering_engine,
 			IMenuManager *menumgr,
 			MainMenuData *data,
 			bool &kill);
@@ -175,10 +177,6 @@ public:
 		return m_scriptdir;
 	}
 
-	/** pass async callback to scriptengine **/
-	unsigned int queueAsync(const std::string &serialized_fct,
-			const std::string &serialized_params);
-
 private:
 
 	/** find and run the main menu script */
@@ -190,6 +188,7 @@ private:
 	/** update size of topleftext element */
 	void updateTopLeftTextSize();
 
+	RenderingEngine         *m_rendering_engine = nullptr;
 	/** parent gui element */
 	gui::IGUIElement        *m_parent = nullptr;
 	/** manager to add menus to */

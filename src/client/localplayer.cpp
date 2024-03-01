@@ -231,8 +231,9 @@ void LocalPlayer::move(f32 dtime, Environment *env, f32 pos_max_d,
 		pp = floatToInt(position + v3f(0.0f, BS * 0.1f, 0.0f), BS);
 		node = map->getNode(pp, &is_valid_position);
 		if (is_valid_position) {
-			in_liquid = nodemgr->get(node.getContent()).isLiquid();
-			liquid_viscosity = nodemgr->get(node.getContent()).liquid_viscosity;
+			const ContentFeatures &cf = nodemgr->get(node.getContent());
+			in_liquid = cf.liquid_move_physics;
+			move_resistance = cf.move_resistance;
 		} else {
 			in_liquid = false;
 		}
@@ -242,8 +243,9 @@ void LocalPlayer::move(f32 dtime, Environment *env, f32 pos_max_d,
 		pp = floatToInt(position + v3f(0.0f, BS * 0.5f, 0.0f), BS);
 		node = map->getNode(pp, &is_valid_position);
 		if (is_valid_position) {
-			in_liquid = nodemgr->get(node.getContent()).isLiquid();
-			liquid_viscosity = nodemgr->get(node.getContent()).liquid_viscosity;
+			const ContentFeatures &cf = nodemgr->get(node.getContent());
+			in_liquid = cf.liquid_move_physics;
+			move_resistance = cf.move_resistance;
 		} else {
 			in_liquid = false;
 		}
@@ -256,7 +258,7 @@ void LocalPlayer::move(f32 dtime, Environment *env, f32 pos_max_d,
 	pp = floatToInt(position + v3f(0.0f), BS);
 	node = map->getNode(pp, &is_valid_position);
 	if (is_valid_position) {
-		in_liquid_stable = nodemgr->get(node.getContent()).isLiquid();
+		in_liquid_stable = nodemgr->get(node.getContent()).liquid_move_physics;
 	} else {
 		in_liquid_stable = false;
 	}
@@ -575,23 +577,7 @@ void LocalPlayer::applyControl(float dtime, Environment *env)
 		}
 	}
 
-	if (control.up)
-		speedH += v3f(0.0f, 0.0f, 1.0f);
-
-	if (control.down)
-		speedH -= v3f(0.0f, 0.0f, 1.0f);
-
-	if (!control.up && !control.down)
-		speedH -= v3f(0.0f, 0.0f, 1.0f) * (control.forw_move_joystick_axis / 32767.f);
-
-	if (control.left)
-		speedH += v3f(-1.0f, 0.0f, 0.0f);
-
-	if (control.right)
-		speedH += v3f(1.0f, 0.0f, 0.0f);
-
-	if (!control.left && !control.right)
-		speedH += v3f(1.0f, 0.0f, 0.0f) * (control.sidew_move_joystick_axis / 32767.f);
+	speedH = v3f(sin(control.movement_direction), 0.0f, cos(control.movement_direction));
 
 	if (m_autojump) {
 		// release autojump after a given time
@@ -647,6 +633,8 @@ void LocalPlayer::applyControl(float dtime, Environment *env)
 		speedH = speedH.normalize() * movement_speed_crouch;
 	else
 		speedH = speedH.normalize() * movement_speed_walk;
+
+	speedH *= control.movement_speed; /* Apply analog input */
 
 	if (!free_move && !in_liquid && !in_liquid_stable && !getParent() && (physics_override_speed != 0)) {
 		if (!m_sneak_offset && control.sneak) {
@@ -843,8 +831,9 @@ void LocalPlayer::old_move(f32 dtime, Environment *env, f32 pos_max_d,
 		pp = floatToInt(position + v3f(0.0f, BS * 0.1f, 0.0f), BS);
 		node = map->getNode(pp, &is_valid_position);
 		if (is_valid_position) {
-			in_liquid = nodemgr->get(node.getContent()).isLiquid();
-			liquid_viscosity = nodemgr->get(node.getContent()).liquid_viscosity;
+			const ContentFeatures &cf = nodemgr->get(node.getContent());
+			in_liquid = cf.liquid_move_physics;
+			move_resistance = cf.move_resistance;
 		} else {
 			in_liquid = false;
 		}
@@ -853,8 +842,9 @@ void LocalPlayer::old_move(f32 dtime, Environment *env, f32 pos_max_d,
 		pp = floatToInt(position + v3f(0.0f, BS * 0.5f, 0.0f), BS);
 		node = map->getNode(pp, &is_valid_position);
 		if (is_valid_position) {
-			in_liquid = nodemgr->get(node.getContent()).isLiquid();
-			liquid_viscosity = nodemgr->get(node.getContent()).liquid_viscosity;
+			const ContentFeatures &cf = nodemgr->get(node.getContent());
+			in_liquid = cf.liquid_move_physics;
+			move_resistance = cf.move_resistance;
 		} else {
 			in_liquid = false;
 		}
@@ -866,7 +856,7 @@ void LocalPlayer::old_move(f32 dtime, Environment *env, f32 pos_max_d,
 	pp = floatToInt(position + v3f(0.0f), BS);
 	node = map->getNode(pp, &is_valid_position);
 	if (is_valid_position)
-		in_liquid_stable = nodemgr->get(node.getContent()).isLiquid();
+		in_liquid_stable = nodemgr->get(node.getContent()).liquid_move_physics;
 	else
 		in_liquid_stable = false;
 
@@ -1182,12 +1172,8 @@ void LocalPlayer::handleAutojump(f32 dtime, Environment *env,
 	if (m_autojump)
 		return;
 
-	bool control_forward = control.up ||
-		(!control.up && !control.down &&
-		control.forw_move_joystick_axis < -0.05f);
-
 	bool could_autojump =
-		m_can_jump && !control.jump && !control.sneak && control_forward;
+		m_can_jump && !control.jump && !control.sneak && control.isMoving();
 
 	if (!could_autojump)
 		return;

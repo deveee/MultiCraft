@@ -90,8 +90,8 @@ void ActiveObjectMgr::removeObject(u16 id)
 }
 
 // clang-format on
-void ActiveObjectMgr::getActiveObjects(const v3f &origin, f32 max_d,
-		std::vector<DistanceSortedActiveObject> &dest)
+void ActiveObjectMgr::getActiveObjects(
+		const v3f &origin, f32 max_d, std::vector<DistanceSortedActiveObject> &dest)
 {
 	f32 max_d2 = max_d * max_d;
 	for (auto &ao_it : m_active_objects) {

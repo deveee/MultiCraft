@@ -91,8 +91,7 @@ void TestServerActiveObjectMgr::testFreeID()
 		aoids.push_back(tsao->getId());
 
 		// Ensure next id is not in registered list
-		UASSERT(std::find(aoids.begin(), aoids.end(), saomgr.getFreeId()) ==
-				aoids.end());
+		UASSERT(std::find(aoids.begin(), aoids.end(), saomgr.getFreeId()) == aoids.end());
 	}
 
 	clearSAOMgr(&saomgr);

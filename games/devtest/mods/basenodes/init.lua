@@ -347,3 +347,5 @@ minetest.register_node("basenodes:snowblock", {
 	tiles ={"default_snow.png"},
 	groups = {crumbly=3},
 })
+
+

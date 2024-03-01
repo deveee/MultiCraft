@@ -20,6 +20,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 */
 
 #include "client/hud.h"
+#include <string>
+#include <iostream>
 #include <cmath>
 #include "settings.h"
 #include "util/numeric.h"
@@ -45,11 +47,10 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define OBJECT_CROSSHAIR_LINE_SIZE 16
 #define CROSSHAIR_LINE_SIZE 16
 
-Hud::Hud(gui::IGUIEnvironment *guienv, Client *client, LocalPlayer *player,
+Hud::Hud(Client *client, LocalPlayer *player,
 		Inventory *inventory)
 {
 	driver            = RenderingEngine::get_video_driver();
-	this->guienv      = guienv;
 	this->client      = client;
 	this->player      = player;
 	this->inventory   = inventory;
@@ -224,6 +225,7 @@ void Hud::drawItem(const ItemStack &item, const core::rect<s32>& rect,
 }
 
 //NOTE: selectitem = 0 -> no selected; selectitem 1-based
+// mainlist can be NULL, but draw the frame anyway.
 void Hud::drawItems(v2s32 upperleftpos, v2s32 screen_offset, s32 itemcount,
 		s32 inv_offset, InventoryList *mainlist, u16 selectitem, u16 direction)
 {
@@ -271,7 +273,8 @@ void Hud::drawItems(v2s32 upperleftpos, v2s32 screen_offset, s32 itemcount,
 
 	// Draw items
 	core::rect<s32> imgrect(0, 0, m_hotbar_imagesize, m_hotbar_imagesize);
-	for (s32 i = inv_offset; i < itemcount && (size_t)i < mainlist->getSize(); i++) {
+	const s32 list_size = mainlist ? mainlist->getSize() : 0;
+	for (s32 i = inv_offset; i < itemcount && i < list_size; i++) {
 		s32 fullimglen = m_hotbar_imagesize + m_padding * 2;
 
 		v2s32 steppos;
@@ -316,7 +319,7 @@ bool Hud::calculateScreenPos(const v3s16 &camera_offset, HudElement *e, v2s32 *p
 {
 	v3f w_pos = e->world_pos * BS;
 	scene::ICameraSceneNode* camera =
-		RenderingEngine::get_scene_manager()->getActiveCamera();
+		client->getSceneManager()->getActiveCamera();
 	w_pos -= intToFloat(camera_offset, BS);
 	core::matrix4 trans = camera->getProjectionMatrix();
 	trans *= camera->getViewMatrix();
@@ -333,8 +336,8 @@ bool Hud::calculateScreenPos(const v3s16 &camera_offset, HudElement *e, v2s32 *p
 
 void Hud::drawLuaElements(const v3s16 &camera_offset)
 {
-	u32 text_height = g_fontengine->getTextHeight();
-	irr::gui::IGUIFont* font = g_fontengine->getFont();
+	const u32 text_height = g_fontengine->getTextHeight();
+	gui::IGUIFont *const font = g_fontengine->getFont();
 
 	// Reorder elements by z_index
 	std::vector<HudElement*> elems;
@@ -358,7 +361,6 @@ void Hud::drawLuaElements(const v3s16 &camera_offset)
 				floor(e->pos.Y * (float) m_screensize.Y + 0.5));
 		switch (e->type) {
 			case HUD_ELEM_TEXT: {
-				irr::gui::IGUIFont *textfont = font;
 				float font_size = g_fontengine->getDefaultFontSize();
 
 				if (e->size.X > 0)
@@ -366,35 +368,36 @@ void Hud::drawLuaElements(const v3s16 &camera_offset)
 				else if (e->size.Y > 0)
 					 font_size = MYMAX(font_size * (float) e->size.Y / 100, 1.0f);
 
-				if (font_size != g_fontengine->getDefaultFontSize())
-					textfont = g_fontengine->getFont(font_size);
+#ifdef __ANDROID__
+				// The text size on Android is not proportional with the actual scaling
+				// FIXME: why do we have such a weird unportable hack??
+				if (font_size > 3 && e->offset.X < -20)
+					font_size -= 3;
+#endif
+				auto textfont = g_fontengine->getFont(FontSpec(font_size,
+					(e->style & HUD_STYLE_MONO) ? FM_Mono : FM_Unspecified,
+					e->style & HUD_STYLE_BOLD, e->style & HUD_STYLE_ITALIC));
 
 				video::SColor color(255, (e->number >> 16) & 0xFF,
 										 (e->number >> 8)  & 0xFF,
 										 (e->number >> 0)  & 0xFF);
 				std::wstring text = unescape_translate(utf8_to_wide(e->text));
 				core::dimension2d<u32> textsize = textfont->getDimension(text.c_str());
-				bool below_center = ((e->scale.Y * m_scale_factor + pos.Y +
-									 (e->align.Y - 1.0) * (textsize.Height / 2) +
-									  e->offset.Y * m_scale_factor) > m_displaycenter.Y);
 
-#if defined(__ANDROID__) || defined(__IOS__)
-				// The text size on Android is not proportional with the actual scaling
-				if (below_center) {
-					font_size = MYMAX(font_size * 0.9f, 1.0f);
-					textfont = g_fontengine->getFont(font_size);
-					textsize = textfont->getDimension(text.c_str());
-				}
-#endif
-				v2s32 offset((e->align.X - 1.0) * (textsize.Width / 2),
-				             (e->align.Y - 1.0) * (textsize.Height / 2));
+				v2s32 offset(0, (e->align.Y - 1.0) * (textsize.Height / 2));
 				core::rect<s32> size(0, 0, e->scale.X * m_scale_factor,
-				                     text_height * e->scale.Y * m_scale_factor);
+						text_height * e->scale.Y * m_scale_factor);
 				v2s32 offs(e->offset.X * m_scale_factor,
-				           e->offset.Y * m_scale_factor);
-				if (below_center)
-					pos.Y -= m_hud_move_upwards;
-				textfont->draw(text.c_str(), size + pos + offset + offs, color);
+						e->offset.Y * m_scale_factor);
+				std::wstringstream wss(text);
+				std::wstring line;
+				while (std::getline(wss, line, L'\n'))
+				{
+					core::dimension2d<u32> linesize = textfont->getDimension(line.c_str());
+					v2s32 line_offset((e->align.X - 1.0) * (linesize.Width / 2), 0);
+					textfont->draw(line.c_str(), size + pos + offset + offs + line_offset, color);
+					offset.Y += linesize.Height;
+				}
 				break; }
 			case HUD_ELEM_STATBAR: {
 				v2s32 offs(e->offset.X, e->offset.Y);
@@ -403,6 +406,8 @@ void Hud::drawLuaElements(const v3s16 &camera_offset)
 				break; }
 			case HUD_ELEM_INVENTORY: {
 				InventoryList *inv = inventory->getList(e->text);
+				if (!inv)
+					warningstream << "HUD: Unknown inventory list. name=" << e->text << std::endl;
 				drawItems(pos, v2s32(e->offset.X, e->offset.Y), e->number, 0,
 					inv, e->item, e->dir);
 				break; }
@@ -483,7 +488,7 @@ void Hud::drawLuaElements(const v3s16 &camera_offset)
 
 				// Angle according to camera view
 				v3f fore(0.f, 0.f, 1.f);
-				scene::ICameraSceneNode *cam = RenderingEngine::get_scene_manager()->getActiveCamera();
+				scene::ICameraSceneNode *cam = client->getSceneManager()->getActiveCamera();
 				cam->getAbsoluteTransformation().rotateVect(fore);
 				int angle = - fore.getHorizontalAngle().Y;
 
@@ -759,7 +764,7 @@ void Hud::drawHotbar(u16 playeritem) {
 	v2s32 pos = centerlowerpos - v2s32(width / 2, m_hotbar_imagesize + m_padding * 2.4);
 	pos.Y -= m_hud_move_upwards;
 
-	const v2u32 &window_size = RenderingEngine::get_instance()->getWindowSize();
+	const v2u32 &window_size = RenderingEngine::getWindowSize();
 	if ((float) width / (float) window_size.X <=
 			g_settings->getFloat("hud_hotbar_max_width")) {
 		if (player->hud_flags & HUD_FLAG_HOTBAR_VISIBLE) {
@@ -880,6 +885,60 @@ void Hud::drawSelectionMesh()
 	}
 }
 
+enum Hud::BlockBoundsMode Hud::toggleBlockBounds()
+{
+	m_block_bounds_mode = static_cast<BlockBoundsMode>(m_block_bounds_mode + 1);
+
+	if (m_block_bounds_mode >= BLOCK_BOUNDS_MAX) {
+		m_block_bounds_mode = BLOCK_BOUNDS_OFF;
+	}
+	return m_block_bounds_mode;
+}
+
+void Hud::disableBlockBounds()
+{
+	m_block_bounds_mode = BLOCK_BOUNDS_OFF;
+}
+
+void Hud::drawBlockBounds()
+{
+	if (m_block_bounds_mode == BLOCK_BOUNDS_OFF) {
+		return;
+	}
+
+	video::SMaterial old_material = driver->getMaterial2D();
+	driver->setMaterial(m_selection_material);
+
+	v3s16 pos = player->getStandingNodePos();
+
+	v3s16 blockPos(
+		floorf((float) pos.X / MAP_BLOCKSIZE),
+		floorf((float) pos.Y / MAP_BLOCKSIZE),
+		floorf((float) pos.Z / MAP_BLOCKSIZE)
+	);
+
+	v3f offset = intToFloat(client->getCamera()->getOffset(), BS);
+
+	s8 radius = m_block_bounds_mode == BLOCK_BOUNDS_NEAR ? 2 : 0;
+
+	v3f halfNode = v3f(BS, BS, BS) / 2.0f;
+
+	for (s8 x = -radius; x <= radius; x++)
+	for (s8 y = -radius; y <= radius; y++)
+	for (s8 z = -radius; z <= radius; z++) {
+		v3s16 blockOffset(x, y, z);
+
+		aabb3f box(
+			intToFloat((blockPos + blockOffset) * MAP_BLOCKSIZE, BS) - offset - halfNode,
+			intToFloat(((blockPos + blockOffset) * MAP_BLOCKSIZE) + (MAP_BLOCKSIZE - 1), BS) - offset + halfNode
+		);
+
+		driver->draw3DBox(box, video::SColor(255, 255, 0, 0));
+	}
+
+	driver->setMaterial(old_material);
+}
+
 void Hud::updateSelectionMesh(const v3s16 &camera_offset)
 {
 	m_camera_offset = camera_offset;
@@ -926,7 +985,7 @@ void Hud::updateSelectionMesh(const v3s16 &camera_offset)
 }
 
 void Hud::resizeHotbar() {
-	const v2u32 &window_size = RenderingEngine::get_instance()->getWindowSize();
+	const v2u32 &window_size = RenderingEngine::getWindowSize();
 
 	if (m_screensize != window_size) {
 		m_hotbar_imagesize = floor(HOTBAR_IMAGE_SIZE *
@@ -963,17 +1022,24 @@ void drawItemStack(
 		return;
 	}
 
-	const bool enable_animations = client->getInvItemAnimEnabled();
+	const static thread_local bool enable_animations =
+		g_settings->getBool("inventory_items_animations");
 
 	const ItemDefinition &def = item.getDefinition(client->idef());
 
+	bool draw_overlay = false;
+
+	bool has_mesh = false;
+	ItemMesh *imesh;
+
 	// Render as mesh if animated or no inventory image
 	if ((enable_animations && rotation_kind < IT_ROT_NONE) || def.inventory_image.empty()) {
-		ItemMesh *imesh = client->idef()->getWieldMesh(def.name, client);
-		if (!imesh || !imesh->mesh)
-			return;
+		imesh = client->idef()->getWieldMesh(def.name, client);
+		has_mesh = imesh && imesh->mesh;
+	}
+	if (has_mesh) {
 		scene::IMesh *mesh = imesh->mesh;
-		driver->clearZBuffer();
+		driver->clearBuffers(video::ECBF_DEPTH);
 		s32 delta = 0;
 		if (rotation_kind < IT_ROT_NONE) {
 			MeshTimeInfo &ti = rotation_time_infos[rotation_kind];
@@ -1059,22 +1125,32 @@ void drawItemStack(
 		driver->setTransform(video::ETS_VIEW, oldViewMat);
 		driver->setTransform(video::ETS_PROJECTION, oldProjMat);
 		driver->setViewPort(oldViewPort);
+
+		draw_overlay = def.type == ITEM_NODE && def.inventory_image.empty();
 	} else { // Otherwise just draw as 2D
 		video::ITexture *texture = client->idef()->getInventoryTexture(def.name, client);
-		if (!texture)
-			return;
-		video::SColor color =
-			client->idef()->getItemstackColor(item, client);
+		video::SColor color;
+		if (texture) {
+			color = client->idef()->getItemstackColor(item, client);
+		} else {
+			color = video::SColor(255, 255, 255, 255);
+			ITextureSource *tsrc = client->getTextureSource();
+			texture = tsrc->getTexture("no_texture.png");
+			if (!texture)
+				return;
+		}
+
 		const video::SColor colors[] = { color, color, color, color };
 
 		draw2DImageFilterScaled(driver, texture, rect,
 			core::rect<s32>({0, 0}, core::dimension2di(texture->getOriginalSize())),
 			clip, colors, true);
+
+		draw_overlay = true;
 	}
 
 	// draw the inventory_overlay
-	if (def.type == ITEM_NODE && def.inventory_image.empty() &&
-			!def.inventory_overlay.empty()) {
+	if (!def.inventory_overlay.empty() && draw_overlay) {
 		ITextureSource *tsrc = client->getTextureSource();
 		video::ITexture *overlay_texture = tsrc->getTexture(def.inventory_overlay);
 		core::dimension2d<u32> dimens = overlay_texture->getOriginalSize();

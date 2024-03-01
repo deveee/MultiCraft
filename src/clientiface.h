@@ -350,9 +350,10 @@ public:
 	u8 getMinor() const { return m_version_minor; }
 	u8 getPatch() const { return m_version_patch; }
 	const std::string &getFullVer() const { return m_full_version; }
+
 	const std::string &getPlatform() const { return m_platform; }
 	const std::string &getSysInfo() const { return m_sysinfo; }
-
+	
 	void setLangCode(const std::string &code) { m_lang_code = code; }
 	const std::string &getLangCode() const { return m_lang_code; }
 
