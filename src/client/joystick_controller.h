@@ -207,6 +207,12 @@ public:
 	s16 getCameraYaw() { return m_camera_yaw; }
 	s16 getCameraPitch() { return m_camera_pitch; }
 
+	float normalize(s32 value);
+	float getMovementDirection();
+	float getMovementSpeed();
+	float getNormalizedCameraYaw();
+	float getNormalizedCameraPitch();
+
 	void setActive(bool value) { m_active = value; }
 	static bool isActive() { return m_active; }
 	void setCursorVisible(bool visible) { m_cursor_visible = visible; }

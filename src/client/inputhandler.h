@@ -333,8 +333,7 @@ public:
 			return 1.0f; // If there is a keyboard event, assume maximum speed
 		}
 #if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
-		//TODO: Handle SDL gamepad
-		return 0;
+		return sdl_game_controller.getMovementSpeed();
 #else
 		return joystick.getMovementSpeed();
 #endif
@@ -358,8 +357,7 @@ public:
 			return atan2(x, z);
 		else
 #if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
-			//TODO: Handle SDL gamepad
-			return 0;
+			return sdl_game_controller.getMovementDirection();
 #else
 			return joystick.getMovementDirection();
 #endif

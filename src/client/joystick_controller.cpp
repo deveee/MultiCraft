@@ -487,7 +487,7 @@ void SDLGameController::handleButton(const SEvent &event)
 		key = getKeySetting("keymap_sneak").getKeyCode();
 		break;
 	case SDL_CONTROLLER_BUTTON_X:
-		key = getKeySetting("keymap_special1").getKeyCode();
+		key = getKeySetting("keymap_aux1").getKeyCode();
 		break;
 	case SDL_CONTROLLER_BUTTON_Y:
 		key = getKeySetting("keymap_minimap").getKeyCode();
@@ -627,6 +627,34 @@ void SDLGameController::handleCameraOrientation(int x, int y)
 		m_camera_pitch = 0;
 	else
 		m_active = true;
+}
+
+float SDLGameController::normalize(s32 value)
+{
+	return (float)value / 32767.0f;
+}
+
+float SDLGameController::getMovementDirection()
+{
+	return atan2(normalize(getMoveSideward()), -normalize(getMoveForward()));
+}
+
+float SDLGameController::getMovementSpeed()
+{
+	float speed = sqrt(pow((float)(normalize(getMoveForward())), 2) + pow((float)(normalize(getMoveSideward())), 2));
+	if (speed > 1.0f)
+		speed = 1.0f;
+	return speed;
+}
+
+float SDLGameController::getNormalizedCameraYaw()
+{
+	return normalize(getCameraYaw());
+}
+
+float SDLGameController::getNormalizedCameraPitch()
+{
+	return normalize(getCameraPitch());
 }
 
 void SDLGameController::sendEvent(const SEvent &event)

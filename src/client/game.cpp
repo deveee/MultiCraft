@@ -2567,8 +2567,8 @@ void Game::updateCameraOrientation(CameraOrientation *cam, float dtime)
 		f32 sens_scale = getSensitivityScaleFactor();
 		f32 c = m_cache_joystick_frustum_sensitivity * dtime * sens_scale;
 #if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
-		cam->camera_yaw -= input->sdl_game_controller.getCameraYaw() * c;
-		cam->camera_pitch += input->sdl_game_controller.getCameraPitch() * c;
+		cam->camera_yaw -= input->sdl_game_controller.getNormalizedCameraYaw() * c;
+		cam->camera_pitch += input->sdl_game_controller.getNormalizedCameraPitch() * c;
 #else
 		cam->camera_yaw -= input->joystick.getAxisWithoutDead(JA_FRUSTUM_HORIZONTAL) * c;
 		cam->camera_pitch += input->joystick.getAxisWithoutDead(JA_FRUSTUM_VERTICAL) * c;
