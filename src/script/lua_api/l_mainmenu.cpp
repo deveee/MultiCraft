@@ -699,8 +699,6 @@ int ModApiMainMenu::l_is_dir(lua_State *L)
 /******************************************************************************/
 int ModApiMainMenu::l_extract_zip(lua_State *L)
 {
-	GUIEngine* engine = getGuiEngine(L);
-
 	const char *zipfile	= luaL_checkstring(L, 1);
 	const char *destination	= luaL_checkstring(L, 2);
 	const char *password = lua_isstring(L, 3) ? lua_tostring(L, 3) : "";
@@ -709,7 +707,7 @@ int ModApiMainMenu::l_extract_zip(lua_State *L)
 
 	if (ModApiMainMenu::mayModifyPath(absolute_destination)) {
 		std::string errorMessage;
-		auto fs = engine->m_rendering_engine->get_filesystem();
+		auto fs = RenderingEngine::get_raw_device()->getFileSystem();
 		bool ok = fs::extractZipFile(fs, zipfile, destination, password, &errorMessage);
 		lua_pushboolean(L, ok);
 		if (!errorMessage.empty()) {
