@@ -146,6 +146,12 @@
 		84C9A9592B228D9A00909EFF /* chacha.c in Sources */ = {isa = PBXBuildFile; fileRef = 84C9A9562B228D9A00909EFF /* chacha.c */; };
 		84DE114525D55D2400EDB067 /* event.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 84A1F9A8252E616A00000717 /* event.cpp */; };
 		84E33D882A7BBEE900609F77 /* wrapper.m in Sources */ = {isa = PBXBuildFile; fileRef = 84E33D872A7BBEE900609F77 /* wrapper.m */; };
+		84EC0D9E2B966A8D005DAD33 /* dynamicshadows.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 84EC0D9A2B966A8D005DAD33 /* dynamicshadows.cpp */; };
+		84EC0D9F2B966A8D005DAD33 /* shadowsScreenQuad.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 84EC0D9B2B966A8D005DAD33 /* shadowsScreenQuad.cpp */; };
+		84EC0DA02B966A8D005DAD33 /* dynamicshadowsrender.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 84EC0D9C2B966A8D005DAD33 /* dynamicshadowsrender.cpp */; };
+		84EC0DA12B966A8D005DAD33 /* shadowsshadercallbacks.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 84EC0D9D2B966A8D005DAD33 /* shadowsshadercallbacks.cpp */; };
+		84EC0DA42B966BB2005DAD33 /* guiPasswordChange.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 84EC0DA22B966BB2005DAD33 /* guiPasswordChange.cpp */; };
+		84EC0DA82B966CA5005DAD33 /* png.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 84EC0DA52B966CA5005DAD33 /* png.cpp */; };
 		84F0B4D72B44C800000D8546 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 84F0B4D62B44C800000D8546 /* Localizable.xcstrings */; };
 		84F0B4DA2B44CAEE000D8546 /* encryption.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 84F0B4D92B44CAEE000D8546 /* encryption.cpp */; };
 		84F20D5925D52790009562A9 /* static_text.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 84F20D5525D52790009562A9 /* static_text.cpp */; };
@@ -565,6 +571,19 @@
 		84C9A9572B228D9A00909EFF /* ecrypt-sync.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "ecrypt-sync.h"; path = "../../../lib/chacha/ecrypt-sync.h"; sourceTree = "<group>"; };
 		84E33D862A7BBEC100609F77 /* wrapper.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = wrapper.h; sourceTree = "<group>"; };
 		84E33D872A7BBEE900609F77 /* wrapper.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = wrapper.m; sourceTree = "<group>"; };
+		84EC0D962B966A8D005DAD33 /* dynamicshadowsrender.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = dynamicshadowsrender.h; sourceTree = "<group>"; };
+		84EC0D972B966A8D005DAD33 /* shadowsshadercallbacks.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = shadowsshadercallbacks.h; sourceTree = "<group>"; };
+		84EC0D982B966A8D005DAD33 /* shadowsScreenQuad.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = shadowsScreenQuad.h; sourceTree = "<group>"; };
+		84EC0D992B966A8D005DAD33 /* dynamicshadows.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = dynamicshadows.h; sourceTree = "<group>"; };
+		84EC0D9A2B966A8D005DAD33 /* dynamicshadows.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = dynamicshadows.cpp; sourceTree = "<group>"; };
+		84EC0D9B2B966A8D005DAD33 /* shadowsScreenQuad.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = shadowsScreenQuad.cpp; sourceTree = "<group>"; };
+		84EC0D9C2B966A8D005DAD33 /* dynamicshadowsrender.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = dynamicshadowsrender.cpp; sourceTree = "<group>"; };
+		84EC0D9D2B966A8D005DAD33 /* shadowsshadercallbacks.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = shadowsshadercallbacks.cpp; sourceTree = "<group>"; };
+		84EC0DA22B966BB2005DAD33 /* guiPasswordChange.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = guiPasswordChange.cpp; path = ../../../src/gui/guiPasswordChange.cpp; sourceTree = "<group>"; };
+		84EC0DA32B966BB2005DAD33 /* guiPasswordChange.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = guiPasswordChange.h; path = ../../../src/gui/guiPasswordChange.h; sourceTree = "<group>"; };
+		84EC0DA52B966CA5005DAD33 /* png.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = png.cpp; path = ../../../src/util/png.cpp; sourceTree = "<group>"; };
+		84EC0DA62B966CA5005DAD33 /* png.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = png.h; path = ../../../src/util/png.h; sourceTree = "<group>"; };
+		84EC0DA72B966CA5005DAD33 /* Optional.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Optional.h; path = ../../../src/util/Optional.h; sourceTree = "<group>"; };
 		84EEE5E62782728E00F61929 /* libintl.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libintl.a; path = ../deps/gettext/libintl.a; sourceTree = "<group>"; };
 		84F0B4D62B44C800000D8546 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		84F0B4D82B44CAEE000D8546 /* encryption.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = encryption.h; path = ../../../src/util/encryption.h; sourceTree = "<group>"; };
@@ -1004,6 +1023,8 @@
 				84F20EF125D52957009562A9 /* guiKeyChangeMenu.cpp */,
 				84F20EFF25D52958009562A9 /* guiKeyChangeMenu.h */,
 				84F20EFC25D52958009562A9 /* guiMainMenu.h */,
+				84EC0DA22B966BB2005DAD33 /* guiPasswordChange.cpp */,
+				84EC0DA32B966BB2005DAD33 /* guiPasswordChange.h */,
 				84F20EF525D52957009562A9 /* guiPathSelectMenu.cpp */,
 				84F20EDA25D52955009562A9 /* guiPathSelectMenu.h */,
 				84FD8E3326A0B04900EF2BFA /* guiScene.cpp */,
@@ -1260,6 +1281,7 @@
 		8458600924B139720040BA4F /* client */ = {
 			isa = PBXGroup;
 			children = (
+				84EC0D952B966A8D005DAD33 /* shadows */,
 				84135BA325D5268E00CA4DCF /* meshgen */,
 				84135BA425D5269800CA4DCF /* render */,
 				84135C0125D526D600CA4DCF /* activeobjectmgr.cpp */,
@@ -1419,6 +1441,9 @@
 				84F20E6425D52867009562A9 /* metricsbackend.h */,
 				84F20E5F25D52867009562A9 /* numeric.cpp */,
 				84F20E5B25D52866009562A9 /* numeric.h */,
+				84EC0DA72B966CA5005DAD33 /* Optional.h */,
+				84EC0DA52B966CA5005DAD33 /* png.cpp */,
+				84EC0DA62B966CA5005DAD33 /* png.h */,
 				84F20E7B25D52868009562A9 /* pointedthing.cpp */,
 				84F20E6325D52867009562A9 /* pointedthing.h */,
 				84F20E7E25D52868009562A9 /* pointer.h */,
@@ -1651,6 +1676,22 @@
 			name = "Supporting Files";
 			sourceTree = "<group>";
 		};
+		84EC0D952B966A8D005DAD33 /* shadows */ = {
+			isa = PBXGroup;
+			children = (
+				84EC0D962B966A8D005DAD33 /* dynamicshadowsrender.h */,
+				84EC0D972B966A8D005DAD33 /* shadowsshadercallbacks.h */,
+				84EC0D982B966A8D005DAD33 /* shadowsScreenQuad.h */,
+				84EC0D992B966A8D005DAD33 /* dynamicshadows.h */,
+				84EC0D9A2B966A8D005DAD33 /* dynamicshadows.cpp */,
+				84EC0D9B2B966A8D005DAD33 /* shadowsScreenQuad.cpp */,
+				84EC0D9C2B966A8D005DAD33 /* dynamicshadowsrender.cpp */,
+				84EC0D9D2B966A8D005DAD33 /* shadowsshadercallbacks.cpp */,
+			);
+			name = shadows;
+			path = ../../../src/client/shadows;
+			sourceTree = "<group>";
+		};
 		84F20D5B25D5279D009562A9 /* mapgen */ = {
 			isa = PBXGroup;
 			children = (
@@ -1812,6 +1853,7 @@
 				84135B6B25D5264B00CA4DCF /* mapblock.cpp in Sources */,
 				84135B8925D5264C00CA4DCF /* defaultsettings.cpp in Sources */,
 				84F20F0825D52958009562A9 /* guiButton.cpp in Sources */,
+				84EC0DA02B966A8D005DAD33 /* dynamicshadowsrender.cpp in Sources */,
 				84135C0D25D526D700CA4DCF /* clientmedia.cpp in Sources */,
 				84F20E4025D5282A009562A9 /* l_client.cpp in Sources */,
 				84135B9225D5264C00CA4DCF /* pathfinder.cpp in Sources */,
@@ -1859,6 +1901,7 @@
 				84F20EB325D528D7009562A9 /* content.cpp in Sources */,
 				84135B9325D5264C00CA4DCF /* serverlist.cpp in Sources */,
 				84135B8F25D5264C00CA4DCF /* texture_override.cpp in Sources */,
+				84EC0D9E2B966A8D005DAD33 /* dynamicshadows.cpp in Sources */,
 				84135B5F25D5264B00CA4DCF /* craftdef.cpp in Sources */,
 				84135C2A25D526D700CA4DCF /* activeobjectmgr.cpp in Sources */,
 				84135B9825D5264C00CA4DCF /* light.cpp in Sources */,
@@ -1917,6 +1960,7 @@
 				84F20E3525D5282A009562A9 /* l_http.cpp in Sources */,
 				84F20D5A25D52790009562A9 /* CGUITTFont.cpp in Sources */,
 				84F20E8D25D52868009562A9 /* base64.cpp in Sources */,
+				84EC0DA12B966A8D005DAD33 /* shadowsshadercallbacks.cpp in Sources */,
 				84A1F9BC252E617D00000717 /* scripting_client.cpp in Sources */,
 				84135B9F25D5264C00CA4DCF /* staticobject.cpp in Sources */,
 				84F20E2F25D5282A009562A9 /* l_particles_local.cpp in Sources */,
@@ -1935,6 +1979,7 @@
 				84135B7725D5264B00CA4DCF /* settings.cpp in Sources */,
 				84F20F1025D52958009562A9 /* guiVolumeChange.cpp in Sources */,
 				84135B8525D5264C00CA4DCF /* raycast.cpp in Sources */,
+				84EC0DA42B966BB2005DAD33 /* guiPasswordChange.cpp in Sources */,
 				84F20DA525D527C5009562A9 /* connection.cpp in Sources */,
 				84135C0B25D526D700CA4DCF /* clouds.cpp in Sources */,
 				84135C1625D526D700CA4DCF /* renderingengine.cpp in Sources */,
@@ -1955,6 +2000,7 @@
 				84135C1525D526D700CA4DCF /* joystick_controller.cpp in Sources */,
 				84135B7D25D5264C00CA4DCF /* translation.cpp in Sources */,
 				84135B7F25D5264C00CA4DCF /* version.cpp in Sources */,
+				84EC0D9F2B966A8D005DAD33 /* shadowsScreenQuad.cpp in Sources */,
 				84F20F0C25D52958009562A9 /* guiAnimatedImage.cpp in Sources */,
 				84135C1A25D526D700CA4DCF /* clientmap.cpp in Sources */,
 				84F20F0125D52958009562A9 /* guiInventoryList.cpp in Sources */,
@@ -1980,6 +2026,7 @@
 				84135B9925D5264C00CA4DCF /* objdef.cpp in Sources */,
 				84F20E3B25D5282A009562A9 /* l_mainmenu.cpp in Sources */,
 				84F20E3F25D5282A009562A9 /* l_modchannels.cpp in Sources */,
+				84EC0DA82B966CA5005DAD33 /* png.cpp in Sources */,
 				84135C1C25D526D700CA4DCF /* camera.cpp in Sources */,
 				84135C1D25D526D700CA4DCF /* sound_openal.cpp in Sources */,
 				84F20DDA25D52812009562A9 /* s_item.cpp in Sources */,
