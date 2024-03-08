@@ -18,7 +18,6 @@
 -- cf. tab_local, the gamebar already provides game selection so we hide the list from here
 local hide_gamelist = PLATFORM ~= "Android"
 
-local worldname = ""
 local dropdown_open = false
 
 local function table_to_flags(ftable)
@@ -31,6 +30,9 @@ local function table_to_flags(ftable)
 end
 
 -- Same as check_flag but returns a string
+local function strflag(flags, flag)
+	return (flags[flag] == true) and "true" or "false"
+end
 
 local cb_caverns = { "caverns", fgettext("Caverns"),
 	fgettext("Very large caverns deep in the underground") }
@@ -203,10 +205,10 @@ local function create_world_formspec(dialogdata)
 			return "", y
 		end
 
-		local form = checkbox(0, y, "flag_mg_caves", fgettext("Caves"), flags.main.caves)
+		local form = checkbox(0, y, "flag_main_caves", fgettext("Caves"), flags.main.caves)
 		y = y + 0.575
 
-		form = form .. checkbox(0, y, "flag_mg_dungeons", fgettext("Dungeons"), flags.main.dungeons)
+		form = form .. checkbox(0, y, "flag_main_dungeons", fgettext("Dungeons"), flags.main.dungeons)
 		y = y + 0.575
 
 		local d_name = fgettext("Decorations")
@@ -216,7 +218,7 @@ local function create_world_formspec(dialogdata)
 		else
 			d_tt = fgettext("Structures appearing on the terrain, typically trees and plants")
 		end
-		form = form .. checkbox(0, y, "flag_mg_decorations", d_name, flags.main.decorations) ..
+		form = form .. checkbox(0, y, "flag_main_decorations", d_name, flags.main.decorations) ..
 			"tooltip[flag_mg_decorations;" ..
 			d_tt ..
 			"]"
@@ -263,7 +265,7 @@ local function create_world_formspec(dialogdata)
 		end
 		y = y + 0.345
 
-		form = form .. "label[0,"..(y+0.11)..";" .. fgettext("Biomes") .. ":]"
+		form = form .. "label[0,"..(y+0.11)..";" .. fgettext("Biomes") .. "]"
 		y = y + 0.69
 
 		form = form .. "dropdown[0,"..y..";6.3;mgv6_biomes;"
@@ -277,8 +279,8 @@ local function create_world_formspec(dialogdata)
 
 		-- biomeblend
 		y = y + 0.6325
-		form = form .. checkbox(0, y, "flag_mgv6_biomeblend",
-			fgettext("Biome blending"), flags.v6.biomeblend) ..
+		form = form .. checkbox(0, y, "flag_v6_biomeblend",
+-			fgettext("Biome blending"), flags.v6.biomeblend) ..
 			"tooltip[flag_v6_biomeblend;" ..
 			fgettext("Smooth transition between biomes") .. "]"
 
@@ -292,13 +294,13 @@ local function create_world_formspec(dialogdata)
 	y = y + 0.5
 	str_flags, y = mg_main_flags(current_mg, y)
 	if str_flags ~= "" then
-		label_flags = "label[0,"..y_start..";" .. fgettext("Mapgen flags") .. ":]"
+		label_flags = "label[0,"..y_start..";" .. fgettext("Mapgen flags") .. "]"
 		y_start = y + 0.5
 	end
 	y = y_start + 0.5
 	str_spflags = mg_specific_flags(current_mg, y)
 	if str_spflags ~= "" then
-		label_spflags = "label[0,"..y_start..";" .. fgettext("Mapgen-specific flags") .. ":]"
+		label_spflags = "label[0,"..y_start..";" .. fgettext("Mapgen-specific flags") .. "]"
 	end
 
 	-- Warning if only devtest is installed
@@ -325,14 +327,14 @@ local function create_world_formspec(dialogdata)
 		"style[te_world_name;border=false;bgcolor=transparent]" ..
 		"field[0.42,0.6;7.18,0.8;te_world_name;" ..
 		fgettext("World name") ..
-		":;" .. core.formspec_escape(worldname) .. "]" ..
+		";" .. core.formspec_escape(dialogdata.worldname) .. "]" ..
 		"set_focus[te_world_name;false]" ..
 
 		"image[0.37,1.9;7.28,0.8;" .. defaulttexturedir_esc .. "field_bg.png;32]" ..
 		"style[te_seed;border=false;bgcolor=transparent]" ..
 		"field[0.42,1.9;7.18,0.8;te_seed;" ..
 		fgettext("Seed") ..
-		":;".. core.formspec_escape(dialogdata.seed) .. "]"
+		";".. core.formspec_escape(dialogdata.seed) .. "]"
 
 	if not hide_gamelist or devtest_only ~= "" then
 		retval = retval ..
@@ -419,13 +421,19 @@ local function create_world_buttonhandler(this, fields)
 			if fields["te_seed"] then
 				this.data.seed = fields["te_seed"]
 			end
-			this.data.mg = fields["dd_mapgen"]
+			
+			local name = this.data.mg
+			local flags = table_to_flags(this.data.flags.main)
+			if name == "superflat" then
+				name = "flat"
+				flags = "nocaves,nodungeons,nodecorations"
+			end
 
 			-- actual names as used by engine
 			local settings = {
 				fixed_map_seed = this.data.seed,
-				mg_name = this.data.mg,
-				mg_flags = table_to_flags(this.data.flags.main),
+				mg_name = name,
+				mg_flags = flags,
 				mgv5_spflags = table_to_flags(this.data.flags.v5),
 				mgv6_spflags = table_to_flags(this.data.flags.v6),
 				mgv7_spflags = table_to_flags(this.data.flags.v7),
@@ -492,6 +500,7 @@ local function create_world_buttonhandler(this, fields)
 			local new_mapgen = this.data.mapgens[tonumber(field:sub(10))]
 			if new_mapgen then
 				core.settings:set("mg_name", new_mapgen)
+				this.data.mg = new_mapgen
 			end
 			return true
 		end
@@ -514,7 +523,6 @@ end
 
 
 function create_create_world_dlg(update_worldlistfilter)
-	worldname = ""
 	local retval = dialog_create("sp_create_world",
 					create_world_formspec,
 					create_world_buttonhandler,
