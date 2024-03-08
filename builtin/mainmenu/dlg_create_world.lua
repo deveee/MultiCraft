@@ -16,7 +16,9 @@
 --51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 -- cf. tab_local, the gamebar already provides game selection so we hide the list from here
-local hide_gamelist = PLATFORM ~= "Android"
+
+--local hide_gamelist = PLATFORM ~= "Android"
+local hide_gamelist = false
 
 local dropdown_open = false
 
