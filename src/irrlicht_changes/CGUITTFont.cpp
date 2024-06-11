@@ -34,6 +34,241 @@
 #include <iostream>
 #include "CGUITTFont.h"
 
+
+
+
+
+// From https://github.com/tmiddelkoop/ImageResize/blob/master/ResizeImage/ResizeImage.cpp
+
+#include <cmath>
+#include <algorithm>
+
+class CResizeImage
+{
+	public:
+		CResizeImage(unsigned char *buffer, int width, int height, unsigned char *new_buffer, int new_width, int new_height);
+		void Resize(void);
+
+	private:
+		int m_width;
+		int m_new_width;
+		int m_height; 
+		int m_new_height;
+		int m_bpp; 
+		int m_new_bpp;
+
+		float fx, fy;
+		int rowsize, newrowsize;
+
+		unsigned char *m_buffer;
+		unsigned char *m_new_buffer;
+
+		void ScaleDown(void);
+		void ScaleDownPreCalculate(int* &ixA, float* &dxA, int* &nrxA, float* &dxB);
+
+		int CalculateRowSize(int bpp, int width);
+
+		static float *togamma;
+		static unsigned char *fromgamma;
+		static void InitGamma(void);
+};
+
+
+const int GAMMASIZE = 200000;
+
+
+CResizeImage::CResizeImage(unsigned char *buffer, int width, int height, unsigned char *new_buffer, int new_width, int new_height)
+{
+	m_width = width;
+	m_height = height;
+	m_new_width = new_width;
+	m_new_height = new_height;
+	m_buffer = buffer;
+	m_new_buffer = new_buffer;
+	m_bpp = 4;
+	m_new_bpp = 4;
+
+	InitGamma();
+}
+
+void CResizeImage::Resize()
+{
+	fx = (float)m_width / m_new_width;
+	fy = (float)m_height / m_new_height;
+
+	rowsize = CalculateRowSize(m_bpp, m_width);
+	newrowsize = CalculateRowSize(m_new_bpp, m_new_width);
+
+	if (fx > 1.0 || fy > 1.0)
+		ScaleDown();
+}
+
+void CResizeImage::ScaleDown()
+{
+	int nrrows = (int)ceil(fy + 1.0f);
+	unsigned char **rows = new unsigned char *[nrrows];
+	float *dxA, *dxB, *dyA = new float[nrrows];
+	int *ixA, *iyA = new int[nrrows], *nrxA;
+	unsigned char *newline = m_new_buffer, *c1, *c2;
+	float starty, endy = 0.0f, dy, diffY;
+	int pos, nrx, nrx1, nry, t3, t6;
+	float sum1, sum2, sum3, sum4, f, area;
+
+	ScaleDownPreCalculate(ixA, dxA, nrxA, dxB);
+
+	for (int t1 = 0; t1 < m_new_height; t1++)
+	{
+		pos = t1 * fy;
+		t3 = pos + nrrows < m_height + 1 ? 0 : pos - m_height + 1;
+
+		for (int t2 = 0; t2 < nrrows + t3; t2++)
+		{
+			rows[t2] = m_buffer + (pos + t2) * rowsize;
+		}
+
+		starty = t1 * fy - pos;
+		endy = (t1 + 1) * fy - pos + t3;
+		diffY = endy - starty;
+		nry = 0;
+
+		for (float y = starty; y < endy; y = floor(y + 1.0f))
+		{
+			iyA[nry] = (int)y;
+			if (endy - y > 1.0f)
+				dyA[nry] = floor(y + 1.0f) - y;
+			else
+				dyA[nry] = endy - y;
+
+			nry++;
+		}
+
+		nrx = 0;
+		t6 = 0;
+
+		for (int t2 = 0; t2 < m_new_width; t2++)
+		{
+			t3 = nrxA[t2];
+			area = (1.0f / (dxB[t2] * diffY)) * GAMMASIZE;
+			sum1 = sum2 = sum3 = sum4 = 0.0f;
+
+			for (int t4 = 0; t4 < nry; t4++)
+			{
+				c1 = rows[iyA[t4]];
+				dy = dyA[t4];
+
+				nrx1 = nrx;
+
+				for (int t5 = 0; t5 < t3; t5++)
+				{
+					f = dxA[nrx1] * dy;
+					c2 = c1 + ixA[nrx1];
+
+					sum1 += togamma[c2[0]] * f;
+					sum2 += togamma[c2[1]] * f;
+					sum3 += togamma[c2[2]] * f;
+					sum4 += togamma[c2[3]] * f;
+
+					nrx1++;
+				}
+			}
+			
+			newline[t6 + 0] = fromgamma[(int)(sum1 * area)];
+			newline[t6 + 1] = fromgamma[(int)(sum2 * area)];
+			newline[t6 + 2] = fromgamma[(int)(sum3 * area)];
+			newline[t6 + 3] = fromgamma[(int)(sum4 * area)];
+
+			nrx += t3;
+			t6  += m_new_bpp;
+		}
+
+		newline += newrowsize;
+	}
+
+	delete[] rows;
+	delete[] nrxA;
+	delete[] ixA;
+	delete[] iyA;
+	delete[] dxA;
+	delete[] dyA;
+	delete[] dxB;
+}
+
+void CResizeImage::ScaleDownPreCalculate(int* &ixA, float* &dxA, int* &nrxA, float* &dxB)
+{
+	int nrcols = (int)ceil(fx + 1.0f);
+	int nrx = 0, nrx1 = 0;
+	float startx = 0.0f;
+	float endx = fx;
+
+	dxA = new float[nrcols * m_new_width];
+	dxB = new float[m_new_width];
+	ixA = new int[nrcols * m_new_width];
+	nrxA = new int[m_new_width];
+
+	for (int t1 = 0; t1 < m_new_width; t1++)
+	{
+		endx = endx < m_width + 1 ? endx : endx - m_width + 1;
+
+		for (float x = startx; x < endx; x = floor(x + 1.0f))
+		{
+			ixA[nrx] = (int)x * m_bpp;
+
+			if (endx - x > 1.0f)
+				dxA[nrx] = floor(x + 1.0f) - x;
+			else
+				dxA[nrx] = endx - x;
+
+			nrx++;
+		}
+
+		if (t1 > 0)
+			nrxA[t1] = nrx - nrx1;
+		else
+			nrxA[t1] = nrx;
+
+		nrx1 = nrx;
+
+		dxB[t1] = endx - startx;
+
+		startx = endx;
+		endx += fx;
+	}
+}
+
+int CResizeImage::CalculateRowSize(int bpp, int width)
+{
+	int rowsize = bpp * width;
+
+	return rowsize + ((rowsize % 4 > 0) ? 4 - (rowsize % 4) : 0);
+}
+
+float *CResizeImage::togamma = NULL;
+unsigned char *CResizeImage::fromgamma = NULL;
+
+void CResizeImage::InitGamma(void)
+{
+	if (togamma != NULL && fromgamma != NULL)
+		return;
+
+	togamma = new float[256];
+
+	for (int i1 = 0; i1 < 256; i1++)
+		togamma[i1] = (float)pow(i1 / 255.0, 2.2);
+
+	fromgamma = new unsigned char[GAMMASIZE + 50000];
+
+    for (int i2 = 0; i2 < GAMMASIZE + 1; i2++)
+		fromgamma[i2] = (unsigned char)(pow((double)i2 / GAMMASIZE, 1 / 2.2) * 255);
+
+	// In case of overflow
+	for (int i3 = GAMMASIZE + 1; i3 < GAMMASIZE + 50000; i3++)
+		fromgamma[i3] = 255;
+}
+
+
+
+
+
 namespace irr
 {
 namespace gui
@@ -187,26 +422,38 @@ video::IImage* SGUITTGlyph::createGlyphImage(const FT_Face& face, const FT_Bitma
 				std::memcpy((void*)(&image_data[y * image_pitch]), glyph_data, bits.width * 4);
 				glyph_data += bits.pitch;
 			}
-			image->unlock();
 
+			image->unlock();
+			
 			if (needs_scaling) {
 				float scale = (float)font_size / bits.rows;
 
 				core::dimension2du d_new(bits.width * scale, bits.rows * scale);
 
 				irr::video::IImage* scaled_img = driver->createImage(video::ECF_A8R8G8B8, d_new);
-				image->copyToScalingBoxFilter(scaled_img);
+				scaled_img->fill(video::SColor(0, 255, 255, 255));
+				
+				u8* scaled_image_data = (u8*)scaled_img->getData();
+				
+				CResizeImage *resize = new CResizeImage(bits.buffer, bits.width, bits.rows, scaled_image_data, d_new.Width, d_new.Height);
+				resize->Resize();
+				delete resize;
+				
 				image->drop();
 				image = scaled_img;
+				
+				//~ image->copyToScalingBoxFilter(scaled_img);
+				//~ image->drop();
+				//~ image = scaled_img;
 
-				core::dimension2du d_new_optimal = d_new.getOptimalSize(!driver->queryFeature(video::EVDF_TEXTURE_NPOT), !driver->queryFeature(video::EVDF_TEXTURE_NSQUARE), true, 0);
+				//~ core::dimension2du d_new_optimal = d_new.getOptimalSize(!driver->queryFeature(video::EVDF_TEXTURE_NPOT), !driver->queryFeature(video::EVDF_TEXTURE_NSQUARE), true, 0);
 
-				if (d_new != d_new_optimal) {
-					irr::video::IImage* scaled_optimal = driver->createImage(video::ECF_A8R8G8B8, d_new_optimal);
-					image->copyTo(scaled_optimal, core::position2di(0, 0));
-					image->drop();
-					image = scaled_optimal;
-				}
+				//~ if (d_new != d_new_optimal) {
+					//~ irr::video::IImage* scaled_optimal = driver->createImage(video::ECF_A8R8G8B8, d_new_optimal);
+					//~ image->copyTo(scaled_optimal, core::position2di(0, 0));
+					//~ image->drop();
+					//~ image = scaled_optimal;
+				//~ }
 			}
 
 			break;
