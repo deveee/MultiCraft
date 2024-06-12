@@ -34,6 +34,8 @@
 #include <iostream>
 #include "CGUITTFont.h"
 
+#include <SDL.h>
+
 namespace irr
 {
 namespace gui
@@ -195,7 +197,20 @@ video::IImage* SGUITTGlyph::createGlyphImage(const FT_Face& face, const FT_Bitma
 				core::dimension2du d_new(bits.width * scale, bits.rows * scale);
 
 				irr::video::IImage* scaled_img = driver->createImage(video::ECF_A8R8G8B8, d_new);
-				image->copyToScalingBoxFilter(scaled_img);
+				scaled_img->fill(video::SColor(0, 255, 255, 255));
+				u8 *scaled_img_data = (u8*)scaled_img->getData();
+				
+				SDL_Surface *surface_in = SDL_CreateRGBSurfaceWithFormatFrom(bits.buffer, bits.width, bits.rows, 8, bits.pitch, SDL_PIXELFORMAT_ARGB8888);
+				SDL_Surface *surface_out = SDL_CreateRGBSurfaceWithFormatFrom(scaled_img_data, d_new.Width, d_new.Height, 8, d_new.Width * 4, SDL_PIXELFORMAT_ARGB8888);
+				
+				SDL_SetSurfaceBlendMode(surface_in , SDL_BLENDMODE_NONE);
+				SDL_SetSurfaceBlendMode(surface_out, SDL_BLENDMODE_NONE);
+				
+				SDL_BlitScaled(surface_in, NULL, surface_out, NULL);
+				
+				SDL_FreeSurface(surface_in);
+				SDL_FreeSurface(surface_out);
+
 				image->drop();
 				image = scaled_img;
 
