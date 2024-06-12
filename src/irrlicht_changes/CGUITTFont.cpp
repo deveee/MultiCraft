@@ -33,6 +33,8 @@
 #include <cstring>
 #include <iostream>
 #include "CGUITTFont.h"
+#include "img.h"
+#include "imgresize.h"
 
 namespace irr
 {
@@ -195,7 +197,19 @@ video::IImage* SGUITTGlyph::createGlyphImage(const FT_Face& face, const FT_Bitma
 				core::dimension2du d_new(bits.width * scale, bits.rows * scale);
 
 				irr::video::IImage* scaled_img = driver->createImage(video::ECF_A8R8G8B8, d_new);
-				image->copyToScalingBoxFilter(scaled_img);
+				u8* scaled_image_data = (u8*)scaled_img->getData();
+				
+				
+                imReduceOptions options;
+                imReduceSetOptions(&options, IM_REDUCE_FILTER_LINEAR/*filter*/,
+                    3/*hopcount*/, 2.0f/*alpha*/, 1.0f/*amplifynormal*/,
+                    0.0f/*normalsustainfactor*/);
+                imReduceImageKaiserData(scaled_image_data,
+                    bits.buffer, bits.width, bits.rows, 4,
+                    bits.pitch, d_new.Width , d_new.Height,
+                    &options);
+				
+				
 				image->drop();
 				image = scaled_img;
 
