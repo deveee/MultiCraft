@@ -4,7 +4,7 @@
 mkdir -p deps; cd deps
 
 [ ! -d irrlicht-src ] && \
-	git clone --depth 1 -b SDL2 https://github.com/MoNTE48/Irrlicht irrlicht-src
+	git clone --depth 1 -b metalangle https://github.com/deveee/Irrlicht irrlicht-src
 
 rm -rf irrlicht
 
@@ -12,7 +12,7 @@ cd irrlicht-src/source/Irrlicht
 
 xcodebuild build \
 	 ARCHS="$OSX_ARCHES" \
-	 OTHER_CFLAGS="-I../../../libpng/include -I../../../libjpeg/include" \
+	 OTHER_CFLAGS="-I../../../libpng/include -I../../../libjpeg/include -I../../../MetalANGLE/include" \
 	-project Irrlicht.xcodeproj \
 	-configuration Release \
 	-scheme Irrlicht_OSX
@@ -27,5 +27,6 @@ cd ../..
 mkdir -p ../irrlicht
 cp -v "${BUILD_FOLDER}/libIrrlicht.a" ../irrlicht
 cp -rv include ../irrlicht/include
+cp -rv media/Shaders ../irrlicht/shaders
 
 echo "Irrlicht build successful"

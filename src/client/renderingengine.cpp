@@ -113,11 +113,11 @@ RenderingEngine::RenderingEngine(IEventReceiver *receiver)
 	bool stereo_buffer = g_settings->get("3d_mode") == "pageflip";
 
 	// Determine driver
-#if !defined(__ANDROID__) && !defined(__IOS__)
-	video::E_DRIVER_TYPE driverType = video::EDT_OPENGL;
-#else
+//#if !defined(__ANDROID__) && !defined(__IOS__)
+//	video::E_DRIVER_TYPE driverType = video::EDT_OPENGL;
+//#else
 	video::E_DRIVER_TYPE driverType = video::EDT_OGLES2;
-#endif
+//#endif
 	const std::string &driverstring = g_settings->get("video_driver");
 	std::vector<video::E_DRIVER_TYPE> drivers =
 			RenderingEngine::getSupportedVideoDrivers();
@@ -879,7 +879,9 @@ float RenderingEngine::getDisplayDensity()
 
 v2u32 RenderingEngine::getDisplaySize()
 {
-	IrrlichtDevice *nulldevice = createDevice(video::EDT_NULL);
+	return v2u32(0, 0);
+
+	IrrlichtDevice *nulldevice = createDevice(video::EDT_NULL);	
 
 	core::dimension2d<u32> deskres =
 			nulldevice->getVideoModeList()->getDesktopResolution();

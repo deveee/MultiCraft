@@ -110,7 +110,6 @@
 		841AD8B128D0DE430042E335 /* libogg.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 841AD8B028D0DE3D0042E335 /* libogg.a */; };
 		841AD8B528D0E23A0042E335 /* libvorbis.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 841AD8B428D0E2340042E335 /* libvorbis.a */; };
 		841AD8B928D0E2EA0042E335 /* libvorbisfile.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 841AD8B828D0E2E40042E335 /* libvorbisfile.a */; };
-		841AD8BA28D12E7C0042E335 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 84585C0424B134850040BA4F /* OpenGL.framework */; };
 		841AD8BB28D12E980042E335 /* libintl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 84EEE5E62782728E00F61929 /* libintl.a */; };
 		84287CA6291ED0F000E30F96 /* locale in Resources */ = {isa = PBXBuildFile; fileRef = 84287CA4291ED0F000E30F96 /* locale */; };
 		844436EF28DA80C700662A9D /* libfreetype.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 844436EE28DA80C100662A9D /* libfreetype.a */; };
@@ -142,6 +141,9 @@
 		84A1F9BD252E617D00000717 /* scripting_server.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 84A1F9B9252E617D00000717 /* scripting_server.cpp */; };
 		84BE974328CA1291004E8CEC /* GameController.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 84BE974228CA1291004E8CEC /* GameController.framework */; };
 		84BE974528CA129C004E8CEC /* CoreHaptics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 84BE974428CA129C004E8CEC /* CoreHaptics.framework */; };
+		84BECD7B2C22442700CCDB68 /* libMetalANGLE_static_mac.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 84BECD7A2C22441100CCDB68 /* libMetalANGLE_static_mac.a */; };
+		84BECD802C24E8C800CCDB68 /* thread.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 84BECD7C2C24E8C800CCDB68 /* thread.cpp */; };
+		84BECD812C24E8C800CCDB68 /* semaphore.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 84BECD7F2C24E8C800CCDB68 /* semaphore.cpp */; };
 		84C2AB5328DA7776001968EE /* libpng.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 84C2AB5228DA7770001968EE /* libpng.a */; };
 		84C9A9592B228D9A00909EFF /* chacha.c in Sources */ = {isa = PBXBuildFile; fileRef = 84C9A9562B228D9A00909EFF /* chacha.c */; };
 		84DE114525D55D2400EDB067 /* event.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 84A1F9A8252E616A00000717 /* event.cpp */; };
@@ -514,7 +516,7 @@
 		84287CA4291ED0F000E30F96 /* locale */ = {isa = PBXFileReference; lastKnownFileType = folder; name = locale; path = ../../assets/locale; sourceTree = "<group>"; };
 		84287CA5291ED0F000E30F96 /* fonts */ = {isa = PBXFileReference; lastKnownFileType = folder; name = fonts; path = ../../assets/fonts; sourceTree = "<group>"; };
 		844436EE28DA80C100662A9D /* libfreetype.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libfreetype.a; path = ../deps/freetype/libfreetype.a; sourceTree = "<group>"; };
-		8453A49D24DB22F00087ECF9 /* client */ = {isa = PBXFileReference; lastKnownFileType = folder; name = client; path = ../../../client; sourceTree = "<group>"; };
+		8453A49D24DB22F00087ECF9 /* client */ = {isa = PBXFileReference; lastKnownFileType = folder; name = client; path = ../../assets/client; sourceTree = "<group>"; };
 		845856A924B1322C0040BA4F /* MultiCraft.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MultiCraft.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		845856B224B1322D0040BA4F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		845856B724B1322D0040BA4F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -557,6 +559,11 @@
 		84A1F9BA252E617D00000717 /* scripting_server.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = scripting_server.h; path = ../../../src/script/scripting_server.h; sourceTree = "<group>"; };
 		84BE974228CA1291004E8CEC /* GameController.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GameController.framework; path = System/Library/Frameworks/GameController.framework; sourceTree = SDKROOT; };
 		84BE974428CA129C004E8CEC /* CoreHaptics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreHaptics.framework; path = System/Library/Frameworks/CoreHaptics.framework; sourceTree = SDKROOT; };
+		84BECD7A2C22441100CCDB68 /* libMetalANGLE_static_mac.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libMetalANGLE_static_mac.a; path = ../deps/MetalANGLE/libMetalANGLE_static_mac.a; sourceTree = "<group>"; };
+		84BECD7C2C24E8C800CCDB68 /* thread.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = thread.cpp; path = ../../../src/threading/thread.cpp; sourceTree = "<group>"; };
+		84BECD7D2C24E8C800CCDB68 /* thread.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = thread.h; path = ../../../src/threading/thread.h; sourceTree = "<group>"; };
+		84BECD7E2C24E8C800CCDB68 /* semaphore.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = semaphore.h; path = ../../../src/threading/semaphore.h; sourceTree = "<group>"; };
+		84BECD7F2C24E8C800CCDB68 /* semaphore.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = semaphore.cpp; path = ../../../src/threading/semaphore.cpp; sourceTree = "<group>"; };
 		84C2AB5228DA7770001968EE /* libpng.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libpng.a; path = ../deps/libpng/libpng.a; sourceTree = "<group>"; };
 		84C9A9532B228D9A00909EFF /* ecrypt-portable.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "ecrypt-portable.h"; path = "../../../lib/chacha/ecrypt-portable.h"; sourceTree = "<group>"; };
 		84C9A9542B228D9A00909EFF /* ecrypt-config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "ecrypt-config.h"; path = "../../../lib/chacha/ecrypt-config.h"; sourceTree = "<group>"; };
@@ -869,6 +876,7 @@
 				84BE974528CA129C004E8CEC /* CoreHaptics.framework in Frameworks */,
 				8495BD2828B810AD009FCF4D /* CoreVideo.framework in Frameworks */,
 				8495BD1E28B80F0B009FCF4D /* ForceFeedback.framework in Frameworks */,
+				84BECD7B2C22442700CCDB68 /* libMetalANGLE_static_mac.a in Frameworks */,
 				84463B9124B258AF0099DFBD /* Foundation.framework in Frameworks */,
 				84BE974328CA1291004E8CEC /* GameController.framework in Frameworks */,
 				84463B9324B258B00099DFBD /* IOKit.framework in Frameworks */,
@@ -886,7 +894,6 @@
 				8495BD1628B80B14009FCF4D /* libSDL2.a in Frameworks */,
 				841AD8B528D0E23A0042E335 /* libvorbis.a in Frameworks */,
 				841AD8B928D0E2EA0042E335 /* libvorbisfile.a in Frameworks */,
-				841AD8BA28D12E7C0042E335 /* OpenGL.framework in Frameworks */,
 				848CE6E527778E38001D3E0F /* libz.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1067,6 +1074,7 @@
 		84585BFF24B1347B0040BA4F /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				84BECD7A2C22441100CCDB68 /* libMetalANGLE_static_mac.a */,
 				8458617724B1BF2D0040BA4F /* AppKit.framework */,
 				841AD8AC28D0D6920042E335 /* AudioUnit.framework */,
 				8495BD2928B81170009FCF4D /* Carbon.framework */,
@@ -1483,6 +1491,10 @@
 		84A1F9A5252E615B00000717 /* threading */ = {
 			isa = PBXGroup;
 			children = (
+				84BECD7F2C24E8C800CCDB68 /* semaphore.cpp */,
+				84BECD7E2C24E8C800CCDB68 /* semaphore.h */,
+				84BECD7C2C24E8C800CCDB68 /* thread.cpp */,
+				84BECD7D2C24E8C800CCDB68 /* thread.h */,
 				84A1F9A8252E616A00000717 /* event.cpp */,
 				84A1F9AE252E616B00000717 /* event.h */,
 				84A1F9A7252E616A00000717 /* mutex_auto_lock.h */,
@@ -1888,6 +1900,7 @@
 				84F20E2925D5282A009562A9 /* l_sound.cpp in Sources */,
 				84F20DB525D527D8009562A9 /* helper.cpp in Sources */,
 				84F20E5125D5283F009562A9 /* serverinventorymgr.cpp in Sources */,
+				84BECD812C24E8C800CCDB68 /* semaphore.cpp in Sources */,
 				84135C2525D526D700CA4DCF /* imagefilters.cpp in Sources */,
 				84135C1325D526D700CA4DCF /* clientlauncher.cpp in Sources */,
 				84F20EB025D528D7009562A9 /* subgames.cpp in Sources */,
@@ -1957,6 +1970,7 @@
 				84135C1525D526D700CA4DCF /* joystick_controller.cpp in Sources */,
 				84135B7D25D5264C00CA4DCF /* translation.cpp in Sources */,
 				84135B7F25D5264C00CA4DCF /* version.cpp in Sources */,
+				84BECD802C24E8C800CCDB68 /* thread.cpp in Sources */,
 				84F20F0C25D52958009562A9 /* guiAnimatedImage.cpp in Sources */,
 				84135C1A25D526D700CA4DCF /* clientmap.cpp in Sources */,
 				84F20F0125D52958009562A9 /* guiInventoryList.cpp in Sources */,
@@ -2156,6 +2170,7 @@
 					"VERSION_MINOR=0",
 					"VERSION_PATCH=7",
 					"VERSION_EXTRA=\"\"",
+					"ENABLE_GLES=1",
 					"DEVELOPMENT_BUILD=1",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
@@ -2176,6 +2191,7 @@
 					"${SRCROOT}/../deps/libpng/include",
 					"${SRCROOT}/../deps/SDL2/include",
 					"${SRCROOT}/../deps/libvorbis/include",
+					"${SRCROOT}/../deps/MetalANGLE/include",
 				);
 				INFOPLIST_FILE = MultiCraft/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = MultiCraft;
@@ -2197,6 +2213,7 @@
 					"-L${SRCROOT}/../deps/libpng",
 					"-L${SRCROOT}/../deps/SDL2",
 					"-L${SRCROOT}/../deps/libvorbis",
+					"-L${SRCROOT}/../deps/MetalANGLE",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = mobi.MultiCraft;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -2232,6 +2249,7 @@
 					"VERSION_PATCH=7",
 					"VERSION_EXTRA=\"\"",
 					"DEVELOPMENT_BUILD=0",
+					"ENABLE_GLES=1",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
@@ -2251,6 +2269,7 @@
 					"${SRCROOT}/../deps/libpng/include",
 					"${SRCROOT}/../deps/SDL2/include",
 					"${SRCROOT}/../deps/libvorbis/include",
+					"${SRCROOT}/../deps/MetalANGLE/include",
 				);
 				INFOPLIST_FILE = MultiCraft/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = MultiCraft;
@@ -2272,6 +2291,7 @@
 					"-L${SRCROOT}/../deps/libpng",
 					"-L${SRCROOT}/../deps/SDL2",
 					"-L${SRCROOT}/../deps/libvorbis",
+					"-L${SRCROOT}/../deps/MetalANGLE",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = mobi.MultiCraft;
 				PRODUCT_NAME = "$(TARGET_NAME)";
