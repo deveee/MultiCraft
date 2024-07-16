@@ -180,12 +180,16 @@ SoundBuffer *load_ogg_from_file(const std::string &path)
 {
 	OggVorbis_File oggFile;
 
-	// Try opening the given file.
-	// This requires libvorbis >= 1.3.2, as
-	// previous versions expect a non-const char *
-	if (ov_fopen(path.c_str(), &oggFile) != 0) {
+	FILE *file_ptr = fopen(path.c_str(), "rb");
+
+	if (!file_ptr) {
+		return nullptr;
+	}
+
+	if (ov_open(file_ptr, &oggFile, NULL, 0) != 0) {
 		infostream << "Audio: Error opening " << path
 			<< " for decoding" << std::endl;
+		fclose(file_ptr);
 		return nullptr;
 	}
 

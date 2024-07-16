@@ -6,6 +6,8 @@
 #  VORBIS_LIBRARIES   - List of libraries when using vorbis(file).
 #  VORBIS_FOUND       - True if vorbis found.
 
+set(GP2XWIZ 1)
+
 if(NOT GP2XWIZ)
     if(VORBIS_INCLUDE_DIR)
         # Already in cache, be silent
@@ -24,10 +26,14 @@ if(NOT GP2XWIZ)
         OGG_INCLUDE_DIR VORBIS_INCLUDE_DIR
         OGG_LIBRARY VORBIS_LIBRARY VORBISFILE_LIBRARY)
 else(NOT GP2XWIZ)
+    find_path(OGG_INCLUDE_DIR ogg/ogg.h)
+    find_library(OGG_LIBRARY NAMES ogg ogg_static)
     find_path(VORBIS_INCLUDE_DIR tremor/ivorbisfile.h)
-    find_library(VORBIS_LIBRARY NAMES vorbis_dec)
+    find_library(VORBIS_LIBRARY NAMES vorbis_dec vorbisidec)
+    include(FindPackageHandleStandardArgs)
     find_package_handle_standard_args(Vorbis DEFAULT_MSG
-        VORBIS_INCLUDE_DIR VORBIS_LIBRARY)
+        OGG_INCLUDE_DIR VORBIS_INCLUDE_DIR
+        OGG_LIBRARY VORBIS_LIBRARY)
 endif(NOT GP2XWIZ)
     
 if(VORBIS_FOUND)
@@ -35,7 +41,7 @@ if(VORBIS_FOUND)
      set(VORBIS_LIBRARIES ${VORBISFILE_LIBRARY} ${VORBIS_LIBRARY}
            ${OGG_LIBRARY})
   else(NOT GP2XWIZ)
-     set(VORBIS_LIBRARIES ${VORBIS_LIBRARY})
+     set(VORBIS_LIBRARIES ${VORBIS_LIBRARY} ${OGG_LIBRARY})
   endif(NOT GP2XWIZ)
 else(VORBIS_FOUND)
   set(VORBIS_LIBRARIES)
