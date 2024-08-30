@@ -55,7 +55,23 @@ inline const wchar_t *wgettext(const char *str)
 	return str[0] ? utf8_to_wide_c(gettext(str)) : utf8_to_wide_c("");
 }
 
-inline std::string strgettext(const std::string &text)
+inline std::string strgettext(const char *str)
 {
-	return text.empty() ? "" : gettext(text.c_str());
+	// We must check here that is not an empty string to avoid trying to translate it
+	return str[0] ? gettext(str) : "";
+}
+
+inline std::string strgettext(const std::string &str)
+{
+	return strgettext(str.c_str());
+}
+
+inline std::wstring wstrgettext(const char *str)
+{
+	return utf8_to_wide_c(gettext(str));
+}
+
+inline std::wstring wstrgettext(const std::string &str)
+{
+	return wstrgettext(str.c_str());
 }

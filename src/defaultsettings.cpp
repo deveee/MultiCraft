@@ -90,7 +90,7 @@ void set_default_settings()
 	settings->setDefault("keymap_drop", "KEY_KEY_Q");
 	settings->setDefault("keymap_zoom", "KEY_KEY_Z");
 	settings->setDefault("keymap_inventory", "KEY_KEY_I");
-	settings->setDefault("keymap_special1", "KEY_KEY_E");
+	settings->setDefault("keymap_aux1", "KEY_KEY_E");
 	settings->setDefault("keymap_chat", "KEY_KEY_T");
 	settings->setDefault("keymap_cmd", "/");
 	settings->setDefault("keymap_cmd_local", ".");
@@ -531,9 +531,10 @@ void set_default_settings()
 #ifdef HAVE_TOUCHSCREENGUI
 	settings->setDefault("touchtarget", "true");
 	settings->setDefault("touchscreen_threshold", "20");
-	settings->setDefault("touch_sensitivity", "0.2");
+	settings->setDefault("touchscreen_sensitivity", "0.2");
+	settings->setDefault("touch_long_tap_delay", "400");
 	settings->setDefault("fixed_virtual_joystick", "true");
-	settings->setDefault("virtual_joystick_triggers_aux", "false");
+	settings->setDefault("virtual_joystick_triggers_aux1", "false");
 	settings->setDefault("fast_move", "true");
 #endif
 
@@ -654,7 +655,7 @@ void set_default_settings()
 		if (x_inches <= 3.7) {
 			// small 4" phones
 			settings->setDefault("hud_scaling", "0.55");
-			settings->setDefault("touch_sensitivity", "0.3");
+			settings->setDefault("touchscreen_sensitivity", "0.3");
 			settings->setDefault("console_message_height", "0");
 		} else if (x_inches > 3.7 && x_inches <= 4.5) {
 			// medium phones
@@ -701,38 +702,38 @@ void set_default_settings()
 	if SDVersion4Inch {
 		// 4" iPhone and iPod Touch
 		settings->setDefault("hud_scaling", "0.55");
-		settings->setDefault("touch_sensitivity", "0.33");
+		settings->setDefault("touchscreen_sensitivity", "0.33");
 		settings->setDefault("console_message_height", "0");
 	} else if SDVersion4and7Inch {
 		// 4.7" iPhone
 		settings->setDefault("hud_scaling", "0.6");
-		settings->setDefault("touch_sensitivity", "0.27");
+		settings->setDefault("touchscreen_sensitivity", "0.27");
 		settings->setDefault("console_message_height", "0");
 	} else if SDVersion5and5Inch {
 		// 5.5" iPhone Plus
 		settings->setDefault("hud_scaling", "0.6");
-		settings->setDefault("touch_sensitivity", "0.3");
+		settings->setDefault("touchscreen_sensitivity", "0.3");
 	} else if (SDVersion5and8Inch || SDVersion6and1Inch) {
 		// 5.8" and 6.1" iPhones
 		settings->setDefault("hud_scaling", "0.8");
-		settings->setDefault("touch_sensitivity", "0.35");
+		settings->setDefault("touchscreen_sensitivity", "0.35");
 		settings->setDefault("selectionbox_width", "6");
 	} else if SDVersion6and5Inch {
 		// 6.5" iPhone
 		settings->setDefault("hud_scaling", "0.85");
-		settings->setDefault("touch_sensitivity", "0.35");
+		settings->setDefault("touchscreen_sensitivity", "0.35");
 		settings->setDefault("selectionbox_width", "6");
 	} else if SDVersion7and9Inch {
 		// iPad mini
 		settings->setDefault("hud_scaling", "0.9");
-		settings->setDefault("touch_sensitivity", "0.25");
+		settings->setDefault("touchscreen_sensitivity", "0.25");
 		settings->setDefault("selectionbox_width", "6");
 	} else if SDVersion8and3Inch {
-		settings->setDefault("touch_sensitivity", "0.25");
+		settings->setDefault("touchscreen_sensitivity", "0.25");
 		settings->setDefault("selectionbox_width", "6");
 	} else {
 		// iPad
-		settings->setDefault("touch_sensitivity", "0.3");
+		settings->setDefault("touchscreen_sensitivity", "0.3");
 		settings->setDefault("selectionbox_width", "6");
 	}
 

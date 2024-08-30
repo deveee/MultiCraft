@@ -26,13 +26,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "util/string.h"
 #include "util/basic_macros.h"
 
-class UnknownKeycode : public BaseException
-{
-public:
-	UnknownKeycode(const char *s) :
-		BaseException(s) {};
-};
-
 struct table_key {
 	const char *Name;
 	irr::EKEY_CODE Key;
