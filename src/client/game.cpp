@@ -3232,6 +3232,11 @@ void Game::processPlayerInteraction(f32 dtime, bool show_hud)
 		hud->updateSelectionMesh(camera_offset);
 	}
 
+	if (g_touchscreengui) {
+		auto mode = LONG_DIG_SHORT_PLACE;
+		g_touchscreengui->applyContextControls(mode);
+	}
+
 	// Allow digging again if button is not pressed
 	if (runData.digging_blocked && !isKeyDown(KeyType::DIG))
 		runData.digging_blocked = false;
