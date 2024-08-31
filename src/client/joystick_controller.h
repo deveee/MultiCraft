@@ -146,6 +146,9 @@ public:
 
 	s16 getAxisWithoutDead(JoystickAxis axis);
 
+	float getMovementDirection();
+	float getMovementSpeed();
+
 	f32 doubling_dtime;
 
 private:
@@ -203,6 +206,12 @@ public:
 	s16 getMoveForward() { return m_move_forward; }
 	s16 getCameraYaw() { return m_camera_yaw; }
 	s16 getCameraPitch() { return m_camera_pitch; }
+
+	float normalize(s32 value);
+	float getMovementDirection();
+	float getMovementSpeed();
+	float getNormalizedCameraYaw();
+	float getNormalizedCameraPitch();
 
 	void setActive(bool value) { m_active = value; }
 	static bool isActive() { return m_active; }

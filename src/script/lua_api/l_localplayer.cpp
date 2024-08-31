@@ -223,10 +223,6 @@ int LuaLocalPlayer::l_get_control(lua_State *L)
 	};
 
 	lua_createtable(L, 0, 12);
-	set("up", c.up);
-	set("down", c.down);
-	set("left", c.left);
-	set("right", c.right);
 	set("jump", c.jump);
 	set("aux1", c.aux1);
 	set("sneak", c.sneak);
@@ -234,6 +230,11 @@ int LuaLocalPlayer::l_get_control(lua_State *L)
 	set("tabb", c.tabb);
 	set("dig", c.dig);
 	set("place", c.place);
+	// Provide direction keys to ensure compatibility
+	set("up",    c.direction_keys & (1 << 0));
+	set("down",  c.direction_keys & (1 << 1));
+	set("left",  c.direction_keys & (1 << 2));
+	set("right", c.direction_keys & (1 << 3));
 
 	return 1;
 }

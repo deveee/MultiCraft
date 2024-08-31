@@ -2603,46 +2603,25 @@ void Game::updatePlayerControl(const CameraOrientation &cam)
 		isKeyDown(KeyType::PLACE),
 		cam.camera_pitch,
 		cam.camera_yaw,
-#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
-		input->sdl_game_controller.getMoveSideward(),
-		input->sdl_game_controller.getMoveForward()
-#else
-		input->joystick.getAxisWithoutDead(JA_SIDEWARD_MOVE),
-		input->joystick.getAxisWithoutDead(JA_FORWARD_MOVE)
-#endif
+		input->getMovementSpeed(),
+		input->getMovementDirection()
 	);
-
-	u32 keypress_bits = (
-			( (u32)(isKeyDown(KeyType::FORWARD)                       & 0x1) << 0) |
-			( (u32)(isKeyDown(KeyType::BACKWARD)                      & 0x1) << 1) |
-			( (u32)(isKeyDown(KeyType::LEFT)                          & 0x1) << 2) |
-			( (u32)(isKeyDown(KeyType::RIGHT)                         & 0x1) << 3) |
-			( (u32)(isKeyDown(KeyType::JUMP)                          & 0x1) << 4) |
-			( (u32)(isKeyDown(KeyType::AUX1)                          & 0x1) << 5) |
-			( (u32)(isKeyDown(KeyType::SNEAK)                         & 0x1) << 6) |
-			( (u32)(isKeyDown(KeyType::DIG)                           & 0x1) << 7) |
-			( (u32)(isKeyDown(KeyType::PLACE)                         & 0x1) << 8) |
-			( (u32)(isKeyDown(KeyType::ZOOM)                          & 0x1) << 9) |
-			( (u32)(isKeyDown(KeyType::TABB)                          & 0x1) << 10)
-		);
 
 	LocalPlayer *player = client->getEnv().getLocalPlayer();
 
 	// autojump if set: simulate "jump" key
 	if (player->getAutojump()) {
 		control.jump = true;
-		keypress_bits |= 1U << 4;
 	}
 
-	// autoforward if set: simulate "up" key
+	// autoforward if set: move towards pointed position at maximum speed
 	if (player->getPlayerSettings().continuous_forward &&
 			client->activeObjectsReceived() && !player->isDead()) {
-		control.up = true;
-		keypress_bits |= 1U << 0;
+		control.movement_speed = 1.0f;
+		control.movement_direction = 0.0f;
 	}
 
 	client->setPlayerControl(control);
-	player->keyPressed = keypress_bits;
 
 	//tt.stop();
 }

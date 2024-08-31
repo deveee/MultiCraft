@@ -1392,13 +1392,13 @@ int ObjectRef::l_get_player_control(lua_State *L)
 
 	const PlayerControl &control = player->getPlayerControl();
 	lua_newtable(L);
-	lua_pushboolean(L, control.up);
+	lua_pushboolean(L, control.direction_keys & (1 << 0));
 	lua_setfield(L, -2, "up");
-	lua_pushboolean(L, control.down);
+	lua_pushboolean(L, control.direction_keys & (1 << 1));
 	lua_setfield(L, -2, "down");
-	lua_pushboolean(L, control.left);
+	lua_pushboolean(L, control.direction_keys & (1 << 2));
 	lua_setfield(L, -2, "left");
-	lua_pushboolean(L, control.right);
+	lua_pushboolean(L, control.direction_keys & (1 << 3));
 	lua_setfield(L, -2, "right");
 	lua_pushboolean(L, control.jump);
 	lua_setfield(L, -2, "jump");
@@ -1433,7 +1433,21 @@ int ObjectRef::l_get_player_control_bits(lua_State *L)
 		return 1;
 	}
 
-	lua_pushnumber(L, player->keyPressed);
+	const auto &c = player->getPlayerControl();
+
+	// This is very close to PlayerControl::getKeysPressed() but duplicated
+	// here so the encoding in the API is not inadvertedly changed.
+	u32 keypress_bits =
+		c.direction_keys |
+		( (u32)(c.jump  & 1) << 4) |
+		( (u32)(c.aux1  & 1) << 5) |
+		( (u32)(c.sneak & 1) << 6) |
+		( (u32)(c.dig   & 1) << 7) |
+		( (u32)(c.place & 1) << 8) |
+		( (u32)(c.zoom  & 1) << 9)
+	;
+
+	lua_pushinteger(L, keypress_bits);
 	return 1;
 }
 

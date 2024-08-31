@@ -997,14 +997,14 @@ void GenericCAO::step(float dtime, ClientEnvironment *env)
 			m_velocity = v3f(0,0,0);
 			m_acceleration = v3f(0,0,0);
 			const PlayerControl &controls = player->getPlayerControl();
+			f32 new_speed = player->local_animation_speed;
 
 			bool walking = false;
-			if (controls.up || controls.down || controls.left || controls.right ||
-					controls.forw_move_joystick_axis != 0.f ||
-					controls.sidew_move_joystick_axis != 0.f)
+			if (controls.movement_speed > 0.001f) {
+				new_speed *= controls.movement_speed;
 				walking = true;
+			}
 
-			f32 new_speed = player->local_animation_speed;
 			v2s32 new_anim = v2s32(0,0);
 			bool allow_update = false;
 

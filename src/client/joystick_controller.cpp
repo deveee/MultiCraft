@@ -262,6 +262,19 @@ s16 JoystickController::getAxisWithoutDead(JoystickAxis axis)
 	return v;
 }
 
+float JoystickController::getMovementDirection()
+{
+	return atan2(getAxisWithoutDead(JA_SIDEWARD_MOVE), -getAxisWithoutDead(JA_FORWARD_MOVE));
+}
+
+float JoystickController::getMovementSpeed()
+{
+	float speed = sqrt(pow(getAxisWithoutDead(JA_FORWARD_MOVE), 2) + pow(getAxisWithoutDead(JA_SIDEWARD_MOVE), 2));
+	if (speed > 1.0f)
+		speed = 1.0f;
+	return speed;
+}
+
 #if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
 bool SDLGameController::m_active = false;
 bool SDLGameController::m_cursor_visible = false;
@@ -559,6 +572,34 @@ void SDLGameController::handleCameraOrientation(int x, int y)
 		m_camera_pitch = 0;
 	else
 		m_active = true;
+}
+
+float SDLGameController::normalize(s32 value)
+{
+	return (float)value / 32767.0f;
+}
+
+float SDLGameController::getMovementDirection()
+{
+	return atan2(normalize(getMoveSideward()), -normalize(getMoveForward()));
+}
+
+float SDLGameController::getMovementSpeed()
+{
+	float speed = sqrt(pow((float)(normalize(getMoveForward())), 2) + pow((float)(normalize(getMoveSideward())), 2));
+	if (speed > 1.0f)
+		speed = 1.0f;
+	return speed;
+}
+
+float SDLGameController::getNormalizedCameraYaw()
+{
+	return normalize(getCameraYaw());
+}
+
+float SDLGameController::getNormalizedCameraPitch()
+{
+	return normalize(getCameraPitch());
 }
 
 void SDLGameController::sendEvent(const SEvent &event)
