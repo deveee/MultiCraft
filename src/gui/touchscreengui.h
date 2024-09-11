@@ -272,7 +272,7 @@ private:
 
 	bool m_overflow_open = false;
 	IGUIStaticText *m_overflow_bg = nullptr;
-	std::vector<IGUIStaticText*> m_overflow_button_titles;
+	std::vector<IGUIStaticText *> m_overflow_button_titles;
 
 	void toggleOverflowMenu();
 
@@ -290,7 +290,8 @@ private:
 	// initialize a button
 	void initButton(touch_gui_button_id id, const rect<s32> &button_rect,
 			const std::wstring &caption, bool immediate_release,
-			bool overflow_menu = false, float repeat_delay = BUTTON_REPEAT_DELAY,
+			bool overflow_menu = false,
+			float repeat_delay = BUTTON_REPEAT_DELAY,
 			const char *texture = "");
 
 	// initialize a joystick button
