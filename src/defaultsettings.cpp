@@ -161,6 +161,7 @@ void set_default_settings()
 	settings->setDefault("keymap_quicktune_inc", "KEY_PRIOR");
 
 	settings->setDefault("keymap_tabb", "KEY_TAB");
+	settings->setDefault("keymap_overflow", "");
 
 	// Visuals
 #ifdef NDEBUG

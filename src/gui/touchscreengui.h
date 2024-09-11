@@ -19,6 +19,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #pragma once
 
+#include "IGUIStaticText.h"
 #include "irrlichttypes.h"
 #include <IEventReceiver.h>
 #include <IGUIButton.h>
@@ -38,6 +39,7 @@ using namespace irr::gui;
 
 typedef enum
 {
+	unknown_id = -1,
 	jump_id = 0,
 	drop_id,
 	crunch_id,
@@ -50,7 +52,7 @@ typedef enum
 	camera_id,
 	chat_id,
 	tab_id,
-	after_last_element_id,
+	overflow_id,
 	// settings_starter_id,
 	// rare_controls_starter_id,
 	// fly_id,
@@ -88,6 +90,7 @@ typedef enum
 #define BUTTON_REPEAT_DELAY 1.0f
 #define SETTINGS_BAR_Y_OFFSET 5
 #define RARE_CONTROLS_BAR_Y_OFFSET 5
+#define OVERFLOW_MENU_ID_OFFSET 1000
 
 extern const char *button_imagenames[];
 extern const char *joystick_imagenames[];
@@ -100,10 +103,12 @@ struct button_info
 	std::vector<size_t> ids;
 	IGUIButton *guibutton = nullptr;
 	bool immediate_release;
+	bool overflow_menu = false;
 
 	// 0: false, 1: (true) first texture, 2: (true) second texture
 	s32 togglable = 0;
 	std::vector<const char *> textures;
+	IGUIStaticText *text = nullptr;
 };
 
 /*class AutoHideButtonBar
@@ -263,7 +268,13 @@ private:
 	std::shared_ptr<button_info> m_joystick_btn_bg = nullptr;
 	std::shared_ptr<button_info> m_joystick_btn_center = nullptr;
 
-	button_info m_buttons[after_last_element_id];
+	std::vector<button_info> m_buttons;
+
+	bool m_overflow_open = false;
+	IGUIStaticText *m_overflow_bg = nullptr;
+	std::vector<IGUIStaticText*> m_overflow_button_titles;
+
+	void toggleOverflowMenu();
 
 	// gui button detection
 	touch_gui_button_id getButtonID(s32 x, s32 y);
@@ -271,13 +282,15 @@ private:
 	// gui button by eventID
 	touch_gui_button_id getButtonID(size_t eventID);
 
+	button_info *getButtonInfo(s32 button_id);
+
 	// check if a button has changed
 	void handleChangedButton(const SEvent &event);
 
 	// initialize a button
 	void initButton(touch_gui_button_id id, const rect<s32> &button_rect,
 			const std::wstring &caption, bool immediate_release,
-			float repeat_delay = BUTTON_REPEAT_DELAY,
+			bool overflow_menu = false, float repeat_delay = BUTTON_REPEAT_DELAY,
 			const char *texture = "");
 
 	// initialize a joystick button
@@ -288,6 +301,8 @@ private:
 	rect<s32> getButtonRect(touch_gui_button_id id);
 
 	void updateButtons();
+
+	void rebuildOverFlowMenu();
 
 	void moveJoystick(const SEvent &event, float dx, float dy);
 

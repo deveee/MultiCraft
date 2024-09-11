@@ -27,6 +27,9 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "settings.h"
 #include "gettime.h"
 #include "util/numeric.h"
+#include "gettext.h"
+#include "IGUIStaticText.h"
+#include "IGUIFont.h"
 #include "porting.h"
 #include "client/guiscalingfilter.h"
 #include "client/renderingengine.h"
@@ -50,13 +53,31 @@ const char *button_imagenames[] = {
 	"rangeview_btn.png",
 	"camera_btn.png",
 	"chat_btn.png",
-	"tab_btn.png"
+	"tab_btn.png",
+	"overflow_btn.png"
 };
 
 const char *joystick_imagenames[] = {
 	"joystick_off.png",
 	"joystick_bg.png",
 	"joystick_center.png"
+};
+
+// compare with GUIKeyChangeMenu::init_keys
+static const char *button_titles[] = {
+	N_("Jump"),
+	N_("Drop"),
+	N_("Sneak"),
+	//N_("Zoom"),
+	N_("Special"),
+	N_("Inventory"),
+	N_("Exit"),
+	N_("Toggle minimap"),
+	N_("Range select"),
+	N_("Change camera"),
+	N_("Chat"),
+	N_("Tab"),
+	N_("Overflow menu")
 };
 
 static irr::EKEY_CODE id2keycode(touch_gui_button_id id)
@@ -117,6 +138,9 @@ static irr::EKEY_CODE id2keycode(touch_gui_button_id id)
 		case tab_id:
 			key = "tabb";
 			break;
+		case overflow_id:
+			key = "overflow";
+			break;
 		case camera_id:
 			key = "camera_mode";
 			break;
@@ -129,6 +153,10 @@ static irr::EKEY_CODE id2keycode(touch_gui_button_id id)
 			break;
 	}
 	assert(!key.empty());
+
+	if (g_settings->get("keymap_" + key).empty())
+		return irr::KEY_UNKNOWN;
+
 	return keyname_to_keycode(g_settings->get("keymap_" + key).c_str());
 }
 
@@ -447,21 +475,34 @@ TouchScreenGUI::TouchScreenGUI(IrrlichtDevice *device, IEventReceiver *receiver)
 }
 
 void TouchScreenGUI::initButton(touch_gui_button_id id, const rect<s32> &button_rect,
-		const std::wstring &caption, bool immediate_release, float repeat_delay, const char *texture)
+		const std::wstring &caption, bool immediate_release, bool overflow_menu,
+		float repeat_delay, const char *texture)
 {
-	button_info *btn       = &m_buttons[id];
-	btn->guibutton         = m_guienv->addButton(button_rect, nullptr, id, caption.c_str());
-	btn->guibutton->setVisible(m_visible);
-	btn->guibutton->grab();
-	btn->repeatcounter     = -1;
-	btn->repeatdelay       = repeat_delay;
-	btn->keycode           = id2keycode(id);
-	btn->immediate_release = immediate_release;
-	btn->ids.clear();
+	s32 id_with_offset = overflow_menu ? id + OVERFLOW_MENU_ID_OFFSET : id;
+
+	button_info btn;
+	btn.guibutton         = m_guienv->addButton(button_rect, nullptr, id_with_offset, caption.c_str());
+	btn.guibutton->setVisible(m_visible && !overflow_menu);
+	btn.guibutton->grab();
+	btn.repeatcounter     = -1;
+	btn.repeatdelay       = repeat_delay;
+	btn.keycode           = id2keycode(id);
+	btn.immediate_release = immediate_release;
+	btn.overflow_menu     = overflow_menu;
+	btn.ids.clear();
+
+	const wchar_t *str = wgettext(button_titles[id]);
+	btn.text = m_guienv->addStaticText(str, recti());
+	btn.text->setTextAlignment(EGUIA_CENTER, EGUIA_UPPERLEFT);
+	btn.text->setVisible(m_overflow_open);
+	btn.text->grab();
+	delete[] str;
 
 	const char *image = strcmp(texture, "") == 0 ? button_imagenames[id] : texture;
-	load_button_texture(btn, image, button_rect,
+	load_button_texture(&btn, image, button_rect,
 			m_texturesource, m_device->getVideoDriver());
+
+	m_buttons.push_back(btn);
 }
 
 std::shared_ptr<button_info> TouchScreenGUI::initJoystickButton(touch_gui_button_id id,
@@ -561,6 +602,11 @@ rect<s32> TouchScreenGUI::getButtonRect(touch_gui_button_id id)
 				button_size,
 				m_screensize.X,
 				button_size * 2);
+	case overflow_id:
+		return rect<s32>(m_screensize.X - button_size * 1.25,
+				button_size * 2,
+				m_screensize.X,
+				button_size * 3);
 	default:
 		return rect<s32>(0, 0, 0, 0);
 	}
@@ -577,6 +623,9 @@ void TouchScreenGUI::updateButtons()
 				g_settings->getFloat("hud_scaling") * 65.0f);
 
 		for (auto &button : m_buttons) {
+			if (button.overflow_menu)
+				continue;
+
 			if (button.guibutton) {
 				s32 id = button.guibutton->getID();
 				rect<s32> rect = getButtonRect((touch_gui_button_id)id);
@@ -601,6 +650,75 @@ void TouchScreenGUI::updateButtons()
 			rect<s32> rect = getButtonRect((touch_gui_button_id)id);
 			m_joystick_btn_center->guibutton->setRelativePosition(rect);
 		}
+
+		rebuildOverFlowMenu();
+	}
+}
+
+void TouchScreenGUI::rebuildOverFlowMenu()
+{
+	const static touch_gui_button_id overflow_buttons[] {
+		chat_id, inventory_id, drop_id, camera_id, range_id, minimap_id
+	};
+
+	if (!m_overflow_bg) {
+		IGUIStaticText *background = m_guienv->addStaticText(L"",
+				recti(v2s32(0, 0), dimension2du(m_screensize)));
+		background->setBackgroundColor(video::SColor(140, 0, 0, 0));
+		background->setVisible(m_overflow_open);
+		background->grab();
+		m_overflow_bg = background;
+	} else {
+		recti rect(v2s32(0, 0), dimension2du(m_screensize));
+		m_overflow_bg->setRelativePosition(rect);
+	}
+
+	s32 cols = 4;
+	s32 rows = 3;
+	f32 screen_aspect = (f32)m_screensize.X / (f32)m_screensize.Y;
+	while ((s32)ARRLEN(overflow_buttons) > cols * rows) {
+		f32 aspect = (f32)cols / (f32)rows;
+		if (aspect > screen_aspect)
+			rows++;
+		else
+			cols++;
+	}
+
+	v2s32 size(button_size, button_size);
+	v2s32 spacing(m_screensize.X / (cols + 1), m_screensize.Y / (rows + 1));
+	v2s32 pos(spacing);
+
+	for (auto id : overflow_buttons) {
+		if (id2keycode(id) == KEY_UNKNOWN)
+			continue;
+
+		recti rect(pos - size / 2, dimension2du(size.X, size.Y));
+		if (rect.LowerRightCorner.X > (s32)m_screensize.X) {
+			pos.X = spacing.X;
+			pos.Y += spacing.Y;
+			rect = recti(pos - size / 2, dimension2du(size.X, size.Y));
+		}
+
+		button_info *btn = getButtonInfo(id + OVERFLOW_MENU_ID_OFFSET);
+
+		if (!btn) {
+			const wchar_t *text = wgettext(button_imagenames[id]);
+			initButton(id, rect, text, false, true);
+			btn = getButtonInfo(id + OVERFLOW_MENU_ID_OFFSET);
+			delete[] text;
+		}
+
+		btn->guibutton->setRelativePosition(rect);
+
+		const wchar_t *str = wgettext(button_titles[id]);
+		IGUIFont *font = btn->text->getActiveFont();
+		dimension2du dim = font->getDimension(str);
+		dim = dimension2du(dim.Width * 1.25f, dim.Height * 1.25f); // avoid clipping
+		btn->text->setRelativePosition(recti(pos.X - dim.Width / 2, pos.Y + size.Y / 2,
+				pos.X + dim.Width / 2, pos.Y + size.Y / 2 + dim.Height));
+		delete[] str;
+
+		pos.X += spacing.X;
 	}
 }
 
@@ -694,43 +812,63 @@ void TouchScreenGUI::init(ISimpleTextureSource *tsrc, bool simple_singleplayer_m
 
 	if (m_simple_singleplayer_mode) {
 		// init chat button
-		initButton(chat_id, getButtonRect(chat_id), L"Chat", false, BUTTON_REPEAT_DELAY, "chat_btn.png");
+		initButton(chat_id, getButtonRect(chat_id), L"Chat", false, false, BUTTON_REPEAT_DELAY, "chat_btn.png");
 	} else {
 		// init chat button
-		initButton(chat_id, getButtonRect(chat_id), L"Chat", false, BUTTON_REPEAT_DELAY, "chat_mp_btn.png");
+		initButton(chat_id, getButtonRect(chat_id), L"Chat", false, false, BUTTON_REPEAT_DELAY, "chat_mp_btn.png");
 
 		// init tab button
 		initButton(tab_id, getButtonRect(tab_id), L"Tab", false);
 	}
+
+	// init overflow button
+	initButton(overflow_id, getButtonRect(overflow_id), L"Overflow menu", false);
+
+	rebuildOverFlowMenu();
 
 	m_buttons_initialized = true;
 }
 
 touch_gui_button_id TouchScreenGUI::getButtonID(s32 x, s32 y)
 {
-	for (u32 i = 0; i < after_last_element_id; i++) {
+	for (u32 i = 0; i < m_buttons.size(); i++) {
 		if (!m_buttons[i].guibutton)
 			continue;
 
+		if (m_overflow_open != m_buttons[i].overflow_menu)
+			continue;
+
 		if (m_buttons[i].guibutton->isPointInside(core::position2d<s32>(x, y)))
-			return (touch_gui_button_id) i;
+			return (touch_gui_button_id) m_buttons[i].guibutton->getID();
 	}
 
-	return after_last_element_id;
+	return unknown_id;
 }
 
 touch_gui_button_id TouchScreenGUI::getButtonID(size_t eventID)
 {
-	for (u32 i = 0; i < after_last_element_id; i++) {
+	for (u32 i = 0; i < m_buttons.size(); i++) {
 		button_info *btn = &m_buttons[i];
 
 		auto id = std::find(btn->ids.begin(), btn->ids.end(), eventID);
 
 		if (id != btn->ids.end())
-			return (touch_gui_button_id) i;
+			return (touch_gui_button_id) btn->guibutton->getID();
 	}
 
-	return after_last_element_id;
+	return unknown_id;
+}
+
+button_info *TouchScreenGUI::getButtonInfo(s32 button_id)
+{
+	for (u32 i = 0; i < m_buttons.size(); i++) {
+		button_info *btn = &m_buttons[i];
+
+		if (button_id == btn->guibutton->getID())
+			return btn;
+	}
+
+	return nullptr;
 }
 
 bool TouchScreenGUI::isHUDButton(const SEvent &event)
@@ -758,7 +896,10 @@ bool TouchScreenGUI::isHUDButton(const SEvent &event)
 void TouchScreenGUI::handleButtonEvent(touch_gui_button_id button,
 		size_t eventID, bool action)
 {
-	button_info *btn = &m_buttons[button];
+	button_info *btn = getButtonInfo(button);
+	if (!btn)
+		return;
+
 	auto *translated = new SEvent();
 	memset(translated, 0, sizeof(SEvent));
 	translated->EventType            = irr::EET_KEY_INPUT_EVENT;
@@ -801,7 +942,7 @@ void TouchScreenGUI::handleReleaseEvent(size_t evt_id)
 {
 	touch_gui_button_id button = getButtonID(evt_id);
 
-	if (button != after_last_element_id) {
+	if (button != unknown_id) {
 		// handle button events
 		handleButtonEvent(button, evt_id, false);
 	} else if (m_has_move_id && evt_id == m_move_id) {
@@ -963,7 +1104,9 @@ void TouchScreenGUI::translateEvent(const SEvent &event)
 				getButtonID(event.TouchInput.X, event.TouchInput.Y);
 
 		// handle button events
-		if (button != after_last_element_id) {
+		if (button == overflow_id)  {
+			toggleOverflowMenu();
+		} else if (button != unknown_id) {
 			handleButtonEvent(button, eventID, true);
 			//m_settingsbar.deactivate();
 			//m_rarecontrolsbar.deactivate();
@@ -978,6 +1121,10 @@ void TouchScreenGUI::translateEvent(const SEvent &event)
 			//m_settingsbar.deactivate();
 			// already handled in isSettingsBarButton()
 		} else {
+			if (m_overflow_open) {
+				toggleOverflowMenu();
+			}
+
 			// handle non button events
 			//m_settingsbar.deactivate();
 			//m_rarecontrolsbar.deactivate();
@@ -1107,7 +1254,7 @@ void TouchScreenGUI::translateEvent(const SEvent &event)
 
 void TouchScreenGUI::handleChangedButton(const SEvent &event)
 {
-	for (u32 i = 0; i < after_last_element_id; i++) {
+	for (u32 i = 0; i < m_buttons.size(); i++) {
 		if (m_buttons[i].ids.empty())
 			continue;
 
@@ -1117,13 +1264,13 @@ void TouchScreenGUI::handleChangedButton(const SEvent &event)
 				touch_gui_button_id current_button_id =
 						getButtonID(event.TouchInput.X, event.TouchInput.Y);
 
-				if (current_button_id == (touch_gui_button_id) i)
+				if (current_button_id == (touch_gui_button_id) m_buttons[i].guibutton->getID())
 					continue;
 
 				// remove old button
-				handleButtonEvent((touch_gui_button_id) i, *iter, false);
+				handleButtonEvent((touch_gui_button_id) m_buttons[i].guibutton->getID(), *iter, false);
 
-				if (current_button_id == after_last_element_id)
+				if (current_button_id == unknown_id)
 					return;
 
 				handleButtonEvent((touch_gui_button_id) current_button_id, *iter, true);
@@ -1135,10 +1282,10 @@ void TouchScreenGUI::handleChangedButton(const SEvent &event)
 	touch_gui_button_id current_button_id = getButtonID(event.TouchInput.X,
 			event.TouchInput.Y);
 
-	if (current_button_id == after_last_element_id)
+	if (current_button_id == unknown_id)
 		return;
 
-	button_info *btn = &m_buttons[current_button_id];
+	button_info *btn = getButtonInfo(current_button_id);
 	if (std::find(btn->ids.begin(), btn->ids.end(), event.TouchInput.ID)
 			== btn->ids.end())
 		handleButtonEvent((touch_gui_button_id) current_button_id,
@@ -1205,15 +1352,23 @@ void TouchScreenGUI::applyJoystickStatus()
 
 TouchScreenGUI::~TouchScreenGUI()
 {
+	if (!m_buttons_initialized)
+		return;
+
 	for (auto &button : m_buttons) {
 		if (button.guibutton) {
 			button.guibutton->drop();
 			button.guibutton = nullptr;
 		}
+
+		if (button.text) {
+			button.text->drop();
+			button.text = nullptr;
+		}
 	}
 
-	if (!m_buttons_initialized)
-		return;
+	if (m_overflow_bg)
+		m_overflow_bg->drop();
 
 	if (m_joystick_btn_off->guibutton) {
 		m_joystick_btn_off->guibutton->drop();
@@ -1315,11 +1470,15 @@ void TouchScreenGUI::Toggle(bool visible)
 
 	for (auto &button : m_buttons) {
 		if (button.guibutton)
-			button.guibutton->setVisible(visible);
+			button.guibutton->setVisible(m_visible && m_overflow_open == button.overflow_menu);
+		if (button.text)
+			button.text->setVisible(m_visible && m_overflow_open == button.overflow_menu);
 	}
 
 	if (m_joystick_btn_off != nullptr && m_joystick_btn_off->guibutton)
-		m_joystick_btn_off->guibutton->setVisible(visible);
+		m_joystick_btn_off->guibutton->setVisible(m_visible && !m_overflow_open);
+
+	m_overflow_bg->setVisible(m_visible && m_overflow_open);
 
 	// clear all active buttons
 	if (!visible) {
@@ -1332,6 +1491,13 @@ void TouchScreenGUI::Toggle(bool visible)
 		//m_settingsbar.show();
 		//m_rarecontrolsbar.show();
 	}
+}
+
+void TouchScreenGUI::toggleOverflowMenu()
+{
+	handleReleaseAll(); // must be done first
+	m_overflow_open = !m_overflow_open;
+	Toggle(m_visible);
 }
 
 void TouchScreenGUI::hide()
