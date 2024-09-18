@@ -26,6 +26,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <IGUIEnvironment.h>
 #include <IrrlichtDevice.h>
 
+#include <array>
 #include <map>
 #include <memory>
 #include <vector>
@@ -78,96 +79,38 @@ typedef enum
 	j_special1
 } touch_gui_joystick_move_id;
 
-typedef enum
-{
-	AHBB_Dir_Top_Bottom,
-	AHBB_Dir_Bottom_Top,
-	AHBB_Dir_Left_Right,
-	AHBB_Dir_Right_Left
-} autohide_button_bar_dir;
-
 #define MIN_DIG_TIME_MS 500
 #define BUTTON_REPEAT_DELAY 1.0f
-#define SETTINGS_BAR_Y_OFFSET 5
-#define RARE_CONTROLS_BAR_Y_OFFSET 5
-#define OVERFLOW_MENU_ID_OFFSET 1000
-
-extern const char *button_imagenames[];
-extern const char *joystick_imagenames[];
+#define NUMBER_OF_TOUCHES 10
 
 struct button_info
 {
-	float repeatcounter;
-	float repeatdelay;
-	irr::EKEY_CODE keycode;
-	std::vector<size_t> ids;
 	IGUIButton *guibutton = nullptr;
-	bool immediate_release;
-	bool overflow_menu = false;
-
-	// 0: false, 1: (true) first texture, 2: (true) second texture
-	s32 togglable = 0;
-	std::vector<const char *> textures;
 	IGUIStaticText *text = nullptr;
+	touch_gui_button_id id = unknown_id;
+	float repeatcounter = -1;
+	bool overflow_menu = false;
+	bool pressed = false;
+	s32 event_id = -1;
 };
 
-/*class AutoHideButtonBar
+struct joystick_info
 {
-public:
-	AutoHideButtonBar(IrrlichtDevice *device, IEventReceiver *receiver);
+	IGUIButton *button_off = nullptr;
+	IGUIButton *button_bg = nullptr;
+	IGUIButton *button_center = nullptr;
+	bool joystick_has_really_moved = false;
+	bool pressed = false;
+	s32 event_id = -1;
+};
 
-	void init(ISimpleTextureSource *tsrc, const char *starter_img, s32 button_id,
-			const v2s32 &UpperLeft, const v2s32 &LowerRight,
-			autohide_button_bar_dir dir, float timeout);
-
-	~AutoHideButtonBar();
-
-	// add button to be shown
-	void addButton(touch_gui_button_id id, const wchar_t *caption,
-			const char *btn_image);
-
-	// add toggle button to be shown
-	void addToggleButton(touch_gui_button_id id, const wchar_t *caption,
-			const char *btn_image_1, const char *btn_image_2);
-
-	// detect settings bar button events
-	bool isButton(const SEvent &event);
-
-	// step handler
-	void step(float dtime);
-
-	// deactivate button bar
-	void deactivate();
-
-	// hide the whole buttonbar
-	void hide();
-
-	// unhide the buttonbar
-	void show();
-
-private:
-	ISimpleTextureSource *m_texturesource = nullptr;
-	irr::video::IVideoDriver *m_driver;
-	IGUIEnvironment *m_guienv;
-	IEventReceiver *m_receiver;
-	button_info m_starter;
-	std::vector<std::shared_ptr<button_info>> m_buttons;
-
-	v2s32 m_upper_left;
-	v2s32 m_lower_right;
-
-	// show settings bar
-	bool m_active = false;
-
-	// is the gui visible
-	bool m_visible = true;
-
-	// settings bar timeout
-	float m_timeout = 0.0f;
-	float m_timeout_value = 3.0f;
-	bool m_initialized = false;
-	autohide_button_bar_dir m_dir = AHBB_Dir_Right_Left;
-};*/
+struct TouchEvent
+{
+    s32 id = 0;
+    bool pressed = false;
+    s32 x = 0;
+    s32 y = 0;
+};
 
 class TouchScreenGUI
 {
@@ -175,6 +118,7 @@ public:
 	TouchScreenGUI(IrrlichtDevice *device, IEventReceiver *receiver);
 	~TouchScreenGUI();
 
+	void preprocessEvent(const SEvent &event);
 	void translateEvent(const SEvent &event);
 
 	void init(ISimpleTextureSource *tsrc, bool simple_singleplayer_mode);
@@ -210,6 +154,7 @@ public:
 
 	void hide();
 	void show();
+	void reset();
 
 	// handle all buttons
 	void handleReleaseAll();
@@ -226,7 +171,7 @@ private:
 	IEventReceiver *m_receiver;
 	ISimpleTextureSource *m_texturesource;
 	v2u32 m_screensize;
-	s32 button_size;
+	s32 m_button_size;
 	double m_touchscreen_threshold;
 	double m_touch_sensitivity;
 	std::map<int, rect<s32>> m_hud_rects;
@@ -238,11 +183,6 @@ private:
 	// value in degree
 	double m_camera_yaw_change = 0.0;
 	double m_camera_pitch = 0.0;
-
-	// forward, backward, left, right
-	touch_gui_button_id m_joystick_names[5] = {
-			forward_id, backward_id, left_id, right_id, /*special1_id*/};
-	bool m_joystick_status[5] = {false, false, false, false, false};
 
 	/*
 	 * A line starting at the camera and pointing towards the
@@ -259,45 +199,24 @@ private:
 	bool m_move_sent_as_mouse_event = false;
 	v2s32 m_move_downlocation = v2s32(-10000, -10000);
 
-	bool m_has_joystick_id = false;
-	size_t m_joystick_id;
-	bool m_joystick_has_really_moved = false;
-	bool m_fixed_joystick = false;
-	bool m_joystick_triggers_special1 = false;
-	std::shared_ptr<button_info> m_joystick_btn_off = nullptr;
-	std::shared_ptr<button_info> m_joystick_btn_bg = nullptr;
-	std::shared_ptr<button_info> m_joystick_btn_center = nullptr;
-
-	std::vector<button_info> m_buttons;
+	std::vector<button_info*> m_buttons;
+	joystick_info m_joystick;
 
 	bool m_overflow_open = false;
 	IGUIStaticText *m_overflow_bg = nullptr;
 	std::vector<IGUIStaticText *> m_overflow_button_titles;
+	
+	std::array<TouchEvent, NUMBER_OF_TOUCHES> m_events;
+	
+	void loadButtonTexture(IGUIButton *btn, const char *path,
+			const rect<s32> &button_rect);
 
 	void toggleOverflowMenu();
 
-	// gui button detection
-	touch_gui_button_id getButtonID(s32 x, s32 y);
-
-	// gui button by eventID
-	touch_gui_button_id getButtonID(size_t eventID);
-
-	button_info *getButtonInfo(s32 button_id);
-
-	// check if a button has changed
-	void handleChangedButton(const SEvent &event);
-
-	// initialize a button
 	void initButton(touch_gui_button_id id, const rect<s32> &button_rect,
-			const std::wstring &caption, bool immediate_release,
-			bool overflow_menu = false,
-			float repeat_delay = BUTTON_REPEAT_DELAY,
-			const char *texture = "");
+			bool overflow_menu = false, const char *texture = "");
 
-	// initialize a joystick button
-	std::shared_ptr<button_info> initJoystickButton(touch_gui_button_id id,
-			const rect<s32> &button_rect, s32 texture_id,
-			bool visible = true);
+	void initJoystickButton();
 
 	rect<s32> getButtonRect(touch_gui_button_id id);
 
@@ -305,7 +224,7 @@ private:
 
 	void rebuildOverFlowMenu();
 
-	void moveJoystick(const SEvent &event, float dx, float dy);
+	void moveJoystick(s32 x, s32 y);
 
 	struct id_status
 	{
@@ -313,12 +232,6 @@ private:
 		s32 X;
 		s32 Y;
 	};
-
-	// vector to store known ids and their initial touch positions
-	std::vector<id_status> m_known_ids;
-
-	// handle a button event
-	void handleButtonEvent(touch_gui_button_id bID, size_t eventID, bool action);
 
 	// handle pressed hud buttons
 	bool isHUDButton(const SEvent &event);
@@ -340,17 +253,8 @@ private:
 		s32 y;
 	};
 
-	// array for saving last known position of a pointer
-	std::map<size_t, v2s32> m_pointerpos;
-
 	// array for long-click detection
 	key_event m_key_events[2];
-
-	// settings bar
-	// AutoHideButtonBar m_settingsbar;
-
-	// rare controls bar
-	// AutoHideButtonBar m_rarecontrolsbar;
 
 	// device active state
 	static bool m_active;
