@@ -23,7 +23,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "irrlichttypes.h"
 #include "irr_v2d.h"
 #include "log.h"
-#include "client/keycode.h"
 #include "settings.h"
 #include "gettime.h"
 #include "util/numeric.h"
@@ -431,10 +430,6 @@ void TouchScreenGUI::preprocessEvent(const SEvent &event)
 	s32 x = event.TouchInput.X;
 	s32 y = event.TouchInput.Y;
 
-	m_events[id].id = id;
-	m_events[id].x = x;
-	m_events[id].y = y;
-	
 	if (!m_overflow_open) {
 		hud_button_info* hud_button = getHUDButton(x, y);
 		
@@ -452,7 +447,7 @@ void TouchScreenGUI::preprocessEvent(const SEvent &event)
 				continue;
 	
 			if (button->guibutton->isPointInside(core::position2d<s32>(x, y))) {
-				m_events[id].pressed = true;
+				m_events[id] = true;
 				button->pressed = true;
 				button->event_id = id;
 				button->repeatcounter = 0;
@@ -465,7 +460,7 @@ void TouchScreenGUI::preprocessEvent(const SEvent &event)
 		
 		if (!m_overflow_open) {
 			if (m_joystick.button_off->isPointInside(core::position2d<s32>(x, y))) {
-				m_events[id].pressed = true;
+				m_events[id] = true;
 				m_joystick.button_off->setVisible(false);
 				m_joystick.button_bg->setVisible(true);
 				m_joystick.button_center->setVisible(true);
@@ -475,8 +470,8 @@ void TouchScreenGUI::preprocessEvent(const SEvent &event)
 				moveJoystick(x, y);
 			}
 			
-			if (!m_events[id].pressed) {
-				m_events[id].pressed = true;
+			if (!m_events[id]) {
+				m_events[id] = true;
 				m_camera.x = x;
 				m_camera.y = y;
 				m_camera.event_id = id;
@@ -485,41 +480,32 @@ void TouchScreenGUI::preprocessEvent(const SEvent &event)
 			}
 		}
 		
-		if (overflow_btn_pressed || (m_overflow_open && !m_events[id].pressed)) {
+		if (overflow_btn_pressed || (m_overflow_open && !m_events[id])) {
 			toggleOverflowMenu();
 		}
 
 	} else if (event.TouchInput.Event == ETIE_LEFT_UP) {
-		m_events[id].pressed = false;
+		m_events[id] = false;
 		
 		for (auto button : m_buttons) {
 			if (m_overflow_open != button->overflow_menu)
 				continue;
 	
 			if (button->event_id == id) {
-				button->pressed = false;
-				button->event_id = -1;
-				button->repeatcounter = -1;
+				button->reset();
 			}
 		}
 
 		if (m_joystick.event_id == id) {
-			m_joystick.button_off->setVisible(true);
-			m_joystick.button_bg->setVisible(false);
-			m_joystick.button_center->setVisible(false);
-			m_joystick.pressed = false;
-			m_joystick.event_id = -1;
+			m_joystick.reset(m_visible && !m_overflow_open);
 		}
 		
 		if (m_camera.event_id == id) {
-			m_camera.x = 0;
-			m_camera.y = 0;
-			m_camera.event_id = -1;
-			m_camera.has_really_moved = false;
+			m_camera.reset();
 		}
 		
 	} else if (event.TouchInput.Event == ETIE_MOVED) {
-		if (m_events[id].pressed) {
+		if (m_events[id]) {
 			if (m_joystick.event_id == id) {
 				moveJoystick(x, y);
 			} else if (m_camera.event_id == id) {
@@ -534,9 +520,7 @@ void TouchScreenGUI::preprocessEvent(const SEvent &event)
 						button->event_id = id;
 						button->repeatcounter = 0;
 					} else if (button->event_id == id) {
-						button->pressed = false;
-						button->event_id = -1;
-						button->repeatcounter = -1;
+						button->reset();
 					}
 				}
 			}
@@ -548,15 +532,7 @@ void TouchScreenGUI::moveJoystick(s32 x, s32 y)
 {
 	s32 dx = x - m_button_size * 5 / 2;
 	s32 dy = y - m_screensize.Y + m_button_size * 5 / 2;
-
 	double distance = sqrt(dx * dx + dy * dy);
-
-	// angle in degrees
-	double angle = acos(dx / distance) * 180 / M_PI;
-	if (dy < 0)
-		angle *= -1;
-	// rotate to make comparing easier
-	angle = fmod(angle + 180 + 22.5, 360);
 
 	if (distance > m_button_size * 1.5) {
 		s32 ndx = m_button_size * dx / distance * 1.5f - m_button_size / 2.0f * 1.5f;
@@ -569,6 +545,40 @@ void TouchScreenGUI::moveJoystick(s32 x, s32 y)
 				x - m_button_size / 2.0f * 1.5f,
 				y - m_button_size / 2.0f * 1.5f));
 	}
+
+	// angle in degrees
+	double angle = acos(dx / distance) * 180 / M_PI;
+	if (dy < 0)
+		angle *= -1;
+	// rotate to make comparing easier
+	angle = fmod(angle + 180 + 22.5, 360);
+
+	m_joystick.move_sideward = 0;
+	m_joystick.move_forward = 0;
+
+	if (distance <= m_touchscreen_threshold) {
+		// do nothing
+	} else if (angle < 45)
+		m_joystick.move_sideward = -32768;
+	else if (angle < 90) {
+		m_joystick.move_forward = -32768;
+		m_joystick.move_sideward = -32768;
+	} else if (angle < 135)
+		m_joystick.move_forward = -32768;
+	else if (angle < 180) {
+		m_joystick.move_forward = -32768;
+		m_joystick.move_sideward = 32767;
+	} else if (angle < 225)
+		m_joystick.move_sideward = 32767;
+	else if (angle < 270) {
+		m_joystick.move_forward = 32767;
+		m_joystick.move_sideward = 32767;
+	} else if (angle < 315)
+		m_joystick.move_forward = 32767;
+	else if (angle <= 360) {
+		m_joystick.move_forward = 32767;
+		m_joystick.move_sideward = -32768;
+	}
 }
 
 void TouchScreenGUI::updateCamera(s32 x, s32 y)
@@ -580,11 +590,8 @@ void TouchScreenGUI::updateCamera(s32 x, s32 y)
 	if ((distance > m_touchscreen_threshold) || m_camera.has_really_moved) {
 		m_camera.has_really_moved = true;
 
-		s32 dx = x - m_camera.x;
-		s32 dy = y - m_camera.y;
-
-		m_camera.yaw_change -= dx * m_touch_sensitivity;
-		m_camera.pitch += dy * m_touch_sensitivity;
+		m_camera.yaw_change -= (x - m_camera.x) * m_touch_sensitivity;
+		m_camera.pitch += (y - m_camera.y) * m_touch_sensitivity;
 		m_camera.pitch = MYMIN(MYMAX(m_camera.pitch, -180), 180);
 
 		m_camera.x = x;
@@ -696,27 +703,16 @@ void TouchScreenGUI::show()
 
 void TouchScreenGUI::reset()
 {
-	for (auto button : m_buttons) {
-		button->pressed = false;
-		button->event_id = -1;
-		button->repeatcounter = -1;
-	}
-
-	m_joystick.has_really_moved = false;
-	m_joystick.pressed = false;
-	m_joystick.event_id = -1;
-
-	m_camera.has_really_moved = false;
-	m_camera.x = 0;
-	m_camera.y = 0;	
-	m_camera.event_id = -1;
-	
 	for (auto &event : m_events) {
-	    event.id = 0;
-	    event.pressed = false;
-	    event.x = 0;
-	    event.y = 0;
+		event = false;
 	}
+
+	for (auto button : m_buttons) {
+		button->reset();
+	}
+
+	m_joystick.reset(m_visible && !m_overflow_open);
+	m_camera.reset();
 }
 
 void TouchScreenGUI::handleReleaseAll()

@@ -27,8 +27,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <IrrlichtDevice.h>
 
 #include <array>
-#include <map>
-#include <memory>
 #include <vector>
 
 #include "client/tile.h"
@@ -37,6 +35,10 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 using namespace irr;
 using namespace irr::core;
 using namespace irr::gui;
+
+#define MIN_DIG_TIME_MS 500
+#define BUTTON_REPEAT_DELAY 1.0f
+#define NUMBER_OF_TOUCHES 10
 
 typedef enum
 {
@@ -70,19 +72,6 @@ typedef enum
 	joystick_center_id
 } touch_gui_button_id;
 
-typedef enum
-{
-	j_forward = 0,
-	j_backward,
-	j_left,
-	j_right,
-	j_special1
-} touch_gui_joystick_move_id;
-
-#define MIN_DIG_TIME_MS 500
-#define BUTTON_REPEAT_DELAY 1.0f
-#define NUMBER_OF_TOUCHES 10
-
 struct button_info
 {
 	IGUIButton *guibutton = nullptr;
@@ -92,6 +81,13 @@ struct button_info
 	bool overflow_menu = false;
 	bool pressed = false;
 	s32 event_id = -1;
+	
+	void reset()
+	{
+		pressed = false;
+		event_id = -1;
+		repeatcounter = -1;
+	}
 };
 
 struct joystick_info
@@ -99,9 +95,21 @@ struct joystick_info
 	IGUIButton *button_off = nullptr;
 	IGUIButton *button_bg = nullptr;
 	IGUIButton *button_center = nullptr;
-	bool has_really_moved = false;
+	s16 move_sideward = 0;
+	s16 move_forward = 0;
 	bool pressed = false;
 	s32 event_id = -1;
+	
+	void reset(bool visible)
+	{
+		button_off->setVisible(visible);
+		button_bg->setVisible(false);
+		button_center->setVisible(false);
+		move_sideward = 0;
+		move_forward = 0;
+		pressed = false;
+		event_id = -1;
+	}
 };
 
 struct hud_button_info
@@ -119,14 +127,14 @@ struct camera_info
 	s32 x = 0;
 	s32 y = 0;
 	s32 event_id = -1;
-};
-
-struct TouchEvent
-{
-    s32 id = 0;
-    bool pressed = false;
-    s32 x = 0;
-    s32 y = 0;
+	
+	void reset()
+	{
+		has_really_moved = false;
+		x = 0;
+		y = 0;	
+		event_id = -1;
+	}
 };
 
 class TouchScreenGUI
@@ -136,8 +144,10 @@ public:
 	~TouchScreenGUI();
 
 	void init(ISimpleTextureSource *tsrc, bool simple_singleplayer_mode);
-	
 	void preprocessEvent(const SEvent &event);
+
+	s16 getMoveSideward() { return m_joystick.move_sideward; }
+	s16 getMoveForward() { return m_joystick.move_forward; }
 
 	double getYawChange()
 	{
@@ -153,14 +163,6 @@ public:
 		return res;
 	}
 
-	/*
-	 * Returns a line which describes what the player is pointing at.
-	 * The starting point and looking direction are significant,
-	 * the line should be scaled to match its length to the actual distance
-	 * the player can reach.
-	 * The line starts at the camera and ends on the camera's far plane.
-	 * The coordinates do not contain the camera offset.
-	 */
 	line3d<f32> getShootline() { return m_camera.shootline; }
 
 	void step(float dtime);
@@ -170,16 +172,14 @@ public:
 	void resetHud();
 	void registerHudItem(s32 index, const rect<s32> &rect);
 
-	// handle all buttons
 	void handleReleaseAll();
 
-	// returns true if device is active
 	static bool isActive() { return m_active; }
-
-	// set device active state
 	static void setActive(bool active) { m_active = active; }
 
 private:
+	static bool m_active;
+
 	IrrlichtDevice *m_device;
 	IGUIEnvironment *m_guienv;
 	IEventReceiver *m_receiver;
@@ -193,14 +193,7 @@ private:
 	bool m_buttons_initialized = false;
 	bool m_simple_singleplayer_mode = false;
 
-	bool m_has_move_id = false;
-	size_t m_move_id;
-	bool m_move_has_really_moved = false;
-	u64 m_move_downtime = 0;
-	bool m_move_sent_as_mouse_event = false;
-	v2s32 m_move_downlocation = v2s32(-10000, -10000);
-
-	std::array<TouchEvent, NUMBER_OF_TOUCHES> m_events;
+	std::array<bool, NUMBER_OF_TOUCHES> m_events;
 	std::vector<hud_button_info> m_hud_buttons;
 	std::vector<button_info*> m_buttons;
 	joystick_info m_joystick;
@@ -210,9 +203,6 @@ private:
 	IGUIStaticText *m_overflow_bg = nullptr;
 	std::vector<IGUIStaticText *> m_overflow_button_titles;
 		
-	// device active state
-	static bool m_active;
-
 	void loadButtonTexture(IGUIButton *btn, const char *path,
 			const rect<s32> &button_rect);
 	void initButton(touch_gui_button_id id, const rect<s32> &button_rect,
