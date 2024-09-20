@@ -56,21 +56,17 @@ typedef enum
 	chat_id,
 	tab_id,
 	overflow_id,
-	// settings_starter_id,
-	// rare_controls_starter_id,
-	// fly_id,
-	// noclip_id,
-	// fast_id,
-	// debug_id,
-	// toggle_chat_id,
-	forward_id,
-	backward_id,
-	left_id,
-	right_id,
 	joystick_off_id,
 	joystick_bg_id,
 	joystick_center_id
 } touch_gui_button_id;
+
+struct button_data
+{
+	const char *imagename;
+	const char *title;
+	const char *keyname;
+};
 
 struct button_info
 {

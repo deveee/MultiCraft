@@ -40,43 +40,23 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 using namespace irr::core;
 
-const char *button_imagenames[] = {
-	"jump_btn.png",
-	"drop_btn.png",
-	"down_btn.png",
-	//"zoom.png",
-	"aux_btn.png",
-	"inventory_btn.png",
-	"escape_btn.png",
-	"minimap_btn.png",
-	"rangeview_btn.png",
-	"camera_btn.png",
-	"chat_btn.png",
-	"tab_btn.png",
-	"overflow_btn.png"
-};
-
-const char *joystick_imagenames[] = {
-	"joystick_off.png",
-	"joystick_bg.png",
-	"joystick_center.png"
-};
-
-// compare with GUIKeyChangeMenu::init_keys
-static const char *button_titles[] = {
-	N_("Jump"),
-	N_("Drop"),
-	N_("Sneak"),
-	//N_("Zoom"),
-	N_("Special"),
-	N_("Inventory"),
-	N_("Exit"),
-	N_("Toggle minimap"),
-	N_("Range select"),
-	N_("Change camera"),
-	N_("Chat"),
-	N_("Tab"),
-	N_("Overflow menu")
+const button_data buttons_data[] = {
+	{ "jump_btn.png", N_("Jump"), "jump" },
+	{ "drop_btn.png", N_("Drop"), "drop" },
+	{ "down_btn.png", N_("Sneak"), "sneak" },
+	//{ "zoom.png", N_("Zoom"), "zoom" },
+	{ "aux_btn.png", N_("Special"), "special1" },
+	{ "inventory_btn.png", N_("Inventory"), "inventory" },
+	{ "escape_btn.png", N_("Exit"), "escape" },
+	{ "minimap_btn.png", N_("Toggle minimap"), "minimap" },
+	{ "rangeview_btn.png", N_("Range select"), "rangeselect" },
+	{ "camera_btn.png", N_("Change camera"), "camera_mode" },
+	{ "chat_btn.png", N_("Chat"), "chat" },
+	{ "tab_btn.png", N_("Tab"), "tabb" },
+	{ "overflow_btn.png", N_("Overflow menu"), "overflow" },
+	{ "joystick_off.png", "", "" },
+	{ "joystick_bg.png", "", "" },
+	{ "joystick_center.png", "", "" },
 };
 
 static const touch_gui_button_id overflow_buttons_id[] {
@@ -217,10 +197,10 @@ void TouchScreenGUI::initButton(touch_gui_button_id id, const rect<s32> &button_
 	btn->guibutton = m_guienv->addButton(button_rect, nullptr);
 	btn->guibutton->grab();
 	btn->guibutton->setVisible(m_visible && !overflow_menu);
-	const char *image = strcmp(texture, "") == 0 ? button_imagenames[id] : texture;
+	const char *image = strcmp(texture, "") == 0 ? buttons_data[id].imagename : texture;
 	loadButtonTexture(btn->guibutton, image, button_rect);
 
-	const wchar_t *str = wgettext(button_titles[id]);
+	const wchar_t *str = wgettext(buttons_data[id].title);
 	btn->text = m_guienv->addStaticText(str, recti());
 	btn->text->setTextAlignment(EGUIA_CENTER, EGUIA_UPPERLEFT);
 	btn->text->setVisible(m_overflow_open);
@@ -236,19 +216,22 @@ void TouchScreenGUI::initJoystickButton()
 	m_joystick.button_off = m_guienv->addButton(button_off_rect, nullptr);
 	m_joystick.button_off->setVisible(m_visible);
 	m_joystick.button_off->grab();
-	loadButtonTexture(m_joystick.button_off, joystick_imagenames[0], button_off_rect);
+	loadButtonTexture(m_joystick.button_off, 
+			buttons_data[joystick_off_id].imagename, button_off_rect);
 	
 	const rect<s32> &button_bg_rect = getButtonRect(joystick_bg_id);
 	m_joystick.button_bg = m_guienv->addButton(button_bg_rect, nullptr);
 	m_joystick.button_bg->setVisible(false);
 	m_joystick.button_bg->grab();
-	loadButtonTexture(m_joystick.button_bg, joystick_imagenames[1], button_bg_rect);
+	loadButtonTexture(m_joystick.button_bg, 
+			buttons_data[joystick_bg_id].imagename, button_bg_rect);
 	
 	const rect<s32> &button_center_rect = getButtonRect(joystick_center_id);
 	m_joystick.button_center = m_guienv->addButton(button_center_rect, nullptr);
 	m_joystick.button_center->setVisible(false);
 	m_joystick.button_center->grab();
-	loadButtonTexture(m_joystick.button_center, joystick_imagenames[2], button_center_rect);
+	loadButtonTexture(m_joystick.button_center, 
+			buttons_data[joystick_center_id].imagename, button_center_rect);
 }
 
 rect<s32> TouchScreenGUI::getButtonRect(touch_gui_button_id id)
@@ -402,7 +385,7 @@ void TouchScreenGUI::rebuildOverflowMenu()
 
 		button->guibutton->setRelativePosition(button_rect);
 
-		const wchar_t *str = wgettext(button_titles[button->id]);
+		const wchar_t *str = wgettext(buttons_data[button->id].title);
 		IGUIFont *font = button->text->getActiveFont();
 		dimension2du dim = font->getDimension(str);
 		dim = dimension2du(dim.Width * 1.25f, dim.Height * 1.25f);
