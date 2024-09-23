@@ -21,21 +21,14 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #include "touchscreengui.h"
 #include "irrlichttypes.h"
-#include "irr_v2d.h"
 #include "log.h"
+#include "client/keycode.h"
 #include "settings.h"
-#include "gettime.h"
-#include "util/numeric.h"
 #include "gettext.h"
-#include "IGUIStaticText.h"
-#include "IGUIFont.h"
 #include "porting.h"
 #include "client/guiscalingfilter.h"
 #include "client/renderingengine.h"
-
-#include <iostream>
-#include <algorithm>
-
+#include <IGUIFont.h>
 #include <ISceneCollisionManager.h>
 
 using namespace irr::core;
@@ -63,14 +56,11 @@ static const touch_gui_button_id overflow_buttons_id[] {
 	chat_id, inventory_id, drop_id, camera_id, range_id, minimap_id
 };
 
-
 TouchScreenGUI *g_touchscreengui = nullptr;
 bool TouchScreenGUI::m_active = true;
 
-TouchScreenGUI::TouchScreenGUI(IrrlichtDevice *device, IEventReceiver *receiver):
-	m_device(device),
-	m_guienv(device->getGUIEnvironment()),
-	m_receiver(receiver)
+TouchScreenGUI::TouchScreenGUI(IrrlichtDevice *device):
+		m_device(device), m_guienv(device->getGUIEnvironment())
 {
 	m_touchscreen_threshold = g_settings->getU16("touchscreen_threshold");
 	m_touch_sensitivity = rangelim(g_settings->getFloat("touch_sensitivity"), 0.1, 1.0);
@@ -95,7 +85,7 @@ TouchScreenGUI::~TouchScreenGUI()
 			button->text->drop();
 			button->text = nullptr;
 		}
-		
+
 		delete button;
 	}
 
@@ -121,9 +111,7 @@ TouchScreenGUI::~TouchScreenGUI()
 void TouchScreenGUI::init(ISimpleTextureSource *tsrc, bool simple_singleplayer_mode)
 {
 	assert(tsrc);
-
 	m_texturesource = tsrc;
-	m_simple_singleplayer_mode = simple_singleplayer_mode;
 
 	initJoystickButton();
 
@@ -138,7 +126,7 @@ void TouchScreenGUI::init(ISimpleTextureSource *tsrc, bool simple_singleplayer_m
 	initButton(range_id, getButtonRect(range_id));
 	initButton(camera_id, getButtonRect(camera_id));
 
-	if (m_simple_singleplayer_mode) {
+	if (simple_singleplayer_mode) {
 		initButton(chat_id, getButtonRect(chat_id), false, "chat_btn.png");
 	} else {
 		initButton(chat_id, getButtonRect(chat_id), false, "chat_mp_btn.png");
@@ -197,7 +185,7 @@ void TouchScreenGUI::initButton(touch_gui_button_id id, const rect<s32> &button_
 	btn->guibutton = m_guienv->addButton(button_rect, nullptr);
 	btn->guibutton->grab();
 	btn->guibutton->setVisible(m_visible && !overflow_menu);
-	const char *image = strcmp(texture, "") == 0 ? buttons_data[id].imagename : texture;
+	const char *image = strcmp(texture, "") == 0 ? buttons_data[id].image : texture;
 	loadButtonTexture(btn->guibutton, image, button_rect);
 
 	const wchar_t *str = wgettext(buttons_data[id].title);
@@ -216,22 +204,22 @@ void TouchScreenGUI::initJoystickButton()
 	m_joystick.button_off = m_guienv->addButton(button_off_rect, nullptr);
 	m_joystick.button_off->setVisible(m_visible);
 	m_joystick.button_off->grab();
-	loadButtonTexture(m_joystick.button_off, 
-			buttons_data[joystick_off_id].imagename, button_off_rect);
-	
+	loadButtonTexture(m_joystick.button_off,
+			buttons_data[joystick_off_id].image, button_off_rect);
+
 	const rect<s32> &button_bg_rect = getButtonRect(joystick_bg_id);
 	m_joystick.button_bg = m_guienv->addButton(button_bg_rect, nullptr);
 	m_joystick.button_bg->setVisible(false);
 	m_joystick.button_bg->grab();
-	loadButtonTexture(m_joystick.button_bg, 
-			buttons_data[joystick_bg_id].imagename, button_bg_rect);
-	
+	loadButtonTexture(m_joystick.button_bg,
+			buttons_data[joystick_bg_id].image, button_bg_rect);
+
 	const rect<s32> &button_center_rect = getButtonRect(joystick_center_id);
 	m_joystick.button_center = m_guienv->addButton(button_center_rect, nullptr);
 	m_joystick.button_center->setVisible(false);
 	m_joystick.button_center->grab();
-	loadButtonTexture(m_joystick.button_center, 
-			buttons_data[joystick_center_id].imagename, button_center_rect);
+	loadButtonTexture(m_joystick.button_center,
+			buttons_data[joystick_center_id].image, button_center_rect);
 }
 
 rect<s32> TouchScreenGUI::getButtonRect(touch_gui_button_id id)
@@ -325,7 +313,7 @@ void TouchScreenGUI::updateButtons()
 
 	if (screensize == m_screensize)
 		return;
-		
+
 	m_screensize = screensize;
 	m_button_size = std::min(m_screensize.Y / 4.5f,
 			RenderingEngine::getDisplayDensity() *
@@ -413,34 +401,24 @@ void TouchScreenGUI::preprocessEvent(const SEvent &event)
 	s32 x = event.TouchInput.X;
 	s32 y = event.TouchInput.Y;
 
-	if (!m_overflow_open) {
-		hud_button_info* hud_button = getHUDButton(x, y);
-		
-		if (hud_button) {
-			sendHUDButton(hud_button);
-			return;
-		}
-	}
-
 	if (event.TouchInput.Event == ETIE_PRESSED_DOWN) {
 		bool overflow_btn_pressed = false;
-		
+
 		for (auto button : m_buttons) {
 			if (m_overflow_open != button->overflow_menu)
 				continue;
-	
+
 			if (button->guibutton->isPointInside(core::position2d<s32>(x, y))) {
 				m_events[id] = true;
 				button->pressed = true;
 				button->event_id = id;
 				button->repeatcounter = 0;
-				
-				if (button->id == overflow_id) {
+
+				if (button->id == overflow_id)
 					overflow_btn_pressed = true;
-				}
 			}
 		}
-		
+
 		if (!m_overflow_open) {
 			if (m_joystick.button_off->isPointInside(core::position2d<s32>(x, y))) {
 				m_events[id] = true;
@@ -449,44 +427,57 @@ void TouchScreenGUI::preprocessEvent(const SEvent &event)
 				m_joystick.button_center->setVisible(true);
 				m_joystick.pressed = true;
 				m_joystick.event_id = id;
-				
+
 				moveJoystick(x, y);
 			}
-			
+
+			if (!m_events[id]) {
+				for (auto &hud_button : m_hud_buttons) {
+					if (hud_button.rect.isPointInside(v2s32(x, y))) {
+						m_events[id] = true;
+						hud_button.pressed = true;
+					}
+				}
+			}
+
 			if (!m_events[id]) {
 				m_events[id] = true;
+				m_camera.downtime = porting::getTimeMs();
 				m_camera.x = x;
 				m_camera.y = y;
 				m_camera.event_id = id;
-				
+
 				updateCamera(x, y);
 			}
 		}
-		
-		if (overflow_btn_pressed || (m_overflow_open && !m_events[id])) {
+
+		if (overflow_btn_pressed || (m_overflow_open && !m_events[id]))
 			toggleOverflowMenu();
-		}
 
 	} else if (event.TouchInput.Event == ETIE_LEFT_UP) {
 		m_events[id] = false;
-		
+
 		for (auto button : m_buttons) {
 			if (m_overflow_open != button->overflow_menu)
 				continue;
-	
-			if (button->event_id == id) {
+
+			if (button->event_id == id)
 				button->reset();
-			}
 		}
 
-		if (m_joystick.event_id == id) {
+		if (m_joystick.event_id == id)
 			m_joystick.reset(m_visible && !m_overflow_open);
-		}
-		
+
 		if (m_camera.event_id == id) {
+			bool place = false;
+			if (!m_camera.has_really_moved && !m_camera.dig) {
+				u64 delta = porting::getDeltaMs(m_camera.downtime, porting::getTimeMs());
+				place = (delta >= MIN_PLACE_TIME_MS);
+			}
 			m_camera.reset();
+			m_camera.place = place;
 		}
-		
+
 	} else if (event.TouchInput.Event == ETIE_MOVED) {
 		if (m_events[id]) {
 			if (m_joystick.event_id == id) {
@@ -497,7 +488,7 @@ void TouchScreenGUI::preprocessEvent(const SEvent &event)
 				for (auto button : m_buttons) {
 					if (m_overflow_open != button->overflow_menu)
 						continue;
-			
+
 					if (button->guibutton->isPointInside(core::position2d<s32>(x, y))) {
 						button->pressed = true;
 						button->event_id = id;
@@ -579,16 +570,86 @@ void TouchScreenGUI::updateCamera(s32 x, s32 y)
 
 		m_camera.x = x;
 		m_camera.y = y;
-	}	
-	
+	}
+
 	m_camera.shootline = m_device->getSceneManager()
 			->getSceneCollisionManager()
 			->getRayFromScreenCoordinates(v2s32(x, y));
 }
 
+bool TouchScreenGUI::isButtonPressed(irr::EKEY_CODE keycode)
+{
+	for (auto button : m_buttons) {
+		if (!button->pressed)
+			continue;
+
+		std::string button_name = buttons_data[button->id].name;
+		std::string keyname = g_settings->get("keymap_" + button_name);
+		irr::EKEY_CODE button_keycode = keyname_to_keycode(keyname.c_str());
+
+		if (button_keycode == keycode)
+			return true;
+	}
+
+	for (auto &hud_button : m_hud_buttons) {
+		if (!hud_button.pressed)
+			continue;
+
+		irr::EKEY_CODE button_keycode = (irr::EKEY_CODE) (KEY_KEY_1 + hud_button.id);
+
+		if (button_keycode == keycode) {
+			hud_button.pressed = false;
+			return true;
+		}
+	}
+
+	if (m_camera.dig) {
+		std::string keyname = g_settings->get("keymap_dig");
+		irr::EKEY_CODE button_keycode = keyname_to_keycode(keyname.c_str());
+
+		if (button_keycode == keycode)
+			return true;
+	}
+
+	if (m_camera.place) {
+		std::string keyname = g_settings->get("keymap_place");
+		irr::EKEY_CODE button_keycode = keyname_to_keycode(keyname.c_str());
+
+		if (button_keycode == keycode) {
+			m_camera.place = false;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool TouchScreenGUI::immediateRelease(irr::EKEY_CODE keycode)
+{
+	std::string keyname = g_settings->get("keymap_place");
+	irr::EKEY_CODE button_keycode = keyname_to_keycode(keyname.c_str());
+
+	if (button_keycode == keycode)
+		return true;
+
+	for (auto &hud_button : m_hud_buttons) {
+		irr::EKEY_CODE button_keycode = (irr::EKEY_CODE) (KEY_KEY_1 + hud_button.id);
+
+		if (button_keycode == keycode)
+			return true;
+	}
+
+	return false;
+}
+
 void TouchScreenGUI::step(float dtime)
 {
 	updateButtons();
+
+	if (m_camera.event_id != -1 && (!m_camera.has_really_moved)) {
+		u64 delta = porting::getDeltaMs(m_camera.downtime, porting::getTimeMs());
+		m_camera.dig = (delta > MIN_DIG_TIME_MS);
+	}
 }
 
 void TouchScreenGUI::registerHudItem(s32 index, const rect<s32> &rect)
@@ -607,29 +668,6 @@ void TouchScreenGUI::registerHudItem(s32 index, const rect<s32> &rect)
 void TouchScreenGUI::resetHud()
 {
 	m_hud_buttons.clear();
-}
-
-hud_button_info* TouchScreenGUI::getHUDButton(s32 x, s32 y)
-{
-	for (auto &hud_button : m_hud_buttons) {
-		if (hud_button.rect.isPointInside(v2s32(x, y))) {
-			return &hud_button;
-		}
-	}
-	
-	return nullptr;
-}
-
-void TouchScreenGUI::sendHUDButton(hud_button_info* hud_button)
-{
-	SEvent event;
-	memset(&event, 0, sizeof(SEvent));
-	event.EventType = irr::EET_KEY_INPUT_EVENT;
-	event.KeyInput.Key = (irr::EKEY_CODE) (KEY_KEY_1 + hud_button->id);
-	event.KeyInput.Control = false;
-	event.KeyInput.Shift = false;
-	event.KeyInput.PressedDown = true;
-	m_receiver->OnEvent(event);
 }
 
 void TouchScreenGUI::setVisible(bool visible)
@@ -653,7 +691,7 @@ void TouchScreenGUI::setVisible(bool visible)
 		m_joystick.button_bg->setVisible(false);
 	if (m_joystick.button_center)
 		m_joystick.button_center->setVisible(false);
-		
+
 	if (m_overflow_bg)
 		m_overflow_bg->setVisible(m_visible && m_overflow_open);
 

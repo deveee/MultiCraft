@@ -21,7 +21,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #include "IGUIStaticText.h"
 #include "irrlichttypes.h"
-#include <IEventReceiver.h>
 #include <IGUIButton.h>
 #include <IGUIEnvironment.h>
 #include <IrrlichtDevice.h>
@@ -30,13 +29,13 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <vector>
 
 #include "client/tile.h"
-#include "client/game.h"
 
 using namespace irr;
 using namespace irr::core;
 using namespace irr::gui;
 
 #define MIN_DIG_TIME_MS 500
+#define MIN_PLACE_TIME_MS 50
 #define BUTTON_REPEAT_DELAY 1.0f
 #define NUMBER_OF_TOUCHES 10
 
@@ -58,14 +57,14 @@ typedef enum
 	overflow_id,
 	joystick_off_id,
 	joystick_bg_id,
-	joystick_center_id
+	joystick_center_id,
 } touch_gui_button_id;
 
 struct button_data
 {
-	const char *imagename;
+	const char *image;
 	const char *title;
-	const char *keyname;
+	const char *name;
 };
 
 struct button_info
@@ -77,7 +76,7 @@ struct button_info
 	bool overflow_menu = false;
 	bool pressed = false;
 	s32 event_id = -1;
-	
+
 	void reset()
 	{
 		pressed = false;
@@ -94,8 +93,9 @@ struct joystick_info
 	s16 move_sideward = 0;
 	s16 move_forward = 0;
 	bool pressed = false;
+	bool released = false;
 	s32 event_id = -1;
-	
+
 	void reset(bool visible)
 	{
 		button_off->setVisible(visible);
@@ -112,6 +112,7 @@ struct hud_button_info
 {
 	s32 id = -1;
 	rect<s32> rect;
+	bool pressed = false;
 };
 
 struct camera_info
@@ -119,16 +120,22 @@ struct camera_info
 	double yaw_change = 0.0;
 	double pitch = 0.0;
 	line3d<f32> shootline;
+	u64 downtime = 0;
 	bool has_really_moved = false;
+	bool dig = false;
+	bool place = false;
 	s32 x = 0;
 	s32 y = 0;
 	s32 event_id = -1;
-	
+
 	void reset()
 	{
+		downtime = 0;
 		has_really_moved = false;
+		dig = false;
+		place = false;
 		x = 0;
-		y = 0;	
+		y = 0;
 		event_id = -1;
 	}
 };
@@ -136,11 +143,13 @@ struct camera_info
 class TouchScreenGUI
 {
 public:
-	TouchScreenGUI(IrrlichtDevice *device, IEventReceiver *receiver);
+	TouchScreenGUI(IrrlichtDevice *device);
 	~TouchScreenGUI();
 
 	void init(ISimpleTextureSource *tsrc, bool simple_singleplayer_mode);
 	void preprocessEvent(const SEvent &event);
+	bool isButtonPressed(irr::EKEY_CODE keycode);
+	bool immediateRelease(irr::EKEY_CODE keycode);
 
 	s16 getMoveSideward() { return m_joystick.move_sideward; }
 	s16 getMoveForward() { return m_joystick.move_forward; }
@@ -178,18 +187,16 @@ private:
 
 	IrrlichtDevice *m_device;
 	IGUIEnvironment *m_guienv;
-	IEventReceiver *m_receiver;
 	ISimpleTextureSource *m_texturesource;
-	
+
 	v2u32 m_screensize;
 	s32 m_button_size;
 	double m_touchscreen_threshold;
 	double m_touch_sensitivity;
 	bool m_visible = true;
 	bool m_buttons_initialized = false;
-	bool m_simple_singleplayer_mode = false;
 
-	std::array<bool, NUMBER_OF_TOUCHES> m_events;
+	std::array<bool, NUMBER_OF_TOUCHES> m_events = {};
 	std::vector<hud_button_info> m_hud_buttons;
 	std::vector<button_info*> m_buttons;
 	joystick_info m_joystick;
@@ -198,13 +205,13 @@ private:
 	bool m_overflow_open = false;
 	IGUIStaticText *m_overflow_bg = nullptr;
 	std::vector<IGUIStaticText *> m_overflow_button_titles;
-		
+
 	void loadButtonTexture(IGUIButton *btn, const char *path,
 			const rect<s32> &button_rect);
 	void initButton(touch_gui_button_id id, const rect<s32> &button_rect,
 			bool overflow_menu = false, const char *texture = "");
 	void initJoystickButton();
-	
+
 	rect<s32> getButtonRect(touch_gui_button_id id);
 	void updateButtons();
 
@@ -213,9 +220,6 @@ private:
 
 	void moveJoystick(s32 x, s32 y);
 	void updateCamera(s32 x, s32 y);
-
-	hud_button_info* getHUDButton(s32 x, s32 y);
-	void sendHUDButton(hud_button_info* hud_button);
 
 	void setVisible(bool visible);
 	void reset();
