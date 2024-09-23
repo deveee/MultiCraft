@@ -111,7 +111,7 @@ struct joystick_info
 struct hud_button_info
 {
 	s32 id = -1;
-	rect<s32> rect;
+	rect<s32> button_rect;
 	bool pressed = false;
 };
 
@@ -175,7 +175,7 @@ public:
 	void show();
 
 	void resetHud();
-	void registerHudItem(s32 index, const rect<s32> &rect);
+	void registerHudItem(s32 index, const rect<s32> &button_rect);
 
 	void handleReleaseAll();
 
@@ -198,7 +198,7 @@ private:
 
 	std::array<bool, NUMBER_OF_TOUCHES> m_events = {};
 	std::vector<hud_button_info> m_hud_buttons;
-	std::vector<button_info*> m_buttons;
+	std::vector<button_info *> m_buttons;
 	joystick_info m_joystick;
 	camera_info m_camera;
 
@@ -206,8 +206,8 @@ private:
 	IGUIStaticText *m_overflow_bg = nullptr;
 	std::vector<IGUIStaticText *> m_overflow_button_titles;
 
-	void loadButtonTexture(IGUIButton *btn, const char *path,
-			const rect<s32> &button_rect);
+	void loadButtonTexture(
+			IGUIButton *btn, const char *path, const rect<s32> &button_rect);
 	void initButton(touch_gui_button_id id, const rect<s32> &button_rect,
 			bool overflow_menu = false, const char *texture = "");
 	void initJoystickButton();

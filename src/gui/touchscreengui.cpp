@@ -433,7 +433,7 @@ void TouchScreenGUI::preprocessEvent(const SEvent &event)
 
 			if (!m_events[id]) {
 				for (auto &hud_button : m_hud_buttons) {
-					if (hud_button.rect.isPointInside(v2s32(x, y))) {
+					if (hud_button.button_rect.isPointInside(v2s32(x, y))) {
 						m_events[id] = true;
 						hud_button.pressed = true;
 					}
@@ -652,16 +652,16 @@ void TouchScreenGUI::step(float dtime)
 	}
 }
 
-void TouchScreenGUI::registerHudItem(s32 index, const rect<s32> &rect)
+void TouchScreenGUI::registerHudItem(s32 index, const rect<s32> &button_rect)
 {
 	for (auto &hud_button : m_hud_buttons) {
 		if (hud_button.id == index) {
-			hud_button.rect = rect;
+			hud_button.button_rect = button_rect;
 			return;
 		}
 	}
 
-	hud_button_info hud_button = {index, rect};
+	hud_button_info hud_button = {index, button_rect};
 	m_hud_buttons.push_back(hud_button);
 }
 
