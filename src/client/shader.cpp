@@ -429,7 +429,7 @@ u32 ShaderSource::getShaderIdDirect(const std::string &name,
 	for(u32 i=0; i<m_shaderinfo_cache.size(); i++){
 		ShaderInfo *info = &m_shaderinfo_cache[i];
 		if(info->name == name && info->material_type == material_type &&
-			info->drawtype == drawtype)
+			(info->drawtype == drawtype || info->drawtype_unused))
 			return i;
 	}
 
@@ -663,6 +663,12 @@ ShaderInfo ShaderSource::generateShader(const std::string &name,
 	std::string vertex_shader = m_sourcecache.getOrLoad(name, "opengl_vertex.glsl");
 	std::string fragment_shader = m_sourcecache.getOrLoad(name, "opengl_fragment.glsl");
 	std::string geometry_shader = m_sourcecache.getOrLoad(name, "opengl_geometry.glsl");
+
+	if (vertex_shader.find("DRAW_TYPE") == std::string::npos &&
+			fragment_shader.find("DRAW_TYPE") == std::string::npos &&
+			geometry_shader.find("DRAW_TYPE") == std::string::npos) {
+		shaderinfo.drawtype_unused = true;
+	}
 
 	vertex_shader = common_header + vertex_header + vertex_shader;
 	fragment_shader = common_header + fragment_header + fragment_shader;

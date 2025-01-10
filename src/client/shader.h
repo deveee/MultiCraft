@@ -50,6 +50,7 @@ struct ShaderInfo {
 	video::E_MATERIAL_TYPE material = video::EMT_SOLID;
 	NodeDrawType drawtype = NDT_NORMAL;
 	MaterialType material_type = TILE_MATERIAL_BASIC;
+	bool drawtype_unused = false;
 
 	ShaderInfo() = default;
 	virtual ~ShaderInfo() = default;
