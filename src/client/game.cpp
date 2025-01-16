@@ -4326,7 +4326,8 @@ void Game::pauseGame()
 	if (g_menumgr.pausesGame() || !hud)
 		return;
 #ifdef HAVE_TOUCHSCREENGUI
-	g_touchscreengui->reset();
+	if (g_touchscreengui)
+		g_touchscreengui->reset();
 #endif
 	showPauseMenu();
 	runData.pause_game_timer = 0;
@@ -4633,6 +4634,18 @@ void the_game(bool *kill,
 		porting::handleError("ModError", error_message);
 #endif
 	}
+	catch (con::PeerNotFoundException &e) {
+		// Make sure that g_game is NULL and rethrow
+		g_game = NULL;
+		throw;
+	}
+#ifdef NDEBUG
+	catch (std::exception &e) {
+		g_game = NULL;
+		throw;
+	}
+#endif
+
 	g_game = NULL;
 	game.shutdown();
 }
