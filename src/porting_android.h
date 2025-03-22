@@ -27,10 +27,14 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #include <jni.h>
 #include <android/log.h>
+#include <android_native_app_glue.h>
 
 #include <string>
 
 namespace porting {
+
+extern android_app *app_global;
+
 // java <-> c++ interaction interface
 extern JNIEnv *jnienv;
 
@@ -120,4 +124,5 @@ std::string getCpuArchitecture();
  * get encrypted key for further actions
  */
 std::string getSecretKey(const std::string &key);
+
 }

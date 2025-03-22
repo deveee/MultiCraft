@@ -176,8 +176,8 @@ LOCAL_SRC_FILES := \
 	../../src/script/lua_api/l_vmanip.cpp          \
 	$(wildcard ../../src/server/*.cpp)             \
 	../../src/threading/event.cpp                  \
-	../../src/threading/sdl_semaphore.cpp          \
-	../../src/threading/sdl_thread.cpp             \
+	../../src/threading/semaphore.cpp          \
+	../../src/threading/thread.cpp             \
 	$(wildcard ../../src/util/*.cpp)               \
 	../../src/ban.cpp                              \
 	../../src/chat.cpp                             \
@@ -267,7 +267,7 @@ LOCAL_STATIC_LIBRARIES += \
 	LuaJIT \
 	zstd
 
-LOCAL_STATIC_LIBRARIES += $(PROFILER_LIBS)
+LOCAL_STATIC_LIBRARIES += android_native_app_glue $(PROFILER_LIBS)
 
 LOCAL_LDLIBS := -lEGL -lGLESv1_CM -lGLESv2 -landroid -lOpenSLES -lz -llog
 
@@ -276,3 +276,5 @@ include $(BUILD_SHARED_LIBRARY)
 ifdef GPROF
 $(call import-module,android-ndk-profiler)
 endif
+
+$(call import-module,android/native_app_glue)

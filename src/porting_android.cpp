@@ -45,19 +45,22 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "prof.h"
 #endif
 
-#include <SDL.h>
+//#include <SDL.h>
 
 extern int real_main(int argc, char *argv[]);
 extern "C" void external_pause_game();
 
 static std::atomic<bool> ran = {false};
 
-extern "C" int SDL_main(int argc, char *argv[])
+//extern "C" int SDL_main(int argc, char *argv[])
+void android_main(struct android_app *app)
 {
 	if (ran.exchange(true)) {
 		errorstream << "Caught second android_main execution in a process" << std::endl;
-		return 0;
+		return;
 	}
+	
+	porting::app_global = app;
 
 	try {
 		char *argv[] = {strdup(PROJECT_NAME), nullptr};
@@ -91,6 +94,7 @@ extern "C" {
 }
 
 namespace porting {
+android_app *app_global;
 JNIEnv      *jnienv;
 jclass       activityClass;
 jobject      activityObj;
@@ -132,8 +136,21 @@ jclass findClass(const std::string &classname)
 
 void initAndroid()
 {
-	porting::jnienv = (JNIEnv*)SDL_AndroidGetJNIEnv();
-	activityObj = (jobject)SDL_AndroidGetActivity();
+	//porting::jnienv = (JNIEnv*)SDL_AndroidGetJNIEnv();
+	//activityObj = (jobject)SDL_AndroidGetActivity();
+	
+	porting::jnienv = nullptr;
+	JavaVM *jvm = app_global->activity->vm;
+	JavaVMAttachArgs lJavaVMAttachArgs;
+	lJavaVMAttachArgs.version = JNI_VERSION_1_6;
+	lJavaVMAttachArgs.name = PROJECT_NAME_C "NativeThread";
+	lJavaVMAttachArgs.group = nullptr;
+	activityObj = app_global->activity->clazz;
+ 
+	if (jvm->AttachCurrentThread(&porting::jnienv, &lJavaVMAttachArgs) == JNI_ERR) {
+		errorstream << "Failed to attach native thread to jvm" << std::endl;
+		exit(-1);
+	}
 
 	activityClass = findClass("com/multicraft/game/GameActivity");
 	if (activityClass == nullptr)
@@ -156,6 +173,10 @@ void cleanupAndroid()
 	setenv("CPUPROFILE", (path_user + DIR_DELIM + "gmon.out").c_str(), 1);
 	moncleanup();
 #endif
+
+	JavaVM *jvm = app_global->activity->vm;
+	jvm->DetachCurrentThread();
+	ANativeActivity_finish(porting::app_global->activity);
 }
 
 static std::string readJavaString(jstring j_str)
@@ -184,15 +205,60 @@ std::string getCacheDir()
 	return path;
 }
 
+static std::string javaStringToUTF8(jstring js)
+{
+	std::string str;
+	// Get string as a UTF-8 c-string
+	const char *c_str = jnienv->GetStringUTFChars(js, nullptr);
+	// Save it
+	str = c_str;
+	// And free the c-string
+	jnienv->ReleaseStringUTFChars(js, c_str);
+	return str;
+}
+
+static std::string getAndroidPath(
+		jclass cls, jobject obj, jmethodID mt_getAbsPath, const char *getter)
+{
+	// Get getter method
+	jmethodID mt_getter;
+	if (obj)
+		mt_getter = jnienv->GetMethodID(cls, getter, "()Ljava/io/File;");
+	else
+		mt_getter = jnienv->GetStaticMethodID(cls, getter, "()Ljava/io/File;");
+
+	// Call getter
+	jobject ob_file;
+	if (obj)
+		ob_file = jnienv->CallObjectMethod(obj, mt_getter);
+	else
+		ob_file = jnienv->CallStaticObjectMethod(cls, mt_getter);
+
+	// Call getAbsolutePath
+	auto js_path = (jstring) jnienv->CallObjectMethod(ob_file, mt_getAbsPath);
+
+	return javaStringToUTF8(js_path);
+}
+
 void initializePaths()
 {
-	const char *path_storage = SDL_AndroidGetExternalStoragePath();
-	const char *path_data = SDL_AndroidGetInternalStoragePath();
+	// Get Environment class
+	jclass cls_Env = jnienv->FindClass("android/os/Environment");
+	// Get File class
+	jclass cls_File = jnienv->FindClass("java/io/File");
+	// Get getAbsolutePath method
+	jmethodID mt_getAbsPath = jnienv->GetMethodID(cls_File,
+				"getAbsolutePath", "()Ljava/lang/String;");
+	std::string path_storage = getAndroidPath(cls_Env, nullptr,
+				mt_getAbsPath, "getExternalStorageDirectory");
+	std::string path_data = getAndroidPath(activityClass, activityObj, mt_getAbsPath,
+				"getFilesDir");
 
-	path_user = path_storage;
-	path_share = path_data;
-	path_locale = path_share + DIR_DELIM + "locale";
-	path_cache = getCacheDir();
+	path_user    = path_storage + DIR_DELIM + "Android/data/com.multicraft.game/files";
+	path_share   = path_data;
+	path_locale  = path_data + DIR_DELIM + "locale";
+	path_cache   = getAndroidPath(activityClass,
+			activityObj, mt_getAbsPath, "getCacheDir");
 }
 
 void showInputDialog(const std::string &hint, const std::string &current, int editType, std::string owner)
@@ -308,7 +374,7 @@ void notifyExitGame()
 
 void showToast(const std::string &msg)
 {
-	SDL_AndroidShowToast(msg.c_str(), 1, -1, 0, 0);
+	//SDL_AndroidShowToast(msg.c_str(), 1, -1, 0, 0);
 }
 
 float getScreenScale()
@@ -435,4 +501,5 @@ std::string getSecretKey(const std::string &key)
 
 	return returnValue;
 }
+
 }

@@ -135,8 +135,8 @@ bool MyEventReceiver::OnEvent(const SEvent &event)
 		if (m_touchscreengui && !isMenuActive())
 			m_touchscreengui->show();
 	} else if ((event.EventType == irr::EET_MOUSE_INPUT_EVENT &&
-			event.MouseInput.Event == irr::EMIE_MOUSE_MOVED) ||
-			(sdl_game_controller && sdl_game_controller->isActive())) {
+			event.MouseInput.Event == irr::EMIE_MOUSE_MOVED) /*||
+			(sdl_game_controller && sdl_game_controller->isActive())*/) {
 		TouchScreenGUI::setActive(false);
 		if (m_touchscreengui && !isMenuActive())
 			m_touchscreengui->hide();
