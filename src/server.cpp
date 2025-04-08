@@ -124,6 +124,8 @@ void *ServerThread::run()
 		} catch (LuaError &e) {
 			m_server->setAsyncFatalError(
 					"ServerThread::run Lua: " + std::string(e.what()));
+		} catch (DatabaseException &e) {
+			m_server->setAsyncFatalError(e.what());
 		}
 	}
 
@@ -290,7 +292,17 @@ Server::~Server()
 		MutexAutoLock envlock(m_env_mutex);
 
 		infostream << "Server: Saving players" << std::endl;
-		m_env->saveLoadedPlayers();
+		try {
+			m_env->saveLoadedPlayers();
+		} catch (DatabaseException &e) {
+			if (m_on_shutdown_errmsg) {
+				if (m_on_shutdown_errmsg->empty()) {
+					*m_on_shutdown_errmsg = std::string("DatabaseException: ") + e.what();
+				} else {
+					*m_on_shutdown_errmsg += std::string("\nDatabaseException: ") + e.what();
+				}
+			}
+		}
 
 		infostream << "Server: Kicking players" << std::endl;
 		std::string kick_msg;
@@ -302,7 +314,17 @@ Server::~Server()
 		if (kick_msg.empty()) {
 			kick_msg = g_settings->get("kick_msg_shutdown");
 		}
-		m_env->saveLoadedPlayers(true);
+		try {
+			m_env->saveLoadedPlayers();
+		} catch (DatabaseException &e) {
+			if (m_on_shutdown_errmsg) {
+				if (m_on_shutdown_errmsg->empty()) {
+					*m_on_shutdown_errmsg = std::string("DatabaseException: ") + e.what();
+				} else {
+					*m_on_shutdown_errmsg += std::string("\nDatabaseException: ") + e.what();
+				}
+			}
+		}
 		m_env->kickAllPlayers(SERVER_ACCESSDENIED_SHUTDOWN,
 			kick_msg, reconnect);
 	}
