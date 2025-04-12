@@ -15,6 +15,8 @@ if [ ! -d SDL2-src ]; then
 	sed -i '' 's/#define SDL_AUDIO_DRIVER_DISK   1/#define SDL_AUDIO_DRIVER_DISK   0/g' SDL2-src/include/SDL_config_macosx.h
 	sed -i '' 's/#define SDL_AUDIO_DRIVER_DUMMY  1/#define SDL_AUDIO_DRIVER_DUMMY  0/g' SDL2-src/include/SDL_config_macosx.h
 	sed -i '' 's/#define SDL_PLATFORM_SUPPORTS_METAL    1/#define SDL_PLATFORM_SUPPORTS_METAL    0/g' SDL2-src/include/SDL_config_macosx.h
+	# Apply patch
+	patch -p1 -d SDL2-src < ../scripts/SDL2-hidapi-revert.diff
 fi
 
 rm -rf SDL2
