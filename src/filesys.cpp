@@ -765,25 +765,9 @@ bool safeWriteToFile(const std::string &path, const std::string &content)
 }
 
 #ifndef SERVER
-bool extractZipFile(io::IFileSystem *fs, const char *filename,
+bool extractZipFileInternal(io::IFileSystem *fs, irr_ptr<io::IFileArchive>& opened_zip,
 		const std::string &destination, const char *password, std::string *errorMessage)
 {
-	// Be careful here not to touch the global file hierarchy in Irrlicht
-	// since this function needs to be thread-safe!
-
-	io::IArchiveLoader *zip_loader = nullptr;
-	for (u32 i = 0; i < fs->getArchiveLoaderCount(); i++) {
-		if (fs->getArchiveLoader(i)->isALoadableFileFormat(io::EFAT_ZIP)) {
-			zip_loader = fs->getArchiveLoader(i);
-			break;
-		}
-	}
-	if (!zip_loader) {
-		warningstream << "fs::extractZipFile(): Irrlicht said it doesn't support ZIPs." << std::endl;
-		return false;
-	}
-
-	irr_ptr<io::IFileArchive> opened_zip(zip_loader->createArchive(filename, false, false));
 	if (opened_zip.get() == nullptr) {
 		if (errorMessage != nullptr)
 			*errorMessage = "failed to open zip file";
@@ -839,6 +823,133 @@ bool extractZipFile(io::IFileSystem *fs, const char *filename,
 
 	return true;
 }
+
+bool extractZipFile(io::IFileSystem *fs, const char *filename,
+		const std::string &destination, const char *password, std::string *errorMessage)
+{
+	// Be careful here not to touch the global file hierarchy in Irrlicht
+	// since this function needs to be thread-safe!
+
+	io::IArchiveLoader *zip_loader = nullptr;
+	for (u32 i = 0; i < fs->getArchiveLoaderCount(); i++) {
+		if (fs->getArchiveLoader(i)->isALoadableFileFormat(io::EFAT_ZIP)) {
+			zip_loader = fs->getArchiveLoader(i);
+			break;
+		}
+	}
+	if (!zip_loader) {
+		warningstream << "fs::extractZipFile(): Irrlicht said it doesn't support ZIPs." << std::endl;
+		return false;
+	}
+
+	irr_ptr<io::IFileArchive> opened_zip(zip_loader->createArchive(filename, false, false));
+
+	return extractZipFileInternal(fs, opened_zip, destination, password, errorMessage);
+}
+
+#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+void* ReadFileFromAssets(const char* filename, size_t* size)
+{
+	SDL_RWops* file = SDL_RWFromFile(filename, "rb");
+
+	if (!file)
+		return nullptr;
+
+	const size_t chunk_size = 65536;
+	size_t buffer_size = chunk_size;
+	void* buffer = SDL_malloc(buffer_size);
+
+	if (!buffer) {
+		SDL_RWclose(file);
+		return nullptr;
+	}
+
+	size_t total_bytes = 0;
+	size_t bytes_read = 0;
+
+	do {
+		if (total_bytes + chunk_size > buffer_size) {
+			buffer_size += chunk_size;
+			void* new_buffer = SDL_realloc(buffer, buffer_size);
+
+			if (!new_buffer) {
+				SDL_free(buffer);
+				SDL_RWclose(file);
+				return nullptr;
+			}
+
+			buffer = new_buffer;
+		}
+
+		bytes_read = SDL_RWread(file, (char*)buffer + total_bytes, 1, chunk_size);
+
+		total_bytes += bytes_read;
+	} while (bytes_read == chunk_size);
+
+	SDL_RWclose(file);
+
+	if (total_bytes == 0) {
+		SDL_free(buffer);
+		return nullptr;
+	}
+
+	if (size)
+		*size = total_bytes;
+
+	if (total_bytes < buffer_size) {
+		void* final_buffer = SDL_realloc(buffer, total_bytes);
+
+		if (final_buffer)
+			buffer = final_buffer;
+	}
+
+	return buffer;
+}
+
+bool extractZipFileFromAssets(io::IFileSystem *fs, const char *filename,
+		const std::string &destination, const char *password, std::string *errorMessage)
+{
+	// Be careful here not to touch the global file hierarchy in Irrlicht
+	// since this function needs to be thread-safe!
+
+	io::IArchiveLoader *zip_loader = nullptr;
+	for (u32 i = 0; i < fs->getArchiveLoaderCount(); i++) {
+		if (fs->getArchiveLoader(i)->isALoadableFileFormat(io::EFAT_ZIP)) {
+			zip_loader = fs->getArchiveLoader(i);
+			break;
+		}
+	}
+	if (!zip_loader) {
+		warningstream << "fs::extractZipFile(): Irrlicht said it doesn't support ZIPs." << std::endl;
+		return false;
+	}
+
+	size_t length = 0;
+	void* data = ReadFileFromAssets(filename, &length);
+
+	if (!data) {
+		if (errorMessage != nullptr)
+			*errorMessage = "failed to open zip file";
+	}
+
+	io::IReadFile* file_mem = fs->createMemoryReadFile(data, length, filename);
+
+	if (!file_mem) {
+		if (errorMessage != nullptr)
+			*errorMessage = "failed to open zip file";
+	}
+
+	irr_ptr<io::IFileArchive> opened_zip(zip_loader->createArchive(file_mem, false, false));
+
+	bool result = extractZipFileInternal(fs, opened_zip, destination, password, errorMessage);
+
+	file_mem->drop();
+	SDL_free(data);
+
+	return result;
+}
+
+#endif
 #endif
 
 bool ReadFile(const std::string &path, std::string &out)
