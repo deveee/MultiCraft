@@ -151,6 +151,7 @@ public:
 	unsigned int queueAsync(const std::string &serialized_fct,
 			const std::string &serialized_params);
 
+	u32 getDayNightRatio() { return daynight_ratio; }
 private:
 
 	/** find and run the main menu script */
@@ -274,6 +275,7 @@ private:
 	Sky *m_sky = nullptr;
 
 	float m_timeofday = 0.5f;
+	u32 daynight_ratio = 0;
 
 	/** start playing a sound and return handle */
 	s32 playSound(const SimpleSoundSpec &spec, bool looped);

@@ -33,6 +33,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "sound.h"
 #include "client/sound_openal.h"
 #include "client/clouds.h"
+#include "client/game.h"
 #include "httpfetch.h"
 #include "log.h"
 #include "client/fontengine.h"
@@ -107,9 +108,24 @@ GUIEngine::GUIEngine(JoystickController *joystick,
 	m_texture_source = createTextureSource(true);
 
 	m_shader_src = createShaderSource();
-	if (m_shader_src)
+	
+	
+	if (m_shader_src) {
+		set_light_table(g_settings->getFloat("display_gamma"));
+		
+		static bool disable_fog = false;
+		static f32 fog_range = 0;
+		auto *scsf = new GameGlobalShaderConstantSetterFactory(
+				&disable_fog, &fog_range, nullptr, this);
+		m_shader_src->addShaderConstantSetterFactory(scsf);
+		
 		m_sky = new Sky(-1, nullptr, m_shader_src, m_smgr);
-
+		u32 daynight_ratio = time_to_daynight_ratio(m_timeofday * 24000.0f, true);
+		float time_brightness = decode_light_f((float)daynight_ratio / 1000.0);
+		scsf->setSky(m_sky);
+		m_sky->update(m_timeofday, time_brightness, time_brightness, true, CAMERA_MODE_FIRST, 3, 0);
+	}
+	
 	//create soundmanager
 	MenuMusicFetcher soundfetcher;
 #if USE_SOUND
@@ -301,7 +317,6 @@ void GUIEngine::run()
 			if (m_sky) {
 				u32 daynight_ratio = time_to_daynight_ratio(m_timeofday * 24000.0f, true);
 				float time_brightness = decode_light_f((float)daynight_ratio / 1000.0);
-
 				m_sky->update(m_timeofday, time_brightness, time_brightness, true, CAMERA_MODE_FIRST, 3, 0);
 				m_sky->render();
 				m_cloud.clouds->update(v3f(0, 0, 0), m_sky->getCloudColor());
@@ -362,8 +377,10 @@ GUIEngine::~GUIEngine()
 	delete m_texture_source;
 	if (m_shader_src)
 		delete m_shader_src;
-	if (m_sky)
+	if (m_sky) {
+		m_sky->setStarCount(0, true);  // A hack for now because stars are not deleted
 		m_sky->drop();
+	}
 
 	// m_cloud.clouds is g_menuclouds and is dropped elsewhere
 	// if (m_cloud.clouds)
