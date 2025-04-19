@@ -833,6 +833,14 @@ void Sky::setMoonTexture(const std::string &moon_texture,
 	}
 }
 
+void Sky::setStarScale(f32 star_scale)
+{
+	if (m_star_params.scale != star_scale) { 
+		m_star_params.scale = star_scale;
+		updateStars();
+	}
+}
+
 void Sky::setStarCount(u16 star_count, bool force_update)
 {
 	// Allow force updating star count at game init.

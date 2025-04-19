@@ -272,7 +272,7 @@ private:
 	clouddata   m_cloud;
 
 	IWritableShaderSource *m_shader_src = nullptr;
-	Sky *m_sky = nullptr;
+	static Sky *m_sky;
 
 	float m_timeofday = 0.5f;
 	u32 daynight_ratio = 0;

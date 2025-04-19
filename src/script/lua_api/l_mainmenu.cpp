@@ -315,7 +315,7 @@ int ModApiMainMenu::l_set_stars(lua_State *L)
 
 	u16 count;
 	if (getintfield(L, 1, "count", count))
-		sky->setStarCount(count, true);
+		sky->setStarCount(count, false);
 
 	lua_getfield(L, 1, "star_color");
 	if (!lua_isnil(L, -1)) {

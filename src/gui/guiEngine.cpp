@@ -44,6 +44,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "daynightratio.h"
 #include "light.h"
 
+Sky *GUIEngine::m_sky = nullptr;
 
 /******************************************************************************/
 void TextDestGuiEngine::gotText(const StringMap &fields)
@@ -119,7 +120,9 @@ GUIEngine::GUIEngine(JoystickController *joystick,
 				&disable_fog, &fog_range, nullptr, this);
 		m_shader_src->addShaderConstantSetterFactory(scsf);
 		
-		m_sky = new Sky(-1, nullptr, m_shader_src, m_smgr);
+		if (!m_sky)
+			m_sky = new Sky(-1, nullptr, m_shader_src, m_smgr);
+		m_sky->setVisible(true);
 		u32 daynight_ratio = time_to_daynight_ratio(m_timeofday * 24000.0f, true);
 		float time_brightness = decode_light_f((float)daynight_ratio / 1000.0);
 		scsf->setSky(m_sky);
@@ -378,8 +381,7 @@ GUIEngine::~GUIEngine()
 	if (m_shader_src)
 		delete m_shader_src;
 	if (m_sky) {
-		m_sky->setStarCount(0, true);  // A hack for now because stars are not deleted
-		m_sky->drop();
+		m_sky->setVisible(false);
 	}
 
 	// m_cloud.clouds is g_menuclouds and is dropped elsewhere
