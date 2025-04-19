@@ -260,7 +260,8 @@ int ModApiMainMenu::l_set_sky(lua_State *L)
 
 	lua_getfield(L, 1, "sky_color");
 	if (lua_istable(L, -1)) {
-		SkyColor sky_color;
+		SkyboxDefaults sky_defaults;
+		SkyColor sky_color = sky_defaults.getSkyColorDefaults();
 
 		lua_getfield(L, -1, "day_sky");
 		read_color(L, -1, &sky_color.day_sky);
