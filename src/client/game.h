@@ -22,6 +22,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "irrlichttypes.h"
 #include "client.h"
 #include "client/mapblock_mesh.h"
+#include "daynightratio.h"
 #include "gui/guiEngine.h"
 #include "minimap.h"
 #include "porting.h"
@@ -76,7 +77,6 @@ class GameGlobalShaderConstantSetter : public IShaderConstantSetter
 	CachedPixelShaderSetting<SamplerLayer_t> m_base_texture;
 	CachedPixelShaderSetting<SamplerLayer_t> m_normal_texture;
 	Client *m_client;
-	GUIEngine *m_guiengine;
 
 public:
 	void onSettingsChange(const std::string &name)
@@ -93,7 +93,7 @@ public:
 	void setSky(Sky *sky) { m_sky = sky; }
 
 	GameGlobalShaderConstantSetter(Sky *sky, bool *force_fog_off,
-			f32 *fog_range, Client *client, GUIEngine *guiengine) :
+			f32 *fog_range, Client *client) :
 		m_sky(sky),
 		m_force_fog_off(force_fog_off),
 		m_fog_range(fog_range),
@@ -110,8 +110,7 @@ public:
 		m_camera_offset_vertex("cameraOffset"),
 		m_base_texture("baseTexture"),
 		m_normal_texture("normalTexture"),
-		m_client(client),
-		m_guiengine(guiengine)
+		m_client(client)
 	{
 		g_settings->registerChangedCallback("enable_fog", settingsCallback, this);
 		m_fog_enabled = g_settings->getBool("enable_fog");
@@ -146,8 +145,9 @@ public:
 		u32 daynight_ratio = 0;
 		if (m_client)
 			daynight_ratio = m_client->getEnv().getDayNightRatio();
-		else if (m_guiengine)
-			daynight_ratio = m_guiengine->getDayNightRatio();
+		else
+			daynight_ratio = time_to_daynight_ratio(GUIEngine::g_timeofday * 24000.0f, true);
+
 		video::SColorf sunlight;
 		get_sunlight_color(&sunlight, daynight_ratio);
 		float dnc[3] = {
@@ -218,16 +218,14 @@ class GameGlobalShaderConstantSetterFactory : public IShaderConstantSetterFactor
 	bool *m_force_fog_off;
 	f32 *m_fog_range;
 	Client *m_client;
-	GUIEngine *m_guiengine;
 	std::vector<GameGlobalShaderConstantSetter *> created_nosky;
 public:
 	GameGlobalShaderConstantSetterFactory(bool *force_fog_off,
-			f32 *fog_range, Client *client, GUIEngine *guiengine) :
+			f32 *fog_range, Client *client) :
 		m_sky(NULL),
 		m_force_fog_off(force_fog_off),
 		m_fog_range(fog_range),
-		m_client(client),
-		m_guiengine(guiengine)
+		m_client(client)
 	{}
 
 	void setSky(Sky *sky) {
@@ -241,7 +239,7 @@ public:
 	virtual IShaderConstantSetter* create()
 	{
 		auto *scs = new GameGlobalShaderConstantSetter(
-				m_sky, m_force_fog_off, m_fog_range, m_client, m_guiengine);
+				m_sky, m_force_fog_off, m_fog_range, m_client);
 		if (!m_sky)
 			created_nosky.push_back(scs);
 		return scs;

@@ -44,7 +44,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "daynightratio.h"
 #include "light.h"
 
-Sky *GUIEngine::m_sky = nullptr;
+float GUIEngine::g_timeofday = 0.5f;
 
 /******************************************************************************/
 void TextDestGuiEngine::gotText(const StringMap &fields)
@@ -107,27 +107,6 @@ GUIEngine::GUIEngine(JoystickController *joystick,
 
 	//create texture source
 	m_texture_source = createTextureSource(true);
-
-	m_shader_src = createShaderSource();
-	
-	
-	if (m_shader_src) {
-		set_light_table(g_settings->getFloat("display_gamma"));
-		
-		static bool disable_fog = false;
-		static f32 fog_range = 0;
-		auto *scsf = new GameGlobalShaderConstantSetterFactory(
-				&disable_fog, &fog_range, nullptr, this);
-		m_shader_src->addShaderConstantSetterFactory(scsf);
-		
-		if (!m_sky)
-			m_sky = new Sky(-1, nullptr, m_shader_src, m_smgr);
-		m_sky->setVisible(true);
-		u32 daynight_ratio = time_to_daynight_ratio(m_timeofday * 24000.0f, true);
-		float time_brightness = decode_light_f((float)daynight_ratio / 1000.0);
-		scsf->setSky(m_sky);
-		m_sky->update(m_timeofday, time_brightness, time_brightness, true, CAMERA_MODE_FIRST, 3, 0);
-	}
 	
 	//create soundmanager
 	MenuMusicFetcher soundfetcher;
@@ -198,7 +177,7 @@ GUIEngine::GUIEngine(JoystickController *joystick,
 	const video::ITexture* texture = m_textures[layer].texture;
 	RenderingEngine::setLoadScreenBackground(m_clouds_enabled,
 			(texture && !m_textures[layer].tile) ? texture->getName().getPath().c_str() : "",
-			m_sky ? m_sky->getSkyColor() : video::SColor(255, 5, 155, 245));
+			g_menusky ? g_menusky->getSkyColor() : video::SColor(255, 5, 155, 245));
 
 	m_menu->quitMenu();
 	m_menu->drop();
@@ -277,7 +256,7 @@ void GUIEngine::run()
 	// }
 
 	while (RenderingEngine::run() && (!m_startgame) && (!m_kill)) {
-		const video::SColor sky_color = m_sky ? m_sky->getSkyColor() : video::SColor(255, 5, 155, 245);
+		const video::SColor sky_color = g_menusky ? g_menusky->getSkyColor() : video::SColor(255, 5, 155, 245);
 		driver->setFog(sky_color, fog_type, fog_start, fog_end, fog_density,
 				fog_pixelfog, fog_rangefog);
 
@@ -317,12 +296,12 @@ void GUIEngine::run()
 
 		if (m_clouds_enabled)
 		{
-			if (m_sky) {
-				u32 daynight_ratio = time_to_daynight_ratio(m_timeofday * 24000.0f, true);
+			if (g_menusky) {
+				u32 daynight_ratio = time_to_daynight_ratio(g_timeofday * 24000.0f, true);
 				float time_brightness = decode_light_f((float)daynight_ratio / 1000.0);
-				m_sky->update(m_timeofday, time_brightness, time_brightness, true, CAMERA_MODE_FIRST, 3, 0);
-				m_sky->render();
-				m_cloud.clouds->update(v3f(0, 0, 0), m_sky->getCloudColor());
+				g_menusky->update(g_timeofday, time_brightness, time_brightness, true, CAMERA_MODE_FIRST, 3, 0);
+				g_menusky->render();
+				m_cloud.clouds->update(v3f(0, 0, 0), g_menusky->getCloudColor());
 			}
 			cloudPreProcess();
 			drawOverlay(driver);
@@ -378,11 +357,6 @@ GUIEngine::~GUIEngine()
 	}
 
 	delete m_texture_source;
-	if (m_shader_src)
-		delete m_shader_src;
-	if (m_sky) {
-		m_sky->setVisible(false);
-	}
 
 	// m_cloud.clouds is g_menuclouds and is dropped elsewhere
 	// if (m_cloud.clouds)

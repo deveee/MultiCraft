@@ -24,10 +24,13 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "fontengine.h"
 #include "client.h"
 #include "clouds.h"
+#include "daynightratio.h"
 #include "util/numeric.h"
 #include "guiscalingfilter.h"
 #include "localplayer.h"
 #include "client/hud.h"
+#include "client/sky.h"
+#include "gui/guiEngine.h"
 #include "camera.h"
 #include "minimap.h"
 #include "clientmap.h"
@@ -654,6 +657,12 @@ void RenderingEngine::_draw_load_bg(gui::IGUIEnvironment *guienv,
 
 	const bool cloud_menu_background = m_load_bg_clouds && g_settings->getBool("menu_clouds");
 	if (cloud_menu_background) {
+		if (g_menusky) {
+			u32 daynight_ratio = time_to_daynight_ratio(GUIEngine::g_timeofday * 24000.0f, true);
+			float time_brightness = decode_light_f((float)daynight_ratio / 1000.0);
+			g_menusky->update(GUIEngine::g_timeofday, time_brightness, time_brightness, true, CAMERA_MODE_FIRST, 3, 0);
+			g_menusky->render();
+		}
 		g_menuclouds->step(dtime * 3);
 		g_menuclouds->render();
 		g_menucloudsmgr->drawAll();

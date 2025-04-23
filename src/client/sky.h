@@ -29,6 +29,10 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #define SKY_MATERIAL_COUNT 12
 
+// Menu sky
+class Sky;
+extern Sky *g_menusky;
+
 class ITextureSource;
 
 // Skybox, rendered with zbuffer turned off, before all other nodes.

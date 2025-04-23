@@ -35,6 +35,10 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "config.h"
 using namespace irr::core;
 
+// Menu sky are created later
+class Sky;
+Sky *g_menusky = NULL;
+
 static video::SMaterial baseMaterial()
 {
 	video::SMaterial mat;

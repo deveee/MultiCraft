@@ -230,7 +230,7 @@ int ModApiMainMenu::l_set_sky(lua_State *L)
 	GUIEngine* engine = getGuiEngine(L);
 	sanity_check(engine != NULL);
 
-	Sky *sky = engine->m_sky;
+	Sky *sky = g_menusky;
 	if (!sky)
 		return 0;
 
@@ -303,7 +303,7 @@ int ModApiMainMenu::l_set_stars(lua_State *L)
 {
 	GUIEngine* engine = getGuiEngine(L);
 	sanity_check(engine != NULL);
-	Sky *sky = engine->m_sky;
+	Sky *sky = g_menusky;
 	if (!sky)
 		return 0;
 
@@ -342,7 +342,7 @@ int ModApiMainMenu::l_set_timeofday(lua_State *L)
 	luaL_argcheck(L, timeofday_f >= 0.0f && timeofday_f <= 1.0f, 1,
 				  "value must be between 0 and 1");
 
-	engine->m_timeofday = timeofday_f;
+	engine->g_timeofday = timeofday_f;
 	return 0;
 }
 
