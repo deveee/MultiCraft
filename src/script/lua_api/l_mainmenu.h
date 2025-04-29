@@ -96,7 +96,7 @@ private:
 
 	static int l_set_stars(lua_State *L);
 
-	static int l_set_time_of_day(lua_State *L);
+	static int l_set_timeofday(lua_State *L);
 
 	static int l_get_textlist_index(lua_State *L);
 

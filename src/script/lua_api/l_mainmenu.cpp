@@ -310,14 +310,14 @@ int ModApiMainMenu::l_set_stars(lua_State *L)
 	luaL_checktype(L, 1, LUA_TTABLE);
 
 	bool visible;
-	if (getboolfield(L, 1, "stars_visible", visible))
+	if (getboolfield(L, 1, "visible", visible))
 		sky->setStarsVisible(visible);
 
 	u16 count;
-	if (getintfield(L, 1, "stars_count", count))
+	if (getintfield(L, 1, "count", count))
 		sky->setStarCount(count, false);
 
-	lua_getfield(L, 1, "stars_color");
+	lua_getfield(L, 1, "star_color");
 	if (!lua_isnil(L, -1)) {
 		video::SColor starcolor;
 		read_color(L, -1, &starcolor);
@@ -326,14 +326,14 @@ int ModApiMainMenu::l_set_stars(lua_State *L)
 	lua_pop(L, 1);
 
 	f32 star_scale;
-	if (getfloatfield(L, 1, "stars_scale", star_scale))
+	if (getfloatfield(L, 1, "scale", star_scale))
 		sky->setStarScale(star_scale);
 
 	return 0;
 }
 
 /******************************************************************************/
-int ModApiMainMenu::l_set_time_of_day(lua_State *L)
+int ModApiMainMenu::l_set_timeofday(lua_State *L)
 {
 	GUIEngine* engine = getGuiEngine(L);
 	sanity_check(engine != NULL);
@@ -1033,7 +1033,7 @@ void ModApiMainMenu::Initialize(lua_State *L, int top)
 	API_FCT(set_clouds);
 	API_FCT(set_sky);
 	API_FCT(set_stars);
-	API_FCT(set_time_of_day);
+	API_FCT(set_timeofday);
 	API_FCT(get_textlist_index);
 	API_FCT(get_table_index);
 	API_FCT(get_worlds);
