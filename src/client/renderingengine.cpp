@@ -655,6 +655,19 @@ void RenderingEngine::_draw_load_bg(gui::IGUIEnvironment *guienv,
 {
 	driver->beginScene(true, true, m_sky_color);
 
+	const v2u32 screensize = driver->getScreenSize();
+
+	video::ITexture *texture = m_load_bg_texture.empty() ? nullptr : driver->getTexture(m_load_bg_texture.c_str());
+
+	const v2u32 sourcesize = texture->getOriginalSize();
+
+	/* Draw background texture */
+	float aspectRatioScreen = (float) screensize.X / screensize.Y;
+	float aspectRatioSource = (float) sourcesize.X / sourcesize.Y;
+
+	int sourceX = aspectRatioSource > aspectRatioScreen ? (sourcesize.X - sourcesize.Y * aspectRatioScreen) / 2 : 0;
+	int sourceY = aspectRatioSource < aspectRatioScreen ? (sourcesize.Y - sourcesize.X / aspectRatioScreen) / 2 : 0;
+
 	const bool cloud_menu_background = m_load_bg_clouds && g_settings->getBool("menu_clouds");
 	if (cloud_menu_background) {
 		video::SColor fog_color;
@@ -678,13 +691,21 @@ void RenderingEngine::_draw_load_bg(gui::IGUIEnvironment *guienv,
 			g_menusky->render();
 			g_menuclouds->update(v3f(0, 0, 0), g_menusky->getCloudColor());
 		}
+		
+		video::ITexture *texture = tsrc->getTexture("bg.png"); // TODO: set texture name somewhere outside of this function
+
+		if (texture) {
+			draw2DImageFilterScaled(driver, texture,
+					core::rect<s32>(0, 0, screensize.X, screensize.Y),
+					core::rect<s32>(sourceX, sourceY, sourcesize.X - sourceX, sourcesize.Y - sourceY),
+					NULL, NULL, true);
+		}
+
 		g_menuclouds->step(dtime * 3);
 		g_menuclouds->render();
 		g_menucloudsmgr->drawAll();
 	}
 
-	const v2u32 screensize = driver->getScreenSize();
-	video::ITexture *texture = m_load_bg_texture.empty() ? nullptr : driver->getTexture(m_load_bg_texture.c_str());
 	if (texture == nullptr) {
 		if (!cloud_menu_background) {
 			video::ITexture *background_image = tsrc->getTexture("bg.png");
@@ -695,15 +716,6 @@ void RenderingEngine::_draw_load_bg(gui::IGUIEnvironment *guienv,
 		}
 		return;
 	}
-
-	const v2u32 sourcesize = texture->getOriginalSize();
-
-	/* Draw background texture */
-	float aspectRatioScreen = (float) screensize.X / screensize.Y;
-	float aspectRatioSource = (float) sourcesize.X / sourcesize.Y;
-
-	int sourceX = aspectRatioSource > aspectRatioScreen ? (sourcesize.X - sourcesize.Y * aspectRatioScreen) / 2 : 0;
-	int sourceY = aspectRatioSource < aspectRatioScreen ? (sourcesize.Y - sourcesize.X / aspectRatioScreen) / 2 : 0;
 
 	draw2DImageFilterScaled(driver, texture,
 			core::rect<s32>(0, 0, screensize.X, screensize.Y),
