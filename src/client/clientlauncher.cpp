@@ -598,8 +598,16 @@ void ClientLauncher::main_menu(MainMenuData *menudata)
 	// Cursor can be non-visible when coming from the game
 	input->setCursorVisible(true);
 
+	if (!m_texture_source)
+		m_texture_source = createTextureSource(true);
+
 	/* show main menu */
 	GUIEngine mymenu(&input->joystick, guiroot, &g_menumgr, menudata, m_texture_source, *kill);
+
+	// Delete texture source after exit main menu to avoid conflict with texture
+	// source in game
+	delete m_texture_source;
+	m_texture_source = nullptr;
 
 	/* leave scene manager in a clean state */
 	RenderingEngine::get_scene_manager()->clear();

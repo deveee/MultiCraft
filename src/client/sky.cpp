@@ -634,7 +634,7 @@ void Sky::draw_sun(video::IVideoDriver *driver, float sunsize, const video::SCol
 			if (m_use_custom_sky_body_pos)
 				place_sky_body(vertices, m_custom_sun_horizon_pos, m_custom_sun_day_pos);
 			else
-				place_sky_body(vertices, -90, wicked_time_of_day * 360 - 90);
+				place_sky_body(vertices, 90, wicked_time_of_day * 360 - 90);
 
 			driver->drawIndexedTriangleList(&vertices[0], 4, indices, 2);
 		}
@@ -651,7 +651,7 @@ void Sky::draw_sun(video::IVideoDriver *driver, float sunsize, const video::SCol
 		if (m_use_custom_sky_body_pos)
 			place_sky_body(vertices, m_custom_sun_horizon_pos, m_custom_sun_day_pos);
 		else
-			place_sky_body(vertices, -90, wicked_time_of_day * 360 - 90);
+			place_sky_body(vertices, 90, wicked_time_of_day * 360 - 90);
 
 		driver->drawIndexedTriangleList(&vertices[0], 4, indices, 2);
 	}
