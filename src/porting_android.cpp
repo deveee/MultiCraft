@@ -435,4 +435,22 @@ std::string getSecretKey(const std::string &key)
 
 	return returnValue;
 }
+
+void hideSplashScreen()
+{
+	if (jnienv == nullptr || activityObj == nullptr)
+		return;
+
+	jmethodID hideSplash = jnienv->GetMethodID(activityClass,
+			"hideSplashScreen", "()V");
+
+	FATAL_ERROR_IF(hideSplash == nullptr,
+		"porting::hideSplashScreen unable to find Java hideSplashScreen method");
+
+	jnienv->CallVoidMethod(activityObj, hideSplash);
+
+	if (jnienv->ExceptionOccurred())
+		jnienv->ExceptionClear();
+}
+
 }
