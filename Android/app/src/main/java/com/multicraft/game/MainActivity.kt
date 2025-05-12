@@ -127,16 +127,10 @@ class MainActivity : AppCompatActivity() {
 	}
 
 	private fun startNative() {
-		val initLua = File(filesDir, "builtin${sep}mainmenu${sep}init.lua")
-		if (initLua.exists() && initLua.canRead()) {
 			val intent = Intent(this, GameActivity::class.java)
 			intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
 			intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 			startActivity(intent)
-		} else {
-			prefs[TAG_BUILD_VER] = "0"
-			showRestartDialog(restartStartForResult)
-		}
 	}
 
 	private fun prepareToRun() {
@@ -150,27 +144,7 @@ class MainActivity : AppCompatActivity() {
 			).map { File(filesDir, it) })
 		}
 
-		val zips = mutableListOf("assets.zip")
-
-		lifecycleScope.launch {
-			filesList.forEach { it.deleteRecursively() }
-			zips.forEach {
-				try {
-					assets.open(it).use { input ->
-						File(cacheDir, it).copyInputStreamToFile(input)
-					}
-				} catch (e: IOException) {
-					val isNotEnoughSpace = e.message!!.contains(NO_SPACE_LEFT)
-					runOnUiThread { showRestartDialog(restartStartForResult, !isNotEnoughSpace) }
-					return@forEach
-				}
-			}
-			try {
-				startUnzipWorker(zips.toTypedArray())
-			} catch (e: Exception) {
-				runOnUiThread { showRestartDialog(restartStartForResult) }
-			}
-		}
+		startNative()
 	}
 
 	private fun checkAppVersion() {
