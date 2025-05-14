@@ -358,6 +358,7 @@ void ClientLauncher::init_args(GameStartData &start_data, const Settings &cmd_ar
 			|| cmd_args.getFlag("random-input");
 }
 
+#if defined(__ANDROID__)
 bool ClientLauncher::init_assets()
 {
 	if (!porting::needsExtractAssets())
@@ -399,6 +400,7 @@ bool ClientLauncher::init_assets()
 
 	return true;
 }
+#endif
 
 bool ClientLauncher::init_engine()
 {
