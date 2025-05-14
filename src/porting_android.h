@@ -126,4 +126,9 @@ std::string getSecretKey(const std::string &key);
  */
 void hideSplashScreen();
 
+/**
+ * returns true if assets extraction is needed
+ */
+bool needsExtractAssets();
+
 }

@@ -360,38 +360,42 @@ void ClientLauncher::init_args(GameStartData &start_data, const Settings &cmd_ar
 
 bool ClientLauncher::init_assets()
 {
+	if (!porting::needsExtractAssets())
+		return true;
+
 	IrrlichtDevice *nulldevice = createDevice(video::EDT_NULL);
 
 	if (!nulldevice) {
-		//porting::hideSplashScreen();
+		porting::hideSplashScreen();
 		return false;
 	}
 
 	io::IFileSystem *irrfs = nulldevice->getFileSystem();
 	std::string error_msg;
 
-	std::string dirs[] = {
-			"builtin",
-			"client/shaders",
-			"fonts",
-			"games/default",
-			"textures/base"
-	};
+	// Removing old assets will be done in java activity
+	//std::string dirs[] = {
+	//		"builtin",
+	//		"client/shaders",
+	//		"fonts",
+	//		"games/default",
+	//		"textures/base"
+	//};
 
-	for (std::string dir : dirs) {
-		fs::RecursiveDelete(porting::path_share + "/" + dir);
-	}
+	//for (std::string dir : dirs) {
+	//	fs::RecursiveDelete(porting::path_share + "/" + dir);
+	//}
 
 	if (!fs::extractZipFileFromAssets(irrfs, "assets.zip",
 			porting::path_share, "", &error_msg)) {
 		errorstream << "Could not extract assets: " << error_msg << std::endl;
 		nulldevice->drop();
-		//porting::hideSplashScreen();
+		porting::hideSplashScreen();
 		return false;
 	}
 
 	nulldevice->drop();
-	//porting::hideSplashScreen();
+	porting::hideSplashScreen();
 
 	return true;
 }

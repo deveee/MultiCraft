@@ -448,9 +448,20 @@ void hideSplashScreen()
 		"porting::hideSplashScreen unable to find Java hideSplashScreen method");
 
 	jnienv->CallVoidMethod(activityObj, hideSplash);
+}
 
-	if (jnienv->ExceptionOccurred())
-		jnienv->ExceptionClear();
+bool needsExtractAssets()
+{
+	if (jnienv == nullptr || activityObj == nullptr)
+		return false;
+
+	jmethodID needsExtract = jnienv->GetMethodID(activityClass,
+			"needsExtractAssets", "()Z");
+
+	FATAL_ERROR_IF(needsExtract == nullptr,
+		"porting::needsExtractAssets unable to find Java needsExtractAssets method");
+
+	return jnienv->CallBooleanMethod(activityObj, needsExtract);
 }
 
 }
