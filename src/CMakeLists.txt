@@ -32,6 +32,7 @@ if(NOT (BUILD_CLIENT OR BUILD_SERVER))
 endif()
 
 option(USE_SDL "Use SDL2 for window management" FALSE)
+option(USE_SFML "Use SFML for window management" FALSE)
 option(USE_ZSTD "Use Zstandard for MapBlock compression" TRUE)
 option(USE_STATIC_BUILD "Link additional libraries needed for static build" FALSE)
 
@@ -46,6 +47,17 @@ if(USE_SDL)
 		include_directories(${SDL2_INCLUDE_DIRS})
 	else()
 		message(FATAL_ERROR "SDL2 not found.")
+	endif()
+endif()
+
+if(USE_SFML)
+	find_package(SFML REQUIRED COMPONENTS window system)
+
+	if (SFML_FOUND)
+		message(STATUS "SFML found.")
+		include_directories(${SFML_INCLUDE_DIRS})
+	else()
+		message(FATAL_ERROR "SFML not found.")
 	endif()
 endif()
 
@@ -650,6 +662,13 @@ if(BUILD_CLIENT)
 			)
 		endif()
 	endif()
+	if(USE_SFML)
+		target_link_libraries(
+			${PROJECT_NAME}
+			sfml-window
+			sfml-system
+		)
+	endif()
 	if(ENABLE_GLES)
 		target_link_libraries(
 			${PROJECT_NAME}
@@ -766,6 +785,13 @@ if(BUILD_SERVER)
 				opengl32
 			)
 		endif()
+	endif()
+	if(USE_SFML)
+		target_link_libraries(
+			${PROJECT_NAME}server
+			sfml-window
+			sfml-system
+		)
 	endif()
 	if (USE_GETTEXT)
 		target_link_libraries(${PROJECT_NAME}server ${GETTEXT_LIBRARY})

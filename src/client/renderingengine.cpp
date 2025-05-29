@@ -42,7 +42,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "../gui/guiSkin.h"
 
 #if !defined(_WIN32) && !defined(__APPLE__) && !defined(__ANDROID__) && \
-		!defined(SERVER) && !defined(__HAIKU__)
+		!defined(SERVER) && !defined(__HAIKU__) && \
+		!defined(_IRR_COMPILE_WITH_SFML_DEVICE_)
 #define XORG_USED
 #endif
 #ifdef XORG_USED
