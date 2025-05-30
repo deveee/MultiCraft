@@ -271,13 +271,17 @@ LOCAL_STATIC_LIBRARIES += \
 	OpenAL \
 	Gettext \
 	Irrlicht libpng libjpeg \
-	sfml-window sfml-system sfml-main \
+	sfml-window sfml-system \
 	LevelDB \
 	Vorbis \
 	LuaJIT \
 	zstd
 
 LOCAL_STATIC_LIBRARIES += $(PROFILER_LIBS)
+
+LOCAL_WHOLE_STATIC_LIBRARIES += sfml-main
+
+LOCAL_LDFLAGS := -Wl,--allow-multiple-definition
 
 LOCAL_LDLIBS := -lEGL -lGLESv1_CM -lGLESv2 -landroid -lOpenSLES -lz -llog
 
