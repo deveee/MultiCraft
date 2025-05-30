@@ -33,7 +33,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.multicraft.game.databinding.ConnectionDialogBinding
 import com.multicraft.game.helpers.ApiLevelHelper.isOreo
 import com.multicraft.game.helpers.makeFullScreen
-import org.libsdl.app.SDLActivity
+//import org.libsdl.app.SDLActivity
 
 class ConnectionDialog : AppCompatActivity() {
 	private fun isSimCardPresent(): Boolean {
@@ -51,7 +51,7 @@ class ConnectionDialog : AppCompatActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
 		val binding = ConnectionDialogBinding.inflate(layoutInflater)
-		if (SDLActivity.isTablet()) {
+		if (false /*SDLActivity.isTablet()*/) {
 			val param = LinearLayout.LayoutParams(
 				0,
 				LinearLayout.LayoutParams.WRAP_CONTENT,

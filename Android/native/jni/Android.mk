@@ -33,8 +33,18 @@ LOCAL_SRC_FILES := deps/libjpeg/lib/$(APP_ABI)/libjpeg.a
 include $(PREBUILT_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
-LOCAL_MODULE := SDL2
-LOCAL_SRC_FILES := deps/sdl2/lib/$(APP_ABI)/libSDL2.a
+LOCAL_MODULE := sfml-window
+LOCAL_SRC_FILES := deps/sfml/lib/$(APP_ABI)/libsfml-window-s.a
+include $(PREBUILT_STATIC_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := sfml-system
+LOCAL_SRC_FILES := deps/sfml/lib/$(APP_ABI)/libsfml-system-s.a
+include $(PREBUILT_STATIC_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := sfml-main
+LOCAL_SRC_FILES := deps/sfml/lib/$(APP_ABI)/libsfml-main.a
 include $(PREBUILT_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
@@ -117,7 +127,7 @@ LOCAL_C_INCLUDES := \
 	deps/irrlicht/include                          \
 	deps/libpng/include                            \
 	deps/libjpeg/include                           \
-	deps/sdl2/include                              \
+	deps/sfml/include                              \
 	deps/leveldb/include                           \
 	deps/libcurl/include                           \
 	deps/luajit/include                            \
@@ -176,8 +186,8 @@ LOCAL_SRC_FILES := \
 	../../src/script/lua_api/l_vmanip.cpp          \
 	$(wildcard ../../src/server/*.cpp)             \
 	../../src/threading/event.cpp                  \
-	../../src/threading/sdl_semaphore.cpp          \
-	../../src/threading/sdl_thread.cpp             \
+	../../src/threading/semaphore.cpp              \
+	../../src/threading/thread.cpp                 \
 	$(wildcard ../../src/util/*.cpp)               \
 	../../src/chat.cpp                             \
 	../../src/clientiface.cpp                      \
@@ -260,7 +270,8 @@ LOCAL_STATIC_LIBRARIES += \
 	Freetype \
 	OpenAL \
 	Gettext \
-	Irrlicht libpng libjpeg SDL2 \
+	Irrlicht libpng libjpeg \
+	sfml-window sfml-system sfml-main \
 	LevelDB \
 	Vorbis \
 	LuaJIT \

@@ -34,6 +34,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
 	#include <SDL.h>
+#elif defined(_IRR_COMPILE_WITH_SFML_DEVICE_)
+	#include <SFML/System/String.hpp>
 #elif !defined(_WIN32)
 	#include <iconv.h>
 #else
@@ -97,6 +99,20 @@ std::string wide_to_utf8(const std::wstring &input)
 	SDL_free(outbuf);
 
 	return out;
+}
+
+#elif defined(_IRR_COMPILE_WITH_SFML_DEVICE_)
+
+std::wstring utf8_to_wide(const std::string &input)
+{
+    sf::String sfStr = sf::String::fromUtf8(input.begin(), input.end());
+    return sfStr.toWideString();
+}
+
+std::string wide_to_utf8(const std::wstring &input)
+{
+    sf::String sfStr(input);
+    return sfStr.toAnsiString();
 }
 
 #elif !defined(_WIN32)

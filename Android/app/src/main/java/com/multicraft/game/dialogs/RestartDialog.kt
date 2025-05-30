@@ -29,13 +29,13 @@ import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import com.multicraft.game.databinding.RestartDialogBinding
 import com.multicraft.game.helpers.makeFullScreen
-import org.libsdl.app.SDLActivity
+//import org.libsdl.app.SDLActivity
 
 class RestartDialog : AppCompatActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
 		val binding = RestartDialogBinding.inflate(layoutInflater)
-		if (SDLActivity.isTablet()) {
+		if (false /*SDLActivity.isTablet()*/) {
 			val param = LinearLayout.LayoutParams(
 				0,
 				LinearLayout.LayoutParams.WRAP_CONTENT,

@@ -37,10 +37,10 @@ import com.multicraft.game.MainActivity.Companion.radius
 import com.multicraft.game.databinding.*
 import com.multicraft.game.helpers.*
 import com.multicraft.game.helpers.ApiLevelHelper.isOreo
-import org.libsdl.app.SDLActivity
+import android.app.NativeActivity
 import kotlin.system.exitProcess
 
-class GameActivity : SDLActivity() {
+class GameActivity : NativeActivity() {
 	companion object {
 		var isMultiPlayer = false
 		var isInputActive = false
@@ -50,14 +50,18 @@ class GameActivity : SDLActivity() {
 
 		@JvmStatic
 		external fun keyboardEvent(keyboard: Boolean)
+		
+		init {
+			try {
+				System.loadLibrary("MultiCraft")
+			} catch (e: UnsatisfiedLinkError) {
+				exitProcess(0)
+			}
+		}
 	}
 
 	private var messageReturnValue = ""
 	private var hasKeyboard = false
-	override fun getLibraries() = arrayOf("MultiCraft")
-
-	override fun getMainSharedObject() =
-		"${getContext().applicationInfo.nativeLibraryDir}/libMultiCraft.so"
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		try {
@@ -145,7 +149,7 @@ class GameActivity : SDLActivity() {
 			}
 			return@setOnEditorActionListener false
 		}
-		if (isChromebook()) {
+		if (false /*isChromebook()*/) {
 			editText.setOnKeyListener { _: View?, keyCode: Int, _: KeyEvent? ->
 				if (keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_ENDCALL) {
 					imm.hideSoftInputFromWindow(editText.windowToken, 0)
@@ -173,7 +177,7 @@ class GameActivity : SDLActivity() {
 		// should be above `show()`
 		alertWindow.setSoftInputMode(SOFT_INPUT_STATE_VISIBLE)
 		alertDialog.show()
-		if (!isTablet())
+		if (true /*!isTablet()*/)
 			alertWindow.makeFullScreenAlert()
 		alertDialog.setOnCancelListener {
 			window.setSoftInputMode(SOFT_INPUT_STATE_ALWAYS_HIDDEN)
@@ -209,7 +213,7 @@ class GameActivity : SDLActivity() {
 			}
 			return@setOnEditorActionListener false
 		}
-		if (isChromebook()) {
+		if (false /*isChromebook()*/) {
 			editText.setOnKeyListener { _: View?, keyCode: Int, _: KeyEvent? ->
 				if (keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_ENDCALL) {
 					imm.hideSoftInputFromWindow(editText.windowToken, 0)
@@ -237,7 +241,7 @@ class GameActivity : SDLActivity() {
 		val alertWindow = alertDialog.window!!
 		alertWindow.setSoftInputMode(SOFT_INPUT_STATE_VISIBLE)
 		alertDialog.show()
-		if (!isTablet())
+		if (true /*!isTablet()*/)
 			alertWindow.makeFullScreenAlert()
 		alertDialog.setOnCancelListener {
 			window.setSoftInputMode(SOFT_INPUT_STATE_ALWAYS_HIDDEN)
