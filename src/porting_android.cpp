@@ -54,10 +54,12 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <SFML/System/NativeActivity.hpp>
 #endif
 
-extern int real_main(int argc, char *argv[]);
 extern "C" void external_pause_game();
 
 static std::atomic<bool> ran = {false};
+
+#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+extern int real_main(int argc, char *argv[]);
 
 extern "C" int SDL_main(int argc, char *argv[])
 {
@@ -82,6 +84,7 @@ extern "C" int SDL_main(int argc, char *argv[])
 	porting::cleanupAndroid();
 	_Exit(0);
 }
+#endif
 
 extern "C" {
 	JNIEXPORT void JNICALL Java_com_multicraft_game_GameActivity_pauseGame(
