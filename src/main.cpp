@@ -125,7 +125,7 @@ FileLogOutput file_log_output;
 
 static OptionList allowed_options;
 
-#if defined(__ANDROID__) && !defined(_IRR_COMPILE_WITH_SFML_DEVICE_)
+#if defined(__ANDROID__)
 int real_main(int argc, char *argv[])
 #else
 int main(int argc, char *argv[])

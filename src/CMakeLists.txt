@@ -51,7 +51,7 @@ if(USE_SDL)
 endif()
 
 if(USE_SFML)
-	find_package(SFML REQUIRED COMPONENTS window system)
+	find_package(SFML REQUIRED COMPONENTS Window System)
 
 	if (SFML_FOUND)
 		message(STATUS "SFML found.")
@@ -665,8 +665,8 @@ if(BUILD_CLIENT)
 	if(USE_SFML)
 		target_link_libraries(
 			${PROJECT_NAME}
-			sfml-window
-			sfml-system
+			SFML::Window
+			SFML::System
 		)
 	endif()
 	if(ENABLE_GLES)
@@ -789,8 +789,8 @@ if(BUILD_SERVER)
 	if(USE_SFML)
 		target_link_libraries(
 			${PROJECT_NAME}server
-			sfml-window
-			sfml-system
+			SFML::Window
+			SFML::System
 		)
 	endif()
 	if (USE_GETTEXT)

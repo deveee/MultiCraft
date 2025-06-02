@@ -112,7 +112,9 @@ std::wstring utf8_to_wide(const std::string &input)
 std::string wide_to_utf8(const std::wstring &input)
 {
     sf::String sfStr(input);
-    return sfStr.toAnsiString();
+    sf::U8String utf8 = sfStr.toUtf8();
+    std::string str = (char*)(utf8.c_str());
+    return str;
 }
 
 #elif !defined(_WIN32)

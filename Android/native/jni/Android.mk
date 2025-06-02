@@ -34,13 +34,13 @@ include $(PREBUILT_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := sfml-window
-LOCAL_SRC_FILES := deps/sfml/lib/$(APP_ABI)/libsfml-window-s.a
-include $(PREBUILT_STATIC_LIBRARY)
+LOCAL_SRC_FILES := deps/sfml/lib/$(APP_ABI)/libsfml-window.so
+include $(PREBUILT_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := sfml-system
-LOCAL_SRC_FILES := deps/sfml/lib/$(APP_ABI)/libsfml-system-s.a
-include $(PREBUILT_STATIC_LIBRARY)
+LOCAL_SRC_FILES := deps/sfml/lib/$(APP_ABI)/libsfml-system.so
+include $(PREBUILT_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := sfml-main
@@ -271,7 +271,6 @@ LOCAL_STATIC_LIBRARIES += \
 	OpenAL \
 	Gettext \
 	Irrlicht libpng libjpeg \
-	sfml-window sfml-system \
 	LevelDB \
 	Vorbis \
 	LuaJIT \
@@ -279,9 +278,11 @@ LOCAL_STATIC_LIBRARIES += \
 
 LOCAL_STATIC_LIBRARIES += $(PROFILER_LIBS)
 
+LOCAL_SHARED_LIBRARIES += sfml-window sfml-system
+
 LOCAL_WHOLE_STATIC_LIBRARIES += sfml-main
 
-LOCAL_LDFLAGS := -Wl,--allow-multiple-definition
+#LOCAL_LDFLAGS := -Wl,--allow-multiple-definition
 
 LOCAL_LDLIBS := -lEGL -lGLESv1_CM -lGLESv2 -landroid -lOpenSLES -lz -llog
 

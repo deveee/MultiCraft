@@ -58,10 +58,13 @@ extern "C" void external_pause_game();
 
 static std::atomic<bool> ran = {false};
 
-#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
 extern int real_main(int argc, char *argv[]);
 
+#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
 extern "C" int SDL_main(int argc, char *argv[])
+#elif defined(_IRR_COMPILE_WITH_SFML_DEVICE_)
+int main(int argc, char *argv[])
+#endif
 {
 	if (ran.exchange(true)) {
 		errorstream << "Caught second android_main execution in a process" << std::endl;
@@ -84,7 +87,6 @@ extern "C" int SDL_main(int argc, char *argv[])
 	porting::cleanupAndroid();
 	_Exit(0);
 }
-#endif
 
 extern "C" {
 	JNIEXPORT void JNICALL Java_com_multicraft_game_GameActivity_pauseGame(

@@ -53,6 +53,18 @@ class GameActivity : NativeActivity() {
 		
 		init {
 			try {
+				System.loadLibrary("sfml-system")
+			} catch (e: UnsatisfiedLinkError) {
+				exitProcess(0)
+			}
+
+			try {
+				System.loadLibrary("sfml-window")
+			} catch (e: UnsatisfiedLinkError) {
+				exitProcess(0)
+			}
+
+			try {
 				System.loadLibrary("MultiCraft")
 			} catch (e: UnsatisfiedLinkError) {
 				exitProcess(0)
