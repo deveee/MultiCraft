@@ -216,6 +216,7 @@ void set_default_settings()
 #else
 	settings->setDefault("video_driver", "opengl");
 #endif
+	settings->setDefault("device_type", "sdl");
 	settings->setDefault("cinematic", "false");
 	settings->setDefault("camera_smoothing", "0");
 	settings->setDefault("cinematic_camera_smoothing", "0.7");

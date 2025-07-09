@@ -66,7 +66,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #endif
 
 RenderingEngine *RenderingEngine::s_singleton = nullptr;
-
+E_DEVICE_TYPE RenderingEngine::device_type = EIDT_BEST;
 
 static gui::GUISkin *createSkin(gui::IGUIEnvironment *environment,
 		gui::EGUI_SKIN_TYPE type, video::IVideoDriver *driver)
@@ -145,7 +145,19 @@ RenderingEngine::RenderingEngine(IEventReceiver *receiver)
 	g_settings->setBool("enable_shaders", driverType == video::EDT_OGLES2);
 #endif
 
+	const std::string &device_type_str = g_settings->get("device_type");
+	
+	if (device_type_str == "best")
+		device_type = EIDT_BEST;
+	else if (device_type_str == "sdl")
+		device_type = EIDT_SDL;
+	else if (device_type_str == "linux")
+		device_type = EIDT_X11;
+	else if (device_type_str == "android")
+		device_type = EIDT_ANDROID;
+	
 	SIrrlichtCreationParameters params = SIrrlichtCreationParameters();
+	params.DeviceType = device_type;
 	params.DriverType = driverType;
 	params.WindowSize = core::dimension2d<u32>(screen_w, screen_h);
 	params.Bits = bits;
@@ -220,6 +232,7 @@ bool RenderingEngine::print_video_modes()
 	MyEventReceiver *receiver = new MyEventReceiver();
 
 	SIrrlichtCreationParameters params = SIrrlichtCreationParameters();
+	params.DeviceType = device_type;
 	params.DriverType = video::EDT_NULL;
 	params.WindowSize = core::dimension2d<u32>(640, 480);
 	params.Bits = 24;
@@ -727,7 +740,14 @@ void RenderingEngine::_draw_load_cleanup()
 
 std::vector<core::vector3d<u32>> RenderingEngine::getSupportedVideoModes()
 {
-	IrrlichtDevice *nulldevice = createDevice(video::EDT_NULL);
+	SIrrlichtCreationParameters params = SIrrlichtCreationParameters();
+	params.DeviceType = device_type;
+	params.DriverType = video::EDT_NULL;
+	params.WindowSize = core::dimension2d<u32>(640, 480);
+	params.Bits = 24;
+	params.Stencilbuffer = false;
+
+	IrrlichtDevice *nulldevice = createDeviceEx(params);
 	sanity_check(nulldevice);
 
 	std::vector<core::vector3d<u32>> mlist;
@@ -914,7 +934,14 @@ float RenderingEngine::getDisplayDensity()
 
 v2u32 RenderingEngine::getDisplaySize()
 {
-	IrrlichtDevice *nulldevice = createDevice(video::EDT_NULL);
+	SIrrlichtCreationParameters params = SIrrlichtCreationParameters();
+	params.DeviceType = device_type;
+	params.DriverType = video::EDT_NULL;
+	params.WindowSize = core::dimension2d<u32>(640, 480);
+	params.Bits = 24;
+	params.Stencilbuffer = false;
+
+	IrrlichtDevice *nulldevice = createDeviceEx(params);
 
 	core::dimension2d<u32> deskres =
 			nulldevice->getVideoModeList()->getDesktopResolution();

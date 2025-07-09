@@ -185,6 +185,7 @@ private:
 	std::unique_ptr<RenderingCore> core;
 	irr::IrrlichtDevice *m_device = nullptr;
 	irr::video::IVideoDriver *driver;
+	static E_DEVICE_TYPE device_type;
 	static RenderingEngine *s_singleton;
 
 	bool m_load_bg_clouds = false;
