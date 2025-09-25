@@ -23,19 +23,20 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <string>
 #include <functional>
 
-template<int BufferLength, typename Emitter = std::function<void(const std::string &)> >
-class StringStreamBuffer : public std::streambuf {
+template <int BufferLength, typename Emitter = std::function<void(const std::string &)>>
+class StringStreamBuffer : public std::streambuf
+{
 public:
-	StringStreamBuffer(Emitter emitter) : m_emitter(emitter) {
-		buffer_index = 0;
-	}
+	StringStreamBuffer(Emitter emitter) : m_emitter(emitter) { buffer_index = 0; }
 
-	int overflow(int c) {
+	int overflow(int c)
+	{
 		push_back(c);
 		return c;
 	}
 
-	void push_back(char c) {
+	void push_back(char c)
+	{
 		if (c == '\n' || c == '\r') {
 			if (buffer_index)
 				m_emitter(std::string(buffer, buffer_index));
@@ -49,22 +50,21 @@ public:
 		}
 	}
 
-	std::streamsize xsputn(const char *s, std::streamsize n) {
+	std::streamsize xsputn(const char *s, std::streamsize n)
+	{
 		for (int i = 0; i < n; ++i)
 			push_back(s[i]);
 		return n;
 	}
+
 private:
 	Emitter m_emitter;
 	char buffer[BufferLength];
 	int buffer_index;
 };
 
-class DummyStreamBuffer : public std::streambuf {
-	int overflow(int c) {
-		return c;
-	}
-	std::streamsize xsputn(const char *s, std::streamsize n) {
-		return n;
-	}
+class DummyStreamBuffer : public std::streambuf
+{
+	int overflow(int c) { return c; }
+	std::streamsize xsputn(const char *s, std::streamsize n) { return n; }
 };
