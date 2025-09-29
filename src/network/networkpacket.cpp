@@ -567,6 +567,230 @@ std::map<int, int> encrypt_compressed;
 std::map<int, int> decrypt_decompressed;
 std::map<int, int> decrypt_compressed;
 
+std::string toserver_command_to_text(int command)
+{
+	if (command == TOSERVER_INIT)
+		return "TOSERVER_INIT";
+	else if (command == TOSERVER_INIT_LEGACY)
+		return "TOSERVER_INIT_LEGACY";
+	else if (command == TOSERVER_INIT2)
+		return "TOSERVER_INIT2";
+	else if (command == TOSERVER_MODCHANNEL_JOIN)
+		return "TOSERVER_MODCHANNEL_JOIN";
+	else if (command == TOSERVER_MODCHANNEL_LEAVE)
+		return "TOSERVER_MODCHANNEL_LEAVE";
+	else if (command == TOSERVER_MODCHANNEL_MSG)
+		return "TOSERVER_MODCHANNEL_MSG";
+	else if (command == TOSERVER_GETBLOCK)
+		return "TOSERVER_GETBLOCK";
+	else if (command == TOSERVER_ADDNODE)
+		return "TOSERVER_ADDNODE";
+	else if (command == TOSERVER_REMOVENODE)
+		return "TOSERVER_REMOVENODE";
+	else if (command == TOSERVER_PLAYERPOS)
+		return "TOSERVER_PLAYERPOS";
+	else if (command == TOSERVER_GOTBLOCKS)
+		return "TOSERVER_GOTBLOCKS";
+	else if (command == TOSERVER_DELETEDBLOCKS)
+		return "TOSERVER_DELETEDBLOCKS";
+	else if (command == TOSERVER_ADDNODE_FROM_INVENTORY)
+		return "TOSERVER_ADDNODE_FROM_INVENTORY";
+	else if (command == TOSERVER_CLICK_OBJECT)
+		return "TOSERVER_CLICK_OBJECT";
+	else if (command == TOSERVER_GROUND_ACTION)
+		return "TOSERVER_GROUND_ACTION";
+	else if (command == TOSERVER_RELEASE)
+		return "TOSERVER_RELEASE";
+	else if (command == TOSERVER_SIGNTEXT)
+		return "TOSERVER_SIGNTEXT";
+	else if (command == TOSERVER_INVENTORY_ACTION)
+		return "TOSERVER_INVENTORY_ACTION";
+	else if (command == TOSERVER_CHAT_MESSAGE)
+		return "TOSERVER_CHAT_MESSAGE";
+	else if (command == TOSERVER_SIGNNODETEXT)
+		return "TOSERVER_SIGNNODETEXT";
+	else if (command == TOSERVER_CLICK_ACTIVEOBJECT)
+		return "TOSERVER_CLICK_ACTIVEOBJECT";
+	else if (command == TOSERVER_DAMAGE)
+		return "TOSERVER_DAMAGE";
+	else if (command == TOSERVER_PASSWORD_LEGACY)
+		return "TOSERVER_PASSWORD_LEGACY";
+	else if (command == TOSERVER_PLAYERITEM)
+		return "TOSERVER_PLAYERITEM";
+	else if (command == TOSERVER_RESPAWN)
+		return "TOSERVER_RESPAWN";
+	else if (command == TOSERVER_INTERACT)
+		return "TOSERVER_INTERACT";
+	else if (command == TOSERVER_REMOVED_SOUNDS)
+		return "TOSERVER_REMOVED_SOUNDS";
+	else if (command == TOSERVER_NODEMETA_FIELDS)
+		return "TOSERVER_NODEMETA_FIELDS";
+	else if (command == TOSERVER_INVENTORY_FIELDS)
+		return "TOSERVER_INVENTORY_FIELDS";
+	else if (command == TOSERVER_REQUEST_MEDIA)
+		return "TOSERVER_REQUEST_MEDIA";
+	else if (command == TOSERVER_RECEIVED_MEDIA)
+		return "TOSERVER_RECEIVED_MEDIA";
+	else if (command == TOSERVER_BREATH)
+		return "TOSERVER_BREATH";
+	else if (command == TOSERVER_CLIENT_READY)
+		return "TOSERVER_CLIENT_READY";
+	else if (command == TOSERVER_FIRST_SRP)
+		return "TOSERVER_FIRST_SRP";
+	else if (command == TOSERVER_SRP_BYTES_A)
+		return "TOSERVER_SRP_BYTES_A";
+	else if (command == TOSERVER_SRP_BYTES_M)
+		return "TOSERVER_SRP_BYTES_M";
+	else if (command == TOSERVER_NUM_MSG_TYPES)
+		return "TOSERVER_NUM_MSG_TYPES";
+	else
+		return "unknown";
+}
+
+std::string toclient_command_to_text(int command)
+{
+	if (command == TOCLIENT_HELLO)
+		return "TOCLIENT_HELLO";
+	else if (command == TOCLIENT_AUTH_ACCEPT)
+		return "TOCLIENT_AUTH_ACCEPT";
+	else if (command == TOCLIENT_ACCEPT_SUDO_MODE)
+		return "TOCLIENT_ACCEPT_SUDO_MODE";
+	else if (command == TOCLIENT_DENY_SUDO_MODE)
+		return "TOCLIENT_DENY_SUDO_MODE";
+	else if (command == TOCLIENT_ACCESS_DENIED)
+		return "TOCLIENT_ACCESS_DENIED";
+	else if (command == TOCLIENT_INIT_LEGACY)
+		return "TOCLIENT_INIT_LEGACY";
+	else if (command == TOCLIENT_BLOCKDATA)
+		return "TOCLIENT_BLOCKDATA";
+	else if (command == TOCLIENT_ADDNODE)
+		return "TOCLIENT_ADDNODE";
+	else if (command == TOCLIENT_REMOVENODE)
+		return "TOCLIENT_REMOVENODE";
+	else if (command == TOCLIENT_PLAYERPOS)
+		return "TOCLIENT_PLAYERPOS";
+	else if (command == TOCLIENT_PLAYERINFO)
+		return "TOCLIENT_PLAYERINFO";
+	else if (command == TOCLIENT_OPT_BLOCK_NOT_FOUND)
+		return "TOCLIENT_OPT_BLOCK_NOT_FOUND";
+	else if (command == TOCLIENT_SECTORMETA)
+		return "TOCLIENT_SECTORMETA";
+	else if (command == TOCLIENT_INVENTORY)
+		return "TOCLIENT_INVENTORY";
+	else if (command == TOCLIENT_OBJECTDATA)
+		return "TOCLIENT_OBJECTDATA";
+	else if (command == TOCLIENT_TIME_OF_DAY)
+		return "TOCLIENT_TIME_OF_DAY";
+	else if (command == TOCLIENT_CSM_RESTRICTION_FLAGS)
+		return "TOCLIENT_CSM_RESTRICTION_FLAGS";
+	else if (command == TOCLIENT_PLAYER_SPEED)
+		return "TOCLIENT_PLAYER_SPEED";
+	else if (command == TOCLIENT_MEDIA_PUSH)
+		return "TOCLIENT_MEDIA_PUSH";
+	else if (command == TOCLIENT_COPY_TO_CLIPBOARD)
+		return "TOCLIENT_COPY_TO_CLIPBOARD";
+	else if (command == TOCLIENT_CHAT_MESSAGE)
+		return "TOCLIENT_CHAT_MESSAGE";
+	else if (command == TOCLIENT_CHAT_MESSAGE_OLD)
+		return "TOCLIENT_CHAT_MESSAGE_OLD";
+	else if (command == TOCLIENT_ACTIVE_OBJECT_REMOVE_ADD)
+		return "TOCLIENT_ACTIVE_OBJECT_REMOVE_ADD";
+	else if (command == TOCLIENT_ACTIVE_OBJECT_MESSAGES)
+		return "TOCLIENT_ACTIVE_OBJECT_MESSAGES";
+	else if (command == TOCLIENT_HP)
+		return "TOCLIENT_HP";
+	else if (command == TOCLIENT_MOVE_PLAYER)
+		return "TOCLIENT_MOVE_PLAYER";
+	else if (command == TOCLIENT_ACCESS_DENIED_LEGACY)
+		return "TOCLIENT_ACCESS_DENIED_LEGACY";
+	else if (command == TOCLIENT_FOV)
+		return "TOCLIENT_FOV";
+	else if (command == TOCLIENT_DEATHSCREEN)
+		return "TOCLIENT_DEATHSCREEN";
+	else if (command == TOCLIENT_MEDIA)
+		return "TOCLIENT_MEDIA";
+	else if (command == TOCLIENT_TOOLDEF)
+		return "TOCLIENT_TOOLDEF";
+	else if (command == TOCLIENT_NODEDEF)
+		return "TOCLIENT_NODEDEF";
+	else if (command == TOCLIENT_CRAFTITEMDEF)
+		return "TOCLIENT_CRAFTITEMDEF";
+	else if (command == TOCLIENT_ANNOUNCE_MEDIA)
+		return "TOCLIENT_ANNOUNCE_MEDIA";
+	else if (command == TOCLIENT_ITEMDEF)
+		return "TOCLIENT_ITEMDEF";
+	else if (command == TOCLIENT_PLAY_SOUND)
+		return "TOCLIENT_PLAY_SOUND";
+	else if (command == TOCLIENT_STOP_SOUND)
+		return "TOCLIENT_STOP_SOUND";
+	else if (command == TOCLIENT_PRIVILEGES)
+		return "TOCLIENT_PRIVILEGES";
+	else if (command == TOCLIENT_INVENTORY_FORMSPEC)
+		return "TOCLIENT_INVENTORY_FORMSPEC";
+	else if (command == TOCLIENT_DETACHED_INVENTORY)
+		return "TOCLIENT_DETACHED_INVENTORY";
+	else if (command == TOCLIENT_SHOW_FORMSPEC)
+		return "TOCLIENT_SHOW_FORMSPEC";
+	else if (command == TOCLIENT_MOVEMENT)
+		return "TOCLIENT_MOVEMENT";
+	else if (command == TOCLIENT_SPAWN_PARTICLE)
+		return "TOCLIENT_SPAWN_PARTICLE";
+	else if (command == TOCLIENT_ADD_PARTICLESPAWNER)
+		return "TOCLIENT_ADD_PARTICLESPAWNER";
+	else if (command == TOCLIENT_DELETE_PARTICLESPAWNER_LEGACY)
+		return "TOCLIENT_DELETE_PARTICLESPAWNER_LEGACY";
+	else if (command == TOCLIENT_HUDADD)
+		return "TOCLIENT_HUDADD";
+	else if (command == TOCLIENT_HUDRM)
+		return "TOCLIENT_HUDRM";
+	else if (command == TOCLIENT_HUDCHANGE)
+		return "TOCLIENT_HUDCHANGE";
+	else if (command == TOCLIENT_HUD_SET_FLAGS)
+		return "TOCLIENT_HUD_SET_FLAGS";
+	else if (command == TOCLIENT_HUD_SET_PARAM)
+		return "TOCLIENT_HUD_SET_PARAM";
+	else if (command == TOCLIENT_BREATH)
+		return "TOCLIENT_BREATH";
+	else if (command == TOCLIENT_SET_SKY)
+		return "TOCLIENT_SET_SKY";
+	else if (command == TOCLIENT_OVERRIDE_DAY_NIGHT_RATIO)
+		return "TOCLIENT_OVERRIDE_DAY_NIGHT_RATIO";
+	else if (command == TOCLIENT_LOCAL_PLAYER_ANIMATIONS)
+		return "TOCLIENT_LOCAL_PLAYER_ANIMATIONS";
+	else if (command == TOCLIENT_EYE_OFFSET)
+		return "TOCLIENT_EYE_OFFSET";
+	else if (command == TOCLIENT_DELETE_PARTICLESPAWNER)
+		return "TOCLIENT_DELETE_PARTICLESPAWNER";
+	else if (command == TOCLIENT_CLOUD_PARAMS)
+		return "TOCLIENT_CLOUD_PARAMS";
+	else if (command == TOCLIENT_FADE_SOUND)
+		return "TOCLIENT_FADE_SOUND";
+	else if (command == TOCLIENT_UPDATE_PLAYER_LIST)
+		return "TOCLIENT_UPDATE_PLAYER_LIST";
+	else if (command == TOCLIENT_MODCHANNEL_MSG)
+		return "TOCLIENT_MODCHANNEL_MSG";
+	else if (command == TOCLIENT_MODCHANNEL_SIGNAL)
+		return "TOCLIENT_MODCHANNEL_SIGNAL";
+	else if (command == TOCLIENT_NODEMETA_CHANGED)
+		return "TOCLIENT_NODEMETA_CHANGED";
+	else if (command == TOCLIENT_SET_SUN)
+		return "TOCLIENT_SET_SUN";
+	else if (command == TOCLIENT_SET_MOON)
+		return "TOCLIENT_SET_MOON";
+	else if (command == TOCLIENT_SET_STARS)
+		return "TOCLIENT_SET_STARS";
+	else if (command == TOCLIENT_SRP_BYTES_S_B)
+		return "TOCLIENT_SRP_BYTES_S_B";
+	else if (command == TOCLIENT_FORMSPEC_PREPEND)
+		return "TOCLIENT_FORMSPEC_PREPEND";
+	else if (command == TOCLIENT_MINIMAP_MODES)
+		return "TOCLIENT_MINIMAP_MODES";
+	else if (command == TOCLIENT_NUM_MSG_TYPES)
+		return "TOCLIENT_NUM_MSG_TYPES";
+	else
+		return "unknown";
+}
+
 void print_results()
 {
 	errorstream << std::endl;
@@ -583,84 +807,11 @@ void print_results()
 		int compressed = encrypt_compressed[command];
 		int diff = (decompressed - compressed) * 100 / decompressed;
 		errorstream << "  command: " << command << std::endl;
+		errorstream << "  command name: " << toserver_command_to_text(command) << std::endl;
 		errorstream << "  decompressed: " << decompressed << std::endl;
 		errorstream << "  compressed: " << compressed << std::endl;
 		errorstream << "  diff: " << diff << "%" << std::endl;
-		
-		if (command == TOSERVER_INIT)
-			errorstream << "  command name: TOSERVER_INIT" << std::endl;
-		else if (command == TOSERVER_INIT_LEGACY)
-			errorstream << "  command name: TOSERVER_INIT_LEGACY" << std::endl;
-		else if (command == TOSERVER_INIT2)
-			errorstream << "  command name: TOSERVER_INIT2" << std::endl;
-		else if (command == TOSERVER_MODCHANNEL_JOIN)
-			errorstream << "  command name: TOSERVER_MODCHANNEL_JOIN" << std::endl;
-		else if (command == TOSERVER_MODCHANNEL_LEAVE)
-			errorstream << "  command name: TOSERVER_MODCHANNEL_LEAVE" << std::endl;
-		else if (command == TOSERVER_MODCHANNEL_MSG)
-			errorstream << "  command name: TOSERVER_MODCHANNEL_MSG" << std::endl;
-		else if (command == TOSERVER_GETBLOCK)
-			errorstream << "  command name: TOSERVER_GETBLOCK" << std::endl;
-		else if (command == TOSERVER_ADDNODE)
-			errorstream << "  command name: TOSERVER_ADDNODE" << std::endl;
-		else if (command == TOSERVER_REMOVENODE)
-			errorstream << "  command name: TOSERVER_REMOVENODE" << std::endl;
-		else if (command == TOSERVER_PLAYERPOS)
-			errorstream << "  command name: TOSERVER_PLAYERPOS" << std::endl;
-		else if (command == TOSERVER_GOTBLOCKS)
-			errorstream << "  command name: TOSERVER_GOTBLOCKS" << std::endl;
-		else if (command == TOSERVER_DELETEDBLOCKS)
-			errorstream << "  command name: TOSERVER_DELETEDBLOCKS" << std::endl;
-		else if (command == TOSERVER_ADDNODE_FROM_INVENTORY)
-			errorstream << "  command name: TOSERVER_ADDNODE_FROM_INVENTORY" << std::endl;
-		else if (command == TOSERVER_CLICK_OBJECT)
-			errorstream << "  command name: TOSERVER_CLICK_OBJECT" << std::endl;
-		else if (command == TOSERVER_GROUND_ACTION)
-			errorstream << "  command name: TOSERVER_GROUND_ACTION" << std::endl;
-		else if (command == TOSERVER_RELEASE)
-			errorstream << "  command name: TOSERVER_RELEASE" << std::endl;
-		else if (command == TOSERVER_SIGNTEXT)
-			errorstream << "  command name: TOSERVER_SIGNTEXT" << std::endl;
-		else if (command == TOSERVER_INVENTORY_ACTION)
-			errorstream << "  command name: TOSERVER_INVENTORY_ACTION" << std::endl;
-		else if (command == TOSERVER_CHAT_MESSAGE)
-			errorstream << "  command name: TOSERVER_CHAT_MESSAGE" << std::endl;
-		else if (command == TOSERVER_SIGNNODETEXT)
-			errorstream << "  command name: TOSERVER_SIGNNODETEXT" << std::endl;
-		else if (command == TOSERVER_CLICK_ACTIVEOBJECT)
-			errorstream << "  command name: TOSERVER_CLICK_ACTIVEOBJECT" << std::endl;
-		else if (command == TOSERVER_DAMAGE)
-			errorstream << "  command name: TOSERVER_DAMAGE" << std::endl;
-		else if (command == TOSERVER_PASSWORD_LEGACY)
-			errorstream << "  command name: TOSERVER_PASSWORD_LEGACY" << std::endl;
-		else if (command == TOSERVER_PLAYERITEM)
-			errorstream << "  command name: TOSERVER_PLAYERITEM" << std::endl;
-		else if (command == TOSERVER_RESPAWN)
-			errorstream << "  command name: TOSERVER_RESPAWN" << std::endl;
-		else if (command == TOSERVER_INTERACT)
-			errorstream << "  command name: TOSERVER_INTERACT" << std::endl;
-		else if (command == TOSERVER_REMOVED_SOUNDS)
-			errorstream << "  command name: TOSERVER_REMOVED_SOUNDS" << std::endl;
-		else if (command == TOSERVER_NODEMETA_FIELDS)
-			errorstream << "  command name: TOSERVER_NODEMETA_FIELDS" << std::endl;
-		else if (command == TOSERVER_INVENTORY_FIELDS)
-			errorstream << "  command name: TOSERVER_INVENTORY_FIELDS" << std::endl;
-		else if (command == TOSERVER_REQUEST_MEDIA)
-			errorstream << "  command name: TOSERVER_REQUEST_MEDIA" << std::endl;
-		else if (command == TOSERVER_RECEIVED_MEDIA)
-			errorstream << "  command name: TOSERVER_RECEIVED_MEDIA" << std::endl;
-		else if (command == TOSERVER_BREATH)
-			errorstream << "  command name: TOSERVER_BREATH" << std::endl;
-		else if (command == TOSERVER_CLIENT_READY)
-			errorstream << "  command name: TOSERVER_CLIENT_READY" << std::endl;
-		else if (command == TOSERVER_FIRST_SRP)
-			errorstream << "  command name: TOSERVER_FIRST_SRP" << std::endl;
-		else if (command == TOSERVER_SRP_BYTES_A)
-			errorstream << "  command name: TOSERVER_SRP_BYTES_A" << std::endl;
-		else if (command == TOSERVER_SRP_BYTES_M)
-			errorstream << "  command name: TOSERVER_SRP_BYTES_M" << std::endl;
-		else if (command == TOSERVER_NUM_MSG_TYPES)
-			errorstream << "  command name: TOSERVER_NUM_MSG_TYPES" << std::endl;
+		errorstream << std::endl;
 	}
 	
 	errorstream << std::endl;
@@ -677,154 +828,20 @@ void print_results()
 			
 		int diff = (decompressed - compressed) * 100 / decompressed;
 		errorstream << "  command: " << command << std::endl;
+		errorstream << "  command name: " << toclient_command_to_text(command) << std::endl;
 		errorstream << "  decompressed: " << decompressed << std::endl;
 		errorstream << "  compressed: " << compressed << std::endl;
 		errorstream << "  diff: " << diff << "%" << std::endl;
-		
-		if (command == TOCLIENT_HELLO)
-			errorstream << "  command name: TOCLIENT_HELLO" << std::endl;
-		else if (command == TOCLIENT_AUTH_ACCEPT)
-			errorstream << "  command name: TOCLIENT_AUTH_ACCEPT" << std::endl;
-		else if (command == TOCLIENT_ACCEPT_SUDO_MODE)
-			errorstream << "  command name: TOCLIENT_ACCEPT_SUDO_MODE" << std::endl;
-		else if (command == TOCLIENT_DENY_SUDO_MODE)
-			errorstream << "  command name: TOCLIENT_DENY_SUDO_MODE" << std::endl;
-		else if (command == TOCLIENT_ACCESS_DENIED)
-			errorstream << "  command name: TOCLIENT_ACCESS_DENIED" << std::endl;
-		else if (command == TOCLIENT_INIT_LEGACY)
-			errorstream << "  command name: TOCLIENT_INIT_LEGACY" << std::endl;
-		else if (command == TOCLIENT_BLOCKDATA)
-			errorstream << "  command name: TOCLIENT_BLOCKDATA" << std::endl;
-		else if (command == TOCLIENT_ADDNODE)
-			errorstream << "  command name: TOCLIENT_ADDNODE" << std::endl;
-		else if (command == TOCLIENT_REMOVENODE)
-			errorstream << "  command name: TOCLIENT_REMOVENODE" << std::endl;
-		else if (command == TOCLIENT_PLAYERPOS)
-			errorstream << "  command name: TOCLIENT_PLAYERPOS" << std::endl;
-		else if (command == TOCLIENT_PLAYERINFO)
-			errorstream << "  command name: TOCLIENT_PLAYERINFO" << std::endl;
-		else if (command == TOCLIENT_OPT_BLOCK_NOT_FOUND)
-			errorstream << "  command name: TOCLIENT_OPT_BLOCK_NOT_FOUND" << std::endl;
-		else if (command == TOCLIENT_SECTORMETA)
-			errorstream << "  command name: TOCLIENT_SECTORMETA" << std::endl;
-		else if (command == TOCLIENT_INVENTORY)
-			errorstream << "  command name: TOCLIENT_INVENTORY" << std::endl;
-		else if (command == TOCLIENT_OBJECTDATA)
-			errorstream << "  command name: TOCLIENT_OBJECTDATA" << std::endl;
-		else if (command == TOCLIENT_TIME_OF_DAY)
-			errorstream << "  command name: TOCLIENT_TIME_OF_DAY" << std::endl;
-		else if (command == TOCLIENT_CSM_RESTRICTION_FLAGS)
-			errorstream << "  command name: TOCLIENT_CSM_RESTRICTION_FLAGS" << std::endl;
-		else if (command == TOCLIENT_PLAYER_SPEED)
-			errorstream << "  command name: TOCLIENT_PLAYER_SPEED" << std::endl;
-		else if (command == TOCLIENT_MEDIA_PUSH)
-			errorstream << "  command name: TOCLIENT_MEDIA_PUSH" << std::endl;
-		else if (command == TOCLIENT_COPY_TO_CLIPBOARD)
-			errorstream << "  command name: TOCLIENT_COPY_TO_CLIPBOARD" << std::endl;
-		else if (command == TOCLIENT_CHAT_MESSAGE)
-			errorstream << "  command name: TOCLIENT_CHAT_MESSAGE" << std::endl;
-		else if (command == TOCLIENT_CHAT_MESSAGE_OLD)
-			errorstream << "  command name: TOCLIENT_CHAT_MESSAGE_OLD" << std::endl;
-		else if (command == TOCLIENT_ACTIVE_OBJECT_REMOVE_ADD)
-			errorstream << "  command name: TOCLIENT_ACTIVE_OBJECT_REMOVE_ADD" << std::endl;
-		else if (command == TOCLIENT_ACTIVE_OBJECT_MESSAGES)
-			errorstream << "  command name: TOCLIENT_ACTIVE_OBJECT_MESSAGES" << std::endl;
-		else if (command == TOCLIENT_HP)
-			errorstream << "  command name: TOCLIENT_HP" << std::endl;
-		else if (command == TOCLIENT_MOVE_PLAYER)
-			errorstream << "  command name: TOCLIENT_MOVE_PLAYER" << std::endl;
-		else if (command == TOCLIENT_ACCESS_DENIED_LEGACY)
-			errorstream << "  command name: TOCLIENT_ACCESS_DENIED_LEGACY" << std::endl;
-		else if (command == TOCLIENT_FOV)
-			errorstream << "  command name: TOCLIENT_FOV" << std::endl;
-		else if (command == TOCLIENT_DEATHSCREEN)
-			errorstream << "  command name: TOCLIENT_DEATHSCREEN" << std::endl;
-		else if (command == TOCLIENT_MEDIA)
-			errorstream << "  command name: TOCLIENT_MEDIA" << std::endl;
-		else if (command == TOCLIENT_TOOLDEF)
-			errorstream << "  command name: TOCLIENT_TOOLDEF" << std::endl;
-		else if (command == TOCLIENT_NODEDEF)
-			errorstream << "  command name: TOCLIENT_NODEDEF" << std::endl;
-		else if (command == TOCLIENT_CRAFTITEMDEF)
-			errorstream << "  command name: TOCLIENT_CRAFTITEMDEF" << std::endl;
-		else if (command == TOCLIENT_ANNOUNCE_MEDIA)
-			errorstream << "  command name: TOCLIENT_ANNOUNCE_MEDIA" << std::endl;
-		else if (command == TOCLIENT_ITEMDEF)
-			errorstream << "  command name: TOCLIENT_ITEMDEF" << std::endl;
-		else if (command == TOCLIENT_PLAY_SOUND)
-			errorstream << "  command name: TOCLIENT_PLAY_SOUND" << std::endl;
-		else if (command == TOCLIENT_STOP_SOUND)
-			errorstream << "  command name: TOCLIENT_STOP_SOUND" << std::endl;
-		else if (command == TOCLIENT_PRIVILEGES)
-			errorstream << "  command name: TOCLIENT_PRIVILEGES" << std::endl;
-		else if (command == TOCLIENT_INVENTORY_FORMSPEC)
-			errorstream << "  command name: TOCLIENT_INVENTORY_FORMSPEC" << std::endl;
-		else if (command == TOCLIENT_DETACHED_INVENTORY)
-			errorstream << "  command name: TOCLIENT_DETACHED_INVENTORY" << std::endl;
-		else if (command == TOCLIENT_SHOW_FORMSPEC)
-			errorstream << "  command name: TOCLIENT_SHOW_FORMSPEC" << std::endl;
-		else if (command == TOCLIENT_MOVEMENT)
-			errorstream << "  command name: TOCLIENT_MOVEMENT" << std::endl;
-		else if (command == TOCLIENT_SPAWN_PARTICLE)
-			errorstream << "  command name: TOCLIENT_SPAWN_PARTICLE" << std::endl;
-		else if (command == TOCLIENT_ADD_PARTICLESPAWNER)
-			errorstream << "  command name: TOCLIENT_ADD_PARTICLESPAWNER" << std::endl;
-		else if (command == TOCLIENT_DELETE_PARTICLESPAWNER_LEGACY)
-			errorstream << "  command name: TOCLIENT_DELETE_PARTICLESPAWNER_LEGACY" << std::endl;
-		else if (command == TOCLIENT_HUDADD)
-			errorstream << "  command name: TOCLIENT_HUDADD" << std::endl;
-		else if (command == TOCLIENT_HUDRM)
-			errorstream << "  command name: TOCLIENT_HUDRM" << std::endl;
-		else if (command == TOCLIENT_HUDCHANGE)
-			errorstream << "  command name: TOCLIENT_HUDCHANGE" << std::endl;
-		else if (command == TOCLIENT_HUD_SET_FLAGS)
-			errorstream << "  command name: TOCLIENT_HUD_SET_FLAGS" << std::endl;
-		else if (command == TOCLIENT_HUD_SET_PARAM)
-			errorstream << "  command name: TOCLIENT_HUD_SET_PARAM" << std::endl;
-		else if (command == TOCLIENT_BREATH)
-			errorstream << "  command name: TOCLIENT_BREATH" << std::endl;
-		else if (command == TOCLIENT_SET_SKY)
-			errorstream << "  command name: TOCLIENT_SET_SKY" << std::endl;
-		else if (command == TOCLIENT_OVERRIDE_DAY_NIGHT_RATIO)
-			errorstream << "  command name: TOCLIENT_OVERRIDE_DAY_NIGHT_RATIO" << std::endl;
-		else if (command == TOCLIENT_LOCAL_PLAYER_ANIMATIONS)
-			errorstream << "  command name: TOCLIENT_LOCAL_PLAYER_ANIMATIONS" << std::endl;
-		else if (command == TOCLIENT_EYE_OFFSET)
-			errorstream << "  command name: TOCLIENT_EYE_OFFSET" << std::endl;
-		else if (command == TOCLIENT_DELETE_PARTICLESPAWNER)
-			errorstream << "  command name: TOCLIENT_DELETE_PARTICLESPAWNER" << std::endl;
-		else if (command == TOCLIENT_CLOUD_PARAMS)
-			errorstream << "  command name: TOCLIENT_CLOUD_PARAMS" << std::endl;
-		else if (command == TOCLIENT_FADE_SOUND)
-			errorstream << "  command name: TOCLIENT_FADE_SOUND" << std::endl;
-		else if (command == TOCLIENT_UPDATE_PLAYER_LIST)
-			errorstream << "  command name: TOCLIENT_UPDATE_PLAYER_LIST" << std::endl;
-		else if (command == TOCLIENT_MODCHANNEL_MSG)
-			errorstream << "  command name: TOCLIENT_MODCHANNEL_MSG" << std::endl;
-		else if (command == TOCLIENT_MODCHANNEL_SIGNAL)
-			errorstream << "  command name: TOCLIENT_MODCHANNEL_SIGNAL" << std::endl;
-		else if (command == TOCLIENT_NODEMETA_CHANGED)
-			errorstream << "  command name: TOCLIENT_NODEMETA_CHANGED" << std::endl;
-		else if (command == TOCLIENT_SET_SUN)
-			errorstream << "  command name: TOCLIENT_SET_SUN" << std::endl;
-		else if (command == TOCLIENT_SET_MOON)
-			errorstream << "  command name: TOCLIENT_SET_MOON" << std::endl;
-		else if (command == TOCLIENT_SET_STARS)
-			errorstream << "  command name: TOCLIENT_SET_STARS" << std::endl;
-		else if (command == TOCLIENT_SRP_BYTES_S_B)
-			errorstream << "  command name: TOCLIENT_SRP_BYTES_S_B" << std::endl;
-		else if (command == TOCLIENT_FORMSPEC_PREPEND)
-			errorstream << "  command name: TOCLIENT_FORMSPEC_PREPEND" << std::endl;
-		else if (command == TOCLIENT_MINIMAP_MODES)
-			errorstream << "  command name: TOCLIENT_MINIMAP_MODES" << std::endl;
-		else if (command == TOCLIENT_NUM_MSG_TYPES)
-			errorstream << "  command name: TOCLIENT_NUM_MSG_TYPES" << std::endl;
+		errorstream << std::endl;
 	}
 }
 
 bool NetworkPacket::encrypt(std::string key)
 {
 	std::string data((const char*)(m_data.data()), m_datasize);
+	
+	//~ if (m_datasize >= 256 && key == "client")
+		//~ errorstream << "encrypt command " << toserver_command_to_text(m_command) << ", size " << m_datasize << std::endl;
 	
 	if (encrypt_decompressed.find(m_command) == encrypt_decompressed.end())
 		encrypt_decompressed[m_command] = 0;
@@ -884,6 +901,9 @@ bool NetworkPacket::decrypt(std::string key)
 
 	if (key == "client")
 		print_results();
+		
+	//~ if (data_to_write.size() >= 256 && key == "client" && m_command != TOCLIENT_BLOCKDATA)
+		//~ errorstream << "decrypt command " << toclient_command_to_text(m_command) << ", size " << data_to_write.size() << std::endl;
 
 	m_read_offset = 0;
 	m_datasize = data_to_write.size();
