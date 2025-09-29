@@ -22,6 +22,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "networkexceptions.h"
 #include "util/serialize.h"
 #include "networkprotocol.h"
+#include "serialization.h"
 #include "util/encryption.h"
 
 NetworkPacket::NetworkPacket(u16 command, u32 datasize, session_t peer_id):
@@ -559,23 +560,297 @@ Buffer<u8> NetworkPacket::oldForgePacket()
 	return sb;
 }
 
+#include <map>
+
+std::map<int, int> encrypt_decompressed;
+std::map<int, int> encrypt_compressed;
+std::map<int, int> decrypt_decompressed;
+std::map<int, int> decrypt_compressed;
+
+void print_results()
+{
+	errorstream << std::endl;
+	errorstream << "encrypt" << std::endl;
+	
+	for (auto const& x : encrypt_compressed)
+	{
+		int command = x.first;
+		int decompressed = encrypt_decompressed[command];
+		
+		if (decompressed == 0)
+			continue;
+			
+		int compressed = encrypt_compressed[command];
+		int diff = (decompressed - compressed) * 100 / decompressed;
+		errorstream << "  command: " << command << std::endl;
+		errorstream << "  decompressed: " << decompressed << std::endl;
+		errorstream << "  compressed: " << compressed << std::endl;
+		errorstream << "  diff: " << diff << "%" << std::endl;
+		
+		if (command == TOSERVER_INIT)
+			errorstream << "  command name: TOSERVER_INIT" << std::endl;
+		else if (command == TOSERVER_INIT_LEGACY)
+			errorstream << "  command name: TOSERVER_INIT_LEGACY" << std::endl;
+		else if (command == TOSERVER_INIT2)
+			errorstream << "  command name: TOSERVER_INIT2" << std::endl;
+		else if (command == TOSERVER_MODCHANNEL_JOIN)
+			errorstream << "  command name: TOSERVER_MODCHANNEL_JOIN" << std::endl;
+		else if (command == TOSERVER_MODCHANNEL_LEAVE)
+			errorstream << "  command name: TOSERVER_MODCHANNEL_LEAVE" << std::endl;
+		else if (command == TOSERVER_MODCHANNEL_MSG)
+			errorstream << "  command name: TOSERVER_MODCHANNEL_MSG" << std::endl;
+		else if (command == TOSERVER_GETBLOCK)
+			errorstream << "  command name: TOSERVER_GETBLOCK" << std::endl;
+		else if (command == TOSERVER_ADDNODE)
+			errorstream << "  command name: TOSERVER_ADDNODE" << std::endl;
+		else if (command == TOSERVER_REMOVENODE)
+			errorstream << "  command name: TOSERVER_REMOVENODE" << std::endl;
+		else if (command == TOSERVER_PLAYERPOS)
+			errorstream << "  command name: TOSERVER_PLAYERPOS" << std::endl;
+		else if (command == TOSERVER_GOTBLOCKS)
+			errorstream << "  command name: TOSERVER_GOTBLOCKS" << std::endl;
+		else if (command == TOSERVER_DELETEDBLOCKS)
+			errorstream << "  command name: TOSERVER_DELETEDBLOCKS" << std::endl;
+		else if (command == TOSERVER_ADDNODE_FROM_INVENTORY)
+			errorstream << "  command name: TOSERVER_ADDNODE_FROM_INVENTORY" << std::endl;
+		else if (command == TOSERVER_CLICK_OBJECT)
+			errorstream << "  command name: TOSERVER_CLICK_OBJECT" << std::endl;
+		else if (command == TOSERVER_GROUND_ACTION)
+			errorstream << "  command name: TOSERVER_GROUND_ACTION" << std::endl;
+		else if (command == TOSERVER_RELEASE)
+			errorstream << "  command name: TOSERVER_RELEASE" << std::endl;
+		else if (command == TOSERVER_SIGNTEXT)
+			errorstream << "  command name: TOSERVER_SIGNTEXT" << std::endl;
+		else if (command == TOSERVER_INVENTORY_ACTION)
+			errorstream << "  command name: TOSERVER_INVENTORY_ACTION" << std::endl;
+		else if (command == TOSERVER_CHAT_MESSAGE)
+			errorstream << "  command name: TOSERVER_CHAT_MESSAGE" << std::endl;
+		else if (command == TOSERVER_SIGNNODETEXT)
+			errorstream << "  command name: TOSERVER_SIGNNODETEXT" << std::endl;
+		else if (command == TOSERVER_CLICK_ACTIVEOBJECT)
+			errorstream << "  command name: TOSERVER_CLICK_ACTIVEOBJECT" << std::endl;
+		else if (command == TOSERVER_DAMAGE)
+			errorstream << "  command name: TOSERVER_DAMAGE" << std::endl;
+		else if (command == TOSERVER_PASSWORD_LEGACY)
+			errorstream << "  command name: TOSERVER_PASSWORD_LEGACY" << std::endl;
+		else if (command == TOSERVER_PLAYERITEM)
+			errorstream << "  command name: TOSERVER_PLAYERITEM" << std::endl;
+		else if (command == TOSERVER_RESPAWN)
+			errorstream << "  command name: TOSERVER_RESPAWN" << std::endl;
+		else if (command == TOSERVER_INTERACT)
+			errorstream << "  command name: TOSERVER_INTERACT" << std::endl;
+		else if (command == TOSERVER_REMOVED_SOUNDS)
+			errorstream << "  command name: TOSERVER_REMOVED_SOUNDS" << std::endl;
+		else if (command == TOSERVER_NODEMETA_FIELDS)
+			errorstream << "  command name: TOSERVER_NODEMETA_FIELDS" << std::endl;
+		else if (command == TOSERVER_INVENTORY_FIELDS)
+			errorstream << "  command name: TOSERVER_INVENTORY_FIELDS" << std::endl;
+		else if (command == TOSERVER_REQUEST_MEDIA)
+			errorstream << "  command name: TOSERVER_REQUEST_MEDIA" << std::endl;
+		else if (command == TOSERVER_RECEIVED_MEDIA)
+			errorstream << "  command name: TOSERVER_RECEIVED_MEDIA" << std::endl;
+		else if (command == TOSERVER_BREATH)
+			errorstream << "  command name: TOSERVER_BREATH" << std::endl;
+		else if (command == TOSERVER_CLIENT_READY)
+			errorstream << "  command name: TOSERVER_CLIENT_READY" << std::endl;
+		else if (command == TOSERVER_FIRST_SRP)
+			errorstream << "  command name: TOSERVER_FIRST_SRP" << std::endl;
+		else if (command == TOSERVER_SRP_BYTES_A)
+			errorstream << "  command name: TOSERVER_SRP_BYTES_A" << std::endl;
+		else if (command == TOSERVER_SRP_BYTES_M)
+			errorstream << "  command name: TOSERVER_SRP_BYTES_M" << std::endl;
+		else if (command == TOSERVER_NUM_MSG_TYPES)
+			errorstream << "  command name: TOSERVER_NUM_MSG_TYPES" << std::endl;
+	}
+	
+	errorstream << std::endl;
+	errorstream << "decrypt" << std::endl;
+
+	for (auto const& x : decrypt_compressed)
+	{
+		int command = x.first;
+		int decompressed = decrypt_decompressed[command];
+		int compressed = decrypt_compressed[command];
+		
+		if (decompressed == 0)
+			continue;
+			
+		int diff = (decompressed - compressed) * 100 / decompressed;
+		errorstream << "  command: " << command << std::endl;
+		errorstream << "  decompressed: " << decompressed << std::endl;
+		errorstream << "  compressed: " << compressed << std::endl;
+		errorstream << "  diff: " << diff << "%" << std::endl;
+		
+		if (command == TOCLIENT_HELLO)
+			errorstream << "  command name: TOCLIENT_HELLO" << std::endl;
+		else if (command == TOCLIENT_AUTH_ACCEPT)
+			errorstream << "  command name: TOCLIENT_AUTH_ACCEPT" << std::endl;
+		else if (command == TOCLIENT_ACCEPT_SUDO_MODE)
+			errorstream << "  command name: TOCLIENT_ACCEPT_SUDO_MODE" << std::endl;
+		else if (command == TOCLIENT_DENY_SUDO_MODE)
+			errorstream << "  command name: TOCLIENT_DENY_SUDO_MODE" << std::endl;
+		else if (command == TOCLIENT_ACCESS_DENIED)
+			errorstream << "  command name: TOCLIENT_ACCESS_DENIED" << std::endl;
+		else if (command == TOCLIENT_INIT_LEGACY)
+			errorstream << "  command name: TOCLIENT_INIT_LEGACY" << std::endl;
+		else if (command == TOCLIENT_BLOCKDATA)
+			errorstream << "  command name: TOCLIENT_BLOCKDATA" << std::endl;
+		else if (command == TOCLIENT_ADDNODE)
+			errorstream << "  command name: TOCLIENT_ADDNODE" << std::endl;
+		else if (command == TOCLIENT_REMOVENODE)
+			errorstream << "  command name: TOCLIENT_REMOVENODE" << std::endl;
+		else if (command == TOCLIENT_PLAYERPOS)
+			errorstream << "  command name: TOCLIENT_PLAYERPOS" << std::endl;
+		else if (command == TOCLIENT_PLAYERINFO)
+			errorstream << "  command name: TOCLIENT_PLAYERINFO" << std::endl;
+		else if (command == TOCLIENT_OPT_BLOCK_NOT_FOUND)
+			errorstream << "  command name: TOCLIENT_OPT_BLOCK_NOT_FOUND" << std::endl;
+		else if (command == TOCLIENT_SECTORMETA)
+			errorstream << "  command name: TOCLIENT_SECTORMETA" << std::endl;
+		else if (command == TOCLIENT_INVENTORY)
+			errorstream << "  command name: TOCLIENT_INVENTORY" << std::endl;
+		else if (command == TOCLIENT_OBJECTDATA)
+			errorstream << "  command name: TOCLIENT_OBJECTDATA" << std::endl;
+		else if (command == TOCLIENT_TIME_OF_DAY)
+			errorstream << "  command name: TOCLIENT_TIME_OF_DAY" << std::endl;
+		else if (command == TOCLIENT_CSM_RESTRICTION_FLAGS)
+			errorstream << "  command name: TOCLIENT_CSM_RESTRICTION_FLAGS" << std::endl;
+		else if (command == TOCLIENT_PLAYER_SPEED)
+			errorstream << "  command name: TOCLIENT_PLAYER_SPEED" << std::endl;
+		else if (command == TOCLIENT_MEDIA_PUSH)
+			errorstream << "  command name: TOCLIENT_MEDIA_PUSH" << std::endl;
+		else if (command == TOCLIENT_COPY_TO_CLIPBOARD)
+			errorstream << "  command name: TOCLIENT_COPY_TO_CLIPBOARD" << std::endl;
+		else if (command == TOCLIENT_CHAT_MESSAGE)
+			errorstream << "  command name: TOCLIENT_CHAT_MESSAGE" << std::endl;
+		else if (command == TOCLIENT_CHAT_MESSAGE_OLD)
+			errorstream << "  command name: TOCLIENT_CHAT_MESSAGE_OLD" << std::endl;
+		else if (command == TOCLIENT_ACTIVE_OBJECT_REMOVE_ADD)
+			errorstream << "  command name: TOCLIENT_ACTIVE_OBJECT_REMOVE_ADD" << std::endl;
+		else if (command == TOCLIENT_ACTIVE_OBJECT_MESSAGES)
+			errorstream << "  command name: TOCLIENT_ACTIVE_OBJECT_MESSAGES" << std::endl;
+		else if (command == TOCLIENT_HP)
+			errorstream << "  command name: TOCLIENT_HP" << std::endl;
+		else if (command == TOCLIENT_MOVE_PLAYER)
+			errorstream << "  command name: TOCLIENT_MOVE_PLAYER" << std::endl;
+		else if (command == TOCLIENT_ACCESS_DENIED_LEGACY)
+			errorstream << "  command name: TOCLIENT_ACCESS_DENIED_LEGACY" << std::endl;
+		else if (command == TOCLIENT_FOV)
+			errorstream << "  command name: TOCLIENT_FOV" << std::endl;
+		else if (command == TOCLIENT_DEATHSCREEN)
+			errorstream << "  command name: TOCLIENT_DEATHSCREEN" << std::endl;
+		else if (command == TOCLIENT_MEDIA)
+			errorstream << "  command name: TOCLIENT_MEDIA" << std::endl;
+		else if (command == TOCLIENT_TOOLDEF)
+			errorstream << "  command name: TOCLIENT_TOOLDEF" << std::endl;
+		else if (command == TOCLIENT_NODEDEF)
+			errorstream << "  command name: TOCLIENT_NODEDEF" << std::endl;
+		else if (command == TOCLIENT_CRAFTITEMDEF)
+			errorstream << "  command name: TOCLIENT_CRAFTITEMDEF" << std::endl;
+		else if (command == TOCLIENT_ANNOUNCE_MEDIA)
+			errorstream << "  command name: TOCLIENT_ANNOUNCE_MEDIA" << std::endl;
+		else if (command == TOCLIENT_ITEMDEF)
+			errorstream << "  command name: TOCLIENT_ITEMDEF" << std::endl;
+		else if (command == TOCLIENT_PLAY_SOUND)
+			errorstream << "  command name: TOCLIENT_PLAY_SOUND" << std::endl;
+		else if (command == TOCLIENT_STOP_SOUND)
+			errorstream << "  command name: TOCLIENT_STOP_SOUND" << std::endl;
+		else if (command == TOCLIENT_PRIVILEGES)
+			errorstream << "  command name: TOCLIENT_PRIVILEGES" << std::endl;
+		else if (command == TOCLIENT_INVENTORY_FORMSPEC)
+			errorstream << "  command name: TOCLIENT_INVENTORY_FORMSPEC" << std::endl;
+		else if (command == TOCLIENT_DETACHED_INVENTORY)
+			errorstream << "  command name: TOCLIENT_DETACHED_INVENTORY" << std::endl;
+		else if (command == TOCLIENT_SHOW_FORMSPEC)
+			errorstream << "  command name: TOCLIENT_SHOW_FORMSPEC" << std::endl;
+		else if (command == TOCLIENT_MOVEMENT)
+			errorstream << "  command name: TOCLIENT_MOVEMENT" << std::endl;
+		else if (command == TOCLIENT_SPAWN_PARTICLE)
+			errorstream << "  command name: TOCLIENT_SPAWN_PARTICLE" << std::endl;
+		else if (command == TOCLIENT_ADD_PARTICLESPAWNER)
+			errorstream << "  command name: TOCLIENT_ADD_PARTICLESPAWNER" << std::endl;
+		else if (command == TOCLIENT_DELETE_PARTICLESPAWNER_LEGACY)
+			errorstream << "  command name: TOCLIENT_DELETE_PARTICLESPAWNER_LEGACY" << std::endl;
+		else if (command == TOCLIENT_HUDADD)
+			errorstream << "  command name: TOCLIENT_HUDADD" << std::endl;
+		else if (command == TOCLIENT_HUDRM)
+			errorstream << "  command name: TOCLIENT_HUDRM" << std::endl;
+		else if (command == TOCLIENT_HUDCHANGE)
+			errorstream << "  command name: TOCLIENT_HUDCHANGE" << std::endl;
+		else if (command == TOCLIENT_HUD_SET_FLAGS)
+			errorstream << "  command name: TOCLIENT_HUD_SET_FLAGS" << std::endl;
+		else if (command == TOCLIENT_HUD_SET_PARAM)
+			errorstream << "  command name: TOCLIENT_HUD_SET_PARAM" << std::endl;
+		else if (command == TOCLIENT_BREATH)
+			errorstream << "  command name: TOCLIENT_BREATH" << std::endl;
+		else if (command == TOCLIENT_SET_SKY)
+			errorstream << "  command name: TOCLIENT_SET_SKY" << std::endl;
+		else if (command == TOCLIENT_OVERRIDE_DAY_NIGHT_RATIO)
+			errorstream << "  command name: TOCLIENT_OVERRIDE_DAY_NIGHT_RATIO" << std::endl;
+		else if (command == TOCLIENT_LOCAL_PLAYER_ANIMATIONS)
+			errorstream << "  command name: TOCLIENT_LOCAL_PLAYER_ANIMATIONS" << std::endl;
+		else if (command == TOCLIENT_EYE_OFFSET)
+			errorstream << "  command name: TOCLIENT_EYE_OFFSET" << std::endl;
+		else if (command == TOCLIENT_DELETE_PARTICLESPAWNER)
+			errorstream << "  command name: TOCLIENT_DELETE_PARTICLESPAWNER" << std::endl;
+		else if (command == TOCLIENT_CLOUD_PARAMS)
+			errorstream << "  command name: TOCLIENT_CLOUD_PARAMS" << std::endl;
+		else if (command == TOCLIENT_FADE_SOUND)
+			errorstream << "  command name: TOCLIENT_FADE_SOUND" << std::endl;
+		else if (command == TOCLIENT_UPDATE_PLAYER_LIST)
+			errorstream << "  command name: TOCLIENT_UPDATE_PLAYER_LIST" << std::endl;
+		else if (command == TOCLIENT_MODCHANNEL_MSG)
+			errorstream << "  command name: TOCLIENT_MODCHANNEL_MSG" << std::endl;
+		else if (command == TOCLIENT_MODCHANNEL_SIGNAL)
+			errorstream << "  command name: TOCLIENT_MODCHANNEL_SIGNAL" << std::endl;
+		else if (command == TOCLIENT_NODEMETA_CHANGED)
+			errorstream << "  command name: TOCLIENT_NODEMETA_CHANGED" << std::endl;
+		else if (command == TOCLIENT_SET_SUN)
+			errorstream << "  command name: TOCLIENT_SET_SUN" << std::endl;
+		else if (command == TOCLIENT_SET_MOON)
+			errorstream << "  command name: TOCLIENT_SET_MOON" << std::endl;
+		else if (command == TOCLIENT_SET_STARS)
+			errorstream << "  command name: TOCLIENT_SET_STARS" << std::endl;
+		else if (command == TOCLIENT_SRP_BYTES_S_B)
+			errorstream << "  command name: TOCLIENT_SRP_BYTES_S_B" << std::endl;
+		else if (command == TOCLIENT_FORMSPEC_PREPEND)
+			errorstream << "  command name: TOCLIENT_FORMSPEC_PREPEND" << std::endl;
+		else if (command == TOCLIENT_MINIMAP_MODES)
+			errorstream << "  command name: TOCLIENT_MINIMAP_MODES" << std::endl;
+		else if (command == TOCLIENT_NUM_MSG_TYPES)
+			errorstream << "  command name: TOCLIENT_NUM_MSG_TYPES" << std::endl;
+	}
+}
+
 bool NetworkPacket::encrypt(std::string key)
 {
 	std::string data((const char*)(m_data.data()), m_datasize);
-
-	Encryption::setKey(key);
-	Encryption::EncryptedData encrypted_data;
-	unsigned char salt[SHA256_DIGEST_LENGTH];
-	Encryption::generateSalt(salt, SHA256_DIGEST_LENGTH);
-	encrypted_data.setSalt(salt);
-	Encryption::encrypt(data, encrypted_data);
-	std::string data_to_write;
-	encrypted_data.toString(data_to_write);
-
+	
+	if (encrypt_decompressed.find(m_command) == encrypt_decompressed.end())
+		encrypt_decompressed[m_command] = 0;
+	if (encrypt_compressed.find(m_command) == encrypt_compressed.end())
+		encrypt_compressed[m_command] = 0;
+		
+	encrypt_decompressed[m_command] += data.size();
+	//errorstream << "encrypt data1 " << data.size() << std::endl;
+	
+	std::ostringstream os_compressed(std::ios::binary);
+	compressZlib(data, os_compressed, 9);
+	//compressZstd(data, os_compressed, 22);
+	
+	std::string data_to_write = os_compressed.str();
+	
+	encrypt_compressed[m_command] += data_to_write.size();
+	//errorstream << "encrypt data2 " << data_to_write.size() << std::endl;
+	
+	if (key == "client")
+		print_results();
+	
 	m_read_offset = 0;
 	m_datasize = data_to_write.size();
 	m_data.resize(m_datasize);
 	memcpy(&m_data[0], data_to_write.c_str(), m_datasize);
+	
 
 	return true;
 }
@@ -583,19 +858,32 @@ bool NetworkPacket::encrypt(std::string key)
 bool NetworkPacket::decrypt(std::string key)
 {
 	std::string data((const char*)(m_data.data()), m_datasize);
+	
+	if (decrypt_decompressed.find(m_command) == decrypt_decompressed.end())
+		decrypt_decompressed[m_command] = 0;
+	if (decrypt_compressed.find(m_command) == decrypt_compressed.end())
+		decrypt_compressed[m_command] = 0;
 
-	Encryption::setKey(key);
-	Encryption::EncryptedData encrypted_data;
-	bool success = encrypted_data.fromString(data);
+	decrypt_compressed[m_command] += data.size();
+	//errorstream << "decrypt data1 " << data.size() << std::endl;
+		
+	std::istringstream is_compressed(data, std::ios::binary);
+	std::ostringstream os_decompressed(std::ios::binary);
+    try {
+        decompressZlib(is_compressed, os_decompressed);
+        //decompressZstd(is_compressed, os_decompressed);
+    } catch (const SerializationError& e) {
+        errorstream << "Decompression failed: " << e.what() << std::endl;
+        return false;
+    }
+	
+	std::string data_to_write = os_decompressed.str();
+	
+	decrypt_decompressed[m_command] += data_to_write.size();
+	//errorstream << "decrypt data2 " << data_to_write.size() << std::endl;
 
-	if (!success)
-		return false;
-
-	std::string data_to_write;
-	success = Encryption::decrypt(encrypted_data, data_to_write);
-
-	if (!success)
-		return false;
+	if (key == "client")
+		print_results();
 
 	m_read_offset = 0;
 	m_datasize = data_to_write.size();
