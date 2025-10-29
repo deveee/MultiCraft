@@ -2364,7 +2364,7 @@ void Server::SendBlockNoLock(session_t peer_id, MapBlock *block, u8 ver,
 	thread_local const int net_compression_level = m_simple_singleplayer_mode ? -1 :
 			rangelim(g_settings->getS16("map_compression_level_net"), ZSTD_minCLevel(), ZSTD_maxCLevel());
 	std::ostringstream os(std::ios_base::binary);
-	block->serialize(os, ver, false, net_compression_level);
+	block->serialize(os, ver, false, ZSTD_minCLevel());
 	block->serializeNetworkSpecific(os);
 	std::string s = os.str();
 
