@@ -5,7 +5,7 @@ Copyright (C) 2017 celeron55, Loic Blot <loic.blot@unix-experience.fr>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU Lesser General Public License as published by
-the Free Software Foundation; either version 3.0 of the License, or
+the Free Software Foundation; either version 2.1 of the License, or
 (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
@@ -20,6 +20,10 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #pragma once
 
+/********************************************/
+/* may only be included from in src/network */
+/********************************************/
+
 #include "IrrCompileConfig.h"
 
 #include <cassert>
@@ -28,12 +32,31 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #else
 #include "threading/thread.h"
 #endif
-#include "mt_connection.h"
+#include "connection_internal.h"
 
 namespace con
 {
 
 class Connection;
+
+struct OutgoingPacket
+{
+	session_t peer_id;
+	u8 channelnum;
+	SharedBuffer<u8> data;
+	bool reliable;
+	bool ack;
+
+	OutgoingPacket(session_t peer_id_, u8 channelnum_, const SharedBuffer<u8> &data_,
+			bool reliable_,bool ack_=false):
+		peer_id(peer_id_),
+		channelnum(channelnum_),
+		data(data_),
+		reliable(reliable_),
+		ack(ack_)
+	{
+	}
+};
 
 class ConnectionSendThread : public Thread
 {
@@ -56,28 +79,29 @@ public:
 	void setPeerTimeout(float peer_timeout) { m_timeout = peer_timeout; }
 
 private:
-	void runTimeouts(float dtime);
-	void rawSend(const BufferedPacket &packet);
+	void runTimeouts(float dtime, u32 peer_packet_quota);
+	void resendReliable(Channel &channel, const BufferedPacket *k, float resend_timeout);
+	void rawSend(const BufferedPacket *p);
 	bool rawSendAsPacket(session_t peer_id, u8 channelnum,
 			const SharedBuffer<u8> &data, bool reliable);
 
-	void processReliableCommand(ConnectionCommand &c);
-	void processNonReliableCommand(ConnectionCommand &c);
+	void processReliableCommand(ConnectionCommandPtr &c);
+	void processNonReliableCommand(ConnectionCommandPtr &c);
 	void serve(Address bind_address);
 	void connect(Address address);
 	void disconnect();
 	void disconnect_peer(session_t peer_id);
 	void send(session_t peer_id, u8 channelnum, const SharedBuffer<u8> &data);
-	void sendReliable(ConnectionCommand &c);
+	void sendReliable(ConnectionCommandPtr &c);
 	void sendToAll(u8 channelnum, const SharedBuffer<u8> &data);
-	void sendToAllReliable(ConnectionCommand &c);
+	void sendToAllReliable(ConnectionCommandPtr &c);
 
-	void sendPackets(float dtime);
+	void sendPackets(float dtime, u32 peer_packet_quota);
 
 	void sendAsPacket(session_t peer_id, u8 channelnum, const SharedBuffer<u8> &data,
 			bool ack = false);
 
-	void sendAsPacketReliable(BufferedPacket &p, Channel *channel);
+	void sendAsPacketReliable(BufferedPacketPtr &p, Channel *channel);
 
 	bool packetsQueued();
 
@@ -88,7 +112,6 @@ private:
 	Semaphore m_send_sleep_semaphore;
 
 	unsigned int m_iteration_packets_avaialble;
-	unsigned int m_max_commands_per_iteration = 1;
 	unsigned int m_max_data_packets_per_iteration;
 	unsigned int m_max_packets_requeued = 256;
 };
@@ -96,7 +119,7 @@ private:
 class ConnectionReceiveThread : public Thread
 {
 public:
-	ConnectionReceiveThread(unsigned int max_packet_size);
+	ConnectionReceiveThread();
 
 	void *run();
 
@@ -149,8 +172,25 @@ private:
 				bool reliable);
 	};
 
+	struct RateLimitHelper {
+		u64 time = 0;
+		int counter = 0;
+		bool logged = false;
+
+		void tick() {
+			u64 now = porting::getTimeS();
+			if (time != now) {
+				time = now;
+				counter = 0;
+				logged = false;
+			}
+		}
+	};
+
 	static const PacketTypeHandler packetTypeRouter[PACKET_TYPE_MAX];
 
 	Connection *m_connection = nullptr;
+
+	RateLimitHelper m_new_peer_ratelimit;
 };
 }

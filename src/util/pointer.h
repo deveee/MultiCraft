@@ -22,6 +22,21 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "irrlichttypes.h"
 #include "debug.h" // For assert()
 #include <cstring>
+#include <memory> // std::shared_ptr
+#include <string_view>
+
+template<typename T> class ConstSharedPtr {
+public:
+	ConstSharedPtr(T *ptr) : ptr(ptr) {}
+	ConstSharedPtr(const std::shared_ptr<T> &ptr) : ptr(ptr) {}
+
+	const T* get() const noexcept { return ptr.get(); }
+	const T& operator*() const noexcept { return *ptr.get(); }
+	const T* operator->() const noexcept { return ptr.get(); }
+
+private:
+	std::shared_ptr<T> ptr;
+};
 
 template <typename T>
 class Buffer
@@ -111,6 +126,18 @@ public:
 		else
 			data = nullptr;
 		return *this;
+	}
+
+	void copyTo(Buffer &buffer) const
+	{
+		buffer.drop();
+		buffer.m_size = m_size;
+		if (m_size != 0) {
+			buffer.data = new T[m_size];
+			memcpy(buffer.data, data, m_size);
+		} else {
+			buffer.data = nullptr;
+		}
 	}
 
 	T & operator[](unsigned int i) const

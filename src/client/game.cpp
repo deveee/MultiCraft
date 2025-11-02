@@ -1539,7 +1539,7 @@ bool Game::connectToServer(const GameStartData &start_data, bool *connect_ok)
 	try {
 		connect_address.Resolve(start_data.address.c_str());
 
-		if (connect_address.isZero()) { // i.e. INADDR_ANY, IN6ADDR_ANY
+		if (connect_address.isAny()) { // i.e. INADDR_ANY, IN6ADDR_ANY
 			//connect_address.Resolve("localhost");
 			if (connect_address.isIPv6()) {
 				IPv6AddressBytes addr_bytes;
@@ -1574,7 +1574,7 @@ bool Game::connectToServer(const GameStartData &start_data, bool *connect_ok)
 	client->m_connect_aborted = &m_connect_aborted;
 
 	infostream << "Connecting to server at ";
-	connect_address.print(&infostream);
+	connect_address.print(infostream);
 	infostream << std::endl;
 
 	client->connect(connect_address,
