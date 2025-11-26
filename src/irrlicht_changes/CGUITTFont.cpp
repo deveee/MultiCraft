@@ -207,7 +207,7 @@ video::IImage* SGUITTGlyph::createGlyphImage(const FT_Face& face, const FT_Bitma
 	return image;
 }
 
-void SGUITTGlyph::preload(u32 char_index, FT_Face face,
+void SGUITTGlyph::preload(uchar32_t c, u32 char_index, FT_Face face,
 		video::IVideoDriver* driver, u32 font_size, const FT_Int32 loadFlags,
 		bool bold, bool italic, u16 outline, u8 outline_type, s8 character_spacing)
 {
@@ -309,6 +309,10 @@ void SGUITTGlyph::preload(u32 char_index, FT_Face face,
 		bits = glyph_slot->bitmap;
 		offset = core::vector2di(glyph_slot->bitmap_left * scale, glyph_slot->bitmap_top * scale);
 	}
+
+	// Don't allow empty textures for emoji letters so the fallback glyphs are used
+	if ((c >= 0x1F1E6 && c <= 0x1F1FF) && (bits.width < 1 || bits.rows < 1))
+		return;
 
 	// Setup the glyph information here:
 	advance = glyph_slot->advance;
@@ -1260,6 +1264,9 @@ u32 CGUITTFont::getGlyphIndexByChar(wchar_t c) const
 
 u32 CGUITTFont::getGlyphIndexByChar(uchar32_t c) const
 {
+	if(glyph_replacement.find(c) != glyph_replacement.end())
+		return getGlyphIndexByChar((uchar32_t)glyph_replacement.at(c));
+
 	// If our glyph is already loaded, don't bother doing any batch loading code.
 	for (size_t i = 0; i < tt_faces.size(); i++) {
 		u32 glyph = FT_Get_Char_Index(tt_faces[i], c);
@@ -1292,8 +1299,20 @@ begin:
 	}
 
 	// Check for a valid glyph.  If it is invalid, attempt to use the replacement character.
-	if (glyph == 0)
-		glyph = FT_Get_Char_Index(tt_face, core::unicode::UTF_REPLACEMENT_CHARACTER);
+	if (glyph == 0) {
+		// If it's emoji letter then try to use normal letter
+		if (c >= 0x1F1E6 && c <= 0x1F1FF) {
+			u32 replacement_char = 'A' + (c - 0x1F1E6);
+			u32 char_index_replacement = FT_Get_Char_Index(tt_face, replacement_char);
+			if (char_index_replacement != 0) {
+				glyph_replacement[c] = replacement_char;
+				return getGlyphIndexByChar((uchar32_t)glyph_replacement.at(c));
+			}
+		}
+		
+		if (glyph == 0)
+			glyph = FT_Get_Char_Index(tt_face, core::unicode::UTF_REPLACEMENT_CHARACTER);
+	}
 
 	// Determine our batch loading positions.
 	u32 half_size = (batch_load_size / 2);
@@ -1319,8 +1338,8 @@ begin:
 				else
 					flags |= FT_LOAD_DEFAULT;
 
-				glyph->preload(char_index, tt_face, Driver, size, flags, bold,
-						italic, outline, outline_type, character_spacing);
+				glyph->preload(c, char_index, tt_face, Driver, size, flags,
+						bold, italic, outline, outline_type, character_spacing);
 
 				if (!glyph->isLoaded && current_face < tt_faces.size()) {
 					current_face++;

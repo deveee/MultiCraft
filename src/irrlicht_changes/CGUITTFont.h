@@ -33,6 +33,7 @@
 
 #include <irrlicht.h>
 #include <ft2build.h>
+#include <map>
 #include <vector>
 #include "irrUString.h"
 #include "util/enriched_string.h"
@@ -74,7 +75,7 @@ namespace gui
 		//! However, it simply defines the SGUITTGlyph's properties and will only create the page
 		//! textures if necessary.  The actual creation of the textures should only occur right
 		//! before the batch draw call.
-		void preload(u32 char_index, FT_Face face, video::IVideoDriver* driver,
+		void preload(uchar32_t c, u32 char_index, FT_Face face, video::IVideoDriver* driver,
 				u32 font_size, const FT_Int32 loadFlags, bool bold,
 				bool italic, u16 outline, u8 outline_type, s8 character_spacing);
 
@@ -450,6 +451,7 @@ namespace gui
 			s8 character_spacing;
 			float color_emoji_scale = 1.0f;
 			u32 color_emoji_offset;
+			mutable std::map<u32, u32> glyph_replacement;
 	};
 
 } // end namespace gui
