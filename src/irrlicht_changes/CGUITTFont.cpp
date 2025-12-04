@@ -34,6 +34,8 @@
 #include <iostream>
 #include "CGUITTFont.h"
 #include "porting.h"
+#include "util/bidi.h"
+
 
 namespace irr
 {
@@ -987,6 +989,8 @@ void CGUITTFont::draw(const EnrichedString &text, const core::rect<s32>& positio
 
 	// Convert to a unicode string.
 	core::ustring utext = text.getString();
+	
+	utext = applyBidiReordering(utext);
 
 	// Set up our render map.
 	core::map<u32, CGUITTGlyphPage*> Render_Map;

@@ -572,6 +572,7 @@ include_directories(
 	${GMP_INCLUDE_DIR}
 	${JSON_INCLUDE_DIR}
 	${X11_INCLUDE_DIR}
+	${SHEENBIDI_INCLUDE_DIR}
 	${PROJECT_SOURCE_DIR}/script
 )
 
@@ -613,6 +614,7 @@ if(BUILD_CLIENT)
 		luautf8
 		luachacha
 		chacha
+		sheenbidi
 	)
 	if(NOT USE_LUAJIT)
 		set_target_properties(${PROJECT_NAME} PROPERTIES
@@ -735,6 +737,7 @@ if(BUILD_SERVER)
 		luautf8
 		luachacha
 		chacha
+		sheenbidi
 	)
 	set_target_properties(${PROJECT_NAME}server PROPERTIES
 		COMPILE_DEFINITIONS "SERVER")
@@ -795,13 +798,13 @@ endif(BUILD_SERVER)
 
 # Blacklisted locales that don't work.
 # see issue #4638
-set(GETTEXT_BLACKLISTED_LOCALES
-	ar
-	he
-	ky
-	ms_Arab
-	th
-)
+#set(GETTEXT_BLACKLISTED_LOCALES
+#	ar
+#	he
+#	ky
+#	ms_Arab
+#	th
+#)
 
 option(APPLY_LOCALE_BLACKLIST "Use a blacklist to avoid broken locales" TRUE)
 
