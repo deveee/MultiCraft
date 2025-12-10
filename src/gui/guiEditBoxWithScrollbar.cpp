@@ -200,7 +200,7 @@ void GUIEditBoxWithScrollBar::draw()
 						mbegin = font->getDimension(s.c_str()).Width;
 
 						// deal with kerning
-						const wchar_t* this_letter = visual_mark_begin < (s32)txt_line_bidi.size() ? &(txt_line_bidi[visualMarkBegin]) : 0;
+						const wchar_t* this_letter = visual_mark_begin < (s32)txt_line_bidi.size() ? &(txt_line_bidi[visual_mark_begin]) : 0;
 						const wchar_t* previous_letter = visual_mark_begin > 0 ? &(txt_line_bidi[visual_mark_begin - 1]) : 0;
 						mbegin += font->getKerningWidth(this_letter, previous_letter);
 				

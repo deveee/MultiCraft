@@ -37,3 +37,4 @@ struct TextBidiData
 
 TextBidiData applyBidiReordering(const core::stringw& text);
 core::ustring applyBidiReordering(const core::ustring& text);
+core::ustring applyBidiReorderingMultiline(const core::ustring& text);

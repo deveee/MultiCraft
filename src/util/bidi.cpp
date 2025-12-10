@@ -63,6 +63,37 @@ s32 TextBidiData::logicalCursorPos(s32 pos)
 	return pos;
 }
 
+core::ustring applyBidiReorderingMultiline(const core::ustring& text)
+{
+    if (text.empty())
+        return text;
+
+    core::ustring result;
+    u32 line_start = 0;
+    
+    for (u32 i = 0; i <= text.size(); i++) {
+        if (i == text.size() || text[i] == L'\n' || text[i] == L'\r') {
+            if (i > line_start) {
+                core::ustring line = text.subString(line_start, i - line_start);
+                result += applyBidiReordering(line);
+            }
+            
+            if (i < text.size()) {
+                result += text[i];
+
+                if (text[i] == L'\r' && i + 1 < text.size() && text[i + 1] == L'\n') {
+                    i++;
+                    result += text[i];
+                }
+            }
+            
+            line_start = i + 1;
+        }
+    }
+    
+    return result;
+}
+
 TextBidiData applyBidiReordering(const core::stringw& text)
 {
 	TextBidiData data;

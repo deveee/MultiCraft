@@ -991,7 +991,7 @@ void CGUITTFont::draw(const EnrichedString &text, const core::rect<s32>& positio
 	core::ustring utext = text.getString();
 
 	if (use_rtl)
-		utext = applyBidiReordering(utext);
+		utext = applyBidiReorderingMultiline(utext);
 
 	// Set up our render map.
 	core::map<u32, CGUITTGlyphPage*> Render_Map;
