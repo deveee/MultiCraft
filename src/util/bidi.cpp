@@ -20,6 +20,122 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #include <SheenBidi.h>
 
+
+s32 TextBidiData::visualCursorPos(s32 pos)
+{
+	if (TextBidi.size() == 0)
+		return 0;
+
+	if (TextBidi.size() > 0 && pos >= (s32)TextBidi.size()) {
+		if (CharIsRtl[0])
+			return 0;
+		else
+			return TextBidi.size();
+	}
+	
+	if (pos >= 0 && pos < (s32)RtlCharPos.size()) {
+		if (CharIsRtl[pos])
+			return RtlCharPos[pos] + 1;
+		else
+			return RtlCharPos[pos];
+	}
+	
+	return pos;
+}
+
+s32 TextBidiData::logicalCursorPos(s32 pos)
+{
+	if (pos < 0) 
+		return TextBidi.size();
+
+	if (TextBidi.size() > 0 && pos >= (s32)TextBidi.size()) {
+		if (CharIsRtl[0])
+			return 0;
+		else
+			return TextBidi.size();
+	}
+		
+	for (u32 i = 0; i < RtlCharPos.size(); i++) {
+		if (RtlCharPos[i] == pos)
+			return i;
+	}
+	
+	return pos;
+}
+
+TextBidiData applyBidiReordering(const core::stringw& text)
+{
+	TextBidiData data;
+	
+	if (text.empty())
+		return data;
+	
+	data.Text = text;
+
+	SBCodepointSequence codepointSequence;
+	codepointSequence.stringEncoding = SBStringEncodingUTF32;
+	codepointSequence.stringBuffer = (void*)text.c_str();
+	codepointSequence.stringLength = text.size();
+	
+	SBAlgorithmRef bidiAlgorithm = SBAlgorithmCreate(&codepointSequence);
+	
+	if (!bidiAlgorithm)
+		return data;
+
+	SBParagraphRef paragraph = SBAlgorithmCreateParagraph(bidiAlgorithm, 0, 
+			text.size(), SBLevelDefaultLTR);
+	
+	if (!paragraph) {
+		SBAlgorithmRelease(bidiAlgorithm);
+		return data;
+	}
+
+	SBLineRef line = SBParagraphCreateLine(paragraph, 0, text.size());
+	
+	if (!line) {
+		SBParagraphRelease(paragraph);
+		SBAlgorithmRelease(bidiAlgorithm);
+		return data;
+	}
+
+	SBUInteger runCount = SBLineGetRunCount(line);
+	const SBRun *runsPtr = SBLineGetRunsPtr(line);
+	
+	data.TextBidi.reserve(text.size());
+	data.RtlCharPos.resize(text.size());
+	data.CharIsRtl.resize(text.size());
+	s32 visualPos = 0;
+	
+	for (SBUInteger i = 0; i < runCount; i++) {
+		const SBRun *run = runsPtr + i;
+		bool isRTL = (run->level & 1) != 0;
+		
+		if (isRTL) {
+			for (SBInteger j = run->length - 1; j >= 0; j--) {
+				SBUInteger index = run->offset + j;
+				data.TextBidi += text[index];
+				data.RtlCharPos[index] = visualPos;
+				data.CharIsRtl[index] = true;
+				visualPos++;
+			}
+		} else {
+			for (SBUInteger j = 0; j < run->length; j++) {
+				SBUInteger index = run->offset + j;
+				data.TextBidi += text[index];
+				data.RtlCharPos[index] = visualPos;
+				data.CharIsRtl[index] = false;
+				visualPos++;
+			}
+		}
+	}
+	
+	SBLineRelease(line);
+	SBParagraphRelease(paragraph);
+	SBAlgorithmRelease(bidiAlgorithm);
+
+	return data;
+}
+
 core::ustring applyBidiReordering(const core::ustring& text)
 {
 	if (text.empty())

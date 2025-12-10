@@ -20,6 +20,20 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #include "irrlicht_changes/irrUString.h"
 
+#include <vector>
+
 using namespace irr;
 
+struct TextBidiData
+{
+	core::stringw Text;
+	core::stringw TextBidi;
+	std::vector<s32> RtlCharPos;
+	std::vector<bool> CharIsRtl;
+
+	s32 visualCursorPos(s32 pos);
+	s32 logicalCursorPos(s32 pos);
+};
+
+TextBidiData applyBidiReordering(const core::stringw& text);
 core::ustring applyBidiReordering(const core::ustring& text);
