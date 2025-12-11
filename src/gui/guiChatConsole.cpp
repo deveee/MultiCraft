@@ -29,6 +29,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "client/fontengine.h"
 #include "log.h"
 #include "gettext.h"
+#include "util/bidi.h"
 #include <algorithm>
 #include <string>
 #ifdef HAVE_TOUCHSCREENGUI
@@ -476,41 +477,54 @@ void GUIChatConsole::drawPrompt()
 	std::replace_if(prompt_text.begin(), prompt_text.end(),
 			[](wchar_t c) { return (c == L'\n' || c == L'\r'); }, L' ');
 
+	std::wstring begin_text = prompt_text.substr(0, 1);
+	prompt_text.erase(0, 1);
+
+	TextBidiData text_bidi = applyBidiReordering((core::stringw)(prompt_text.c_str()));
+	std::wstring text_bidi_str(text_bidi.TextBidi.c_str());
+
 	ChatSelection real_mark_begin = m_mark_end > m_mark_begin ? m_mark_begin : m_mark_end;
 	ChatSelection real_mark_end = m_mark_end > m_mark_begin ? m_mark_end : m_mark_begin;
 
 	if (real_mark_begin != real_mark_end &&
 		real_mark_begin.selection_type == ChatSelection::SELECTION_PROMPT &&
 		real_mark_end.selection_type == ChatSelection::SELECTION_PROMPT) {
-		std::wstring begin_text = L"]";
+
 		int begin_text_size = m_font->getDimension(begin_text.c_str()).Width;
 		int text_pos = m_fontsize.X + begin_text_size + m_round_screen_offset;
-
 		s32 x_begin = text_pos;
-		s32 text_size = m_font->getDimension(prompt_text.c_str()).Width;
+		s32 text_size = m_font->getDimension(text_bidi_str.c_str()).Width;
 		s32 x_end = x_begin + text_size;
-
 		int current_scroll = prompt.getViewPosition();
-		if (real_mark_begin.character > 0) {
-			irr::core::stringw text = prompt_text.c_str();
+
+		if (real_mark_begin.character >= 0) {
 			int scroll_offset = real_mark_begin.scroll - current_scroll;
-			int length = scroll_offset + real_mark_begin.character;
-			length = MYMIN(MYMAX(length, 0), prompt_text.size() - 1);
-			text = text.subString(1, length);
+			int logical_pos = scroll_offset + real_mark_begin.character;
+			logical_pos = MYMIN(MYMAX(logical_pos, 0), (int)prompt_text.size() - 1);
+			int visual_pos = text_bidi.visualCursorPos(logical_pos);
+
+			irr::core::stringw text = text_bidi_str.c_str();
+			text = text.subString(0, visual_pos);
 			s32 text_size = m_font->getDimension(text.c_str()).Width;
 			x_begin = text_pos + text_size;
 		}
 
-		if (real_mark_end.character < prompt_text.size() - 1) {
-			irr::core::stringw text = prompt_text.c_str();
+		if (real_mark_end.character < prompt_text.size()) {
 			int scroll_offset = real_mark_end.scroll - current_scroll;
-			int length = scroll_offset + real_mark_end.character;
+			int logical_pos = scroll_offset + real_mark_end.character;
 			if (real_mark_end.x_max)
-				length++;
-			length = MYMIN(MYMAX(length, 0), prompt_text.size() - 1);
-			text = text.subString(1, length);
+				logical_pos++;
+			logical_pos = MYMIN(MYMAX(logical_pos, 0), (int)prompt_text.size());
+			int visual_pos = text_bidi.visualCursorPos(logical_pos);
+			
+			irr::core::stringw text = text_bidi_str.c_str();
+			text = text.subString(0, visual_pos);
 			s32 text_size = m_font->getDimension(text.c_str()).Width;
 			x_end = text_pos + text_size;
+		}
+
+		if (x_begin > x_end) {
+			core::swap(x_begin, x_end);
 		}
 
 		core::rect<s32> destrect(x_begin, y, x_end, y + m_fontsize.Y);
@@ -519,17 +533,33 @@ void GUIChatConsole::drawPrompt()
 		driver->draw2DRectangle(skin->getColor(EGDC_HIGH_LIGHT), destrect, &AbsoluteClippingRect);
 	}
 
-	core::rect<s32> destrect(
+	int begin_text_width = m_font->getDimension(begin_text.c_str()).Width;
+	core::rect<s32> begin_destrect(
 			m_fontsize.X + m_round_screen_offset, y,
-			prompt_text.size() * m_fontsize.X + m_round_screen_offset,
+			m_fontsize.X + begin_text_width + m_round_screen_offset,
 			y + m_fontsize.Y);
 	m_font->draw(
-		prompt_text.c_str(),
+		begin_text.c_str(),
+		begin_destrect,
+		video::SColor(255, 255, 255, 255),
+		false,
+		false,
+		&AbsoluteClippingRect,
+		false);
+
+	int text_width = text_bidi_str.size() * m_fontsize.X;
+	core::rect<s32> destrect(
+			m_fontsize.X + begin_text_width + m_round_screen_offset, y,
+			m_fontsize.X + begin_text_width + text_width + m_round_screen_offset,
+			y + m_fontsize.Y);
+	m_font->draw(
+		text_bidi_str.c_str(),
 		destrect,
 		video::SColor(255, 255, 255, 255),
 		false,
 		false,
-		&AbsoluteClippingRect);
+		&AbsoluteClippingRect,
+		false);
 
 	// Draw the cursor during on periods
 	if ((m_cursor_blink & 0x8000) != 0)
@@ -537,12 +567,22 @@ void GUIChatConsole::drawPrompt()
 		s32 cursor_pos = prompt.getVisibleCursorPosition();
 		if (cursor_pos >= 0)
 		{
+			s32 visual_cursor_pos = 0;
+			s32 x = m_fontsize.X + m_round_screen_offset;
+
+			if (cursor_pos > 0) {
+				visual_cursor_pos = text_bidi.visualCursorPos(cursor_pos - 1);
+
+				if (text_bidi.CharIsRtl.size() > 0 && text_bidi.CharIsRtl[0] && visual_cursor_pos > 0)
+					visual_cursor_pos--;
+
+				std::wstring text = text_bidi_str.substr(0, visual_cursor_pos);
+				x = m_font->getDimension(text.c_str()).Width +
+					m_fontsize.X + begin_text_width + m_round_screen_offset;
+			}
+
 			s32 cursor_len = prompt.getCursorLength();
 			video::IVideoDriver* driver = Environment->getVideoDriver();
-			std::wstring text = prompt_text.substr(0, cursor_pos);
-			s32 x = m_font->getDimension(
-					text.c_str()).Width + m_fontsize.X + m_round_screen_offset;
-
 			core::rect<s32> destrect(
 				x,
 				y + m_fontsize.Y * (1.0 - m_cursor_height),
