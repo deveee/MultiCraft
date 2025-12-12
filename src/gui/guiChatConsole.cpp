@@ -468,12 +468,12 @@ core::rect<s32> GUIChatConsole::getPromptFrameRect()
 	u32 row = m_chat_backend->getConsoleBuffer().getRows();
 	s32 line_height = m_fontsize.Y;
 	s32 y = row * line_height + m_height - m_desired_height;
-	
+
 	core::rect<s32> destrect(
 			m_fontsize.X + m_round_screen_offset, y,
-			m_screensize.X - m_scrollbar_width - m_round_screen_offset,
+			m_screensize.X - m_scrollbar_width - m_round_screen_offset - m_fontsize.X,
 			y + m_fontsize.Y * 1.5f);
-			
+
 	core::rect<s32> frame_rect = destrect;
 
 	return frame_rect;
@@ -513,13 +513,13 @@ void GUIChatConsole::calculatePromptScrollPos()
 	std::wstring text = prompt.getLine();
 	core::stringw txt_line = text.c_str();
 	s32 logical_cpos = prompt.getCursorPos();
-	
+
 	TextBidiData text_bidi = applyBidiReordering(txt_line);
 	s32 rtl_cursor_pos = text_bidi.visualCursorPos(logical_cpos);
-	
+
 	if (text_bidi.CharIsRtl.size() > 0 && text_bidi.CharIsRtl[0] && rtl_cursor_pos > 0)
 		rtl_cursor_pos--;
-	
+
 	s32 cstart = m_font->getDimension(text_bidi.TextBidi.subString(0, rtl_cursor_pos).c_str()).Width;
 	s32 cend = cstart + cursor_width;
 	s32 txt_width = m_font->getDimension(text_bidi.TextBidi.c_str()).Width;
@@ -566,10 +566,10 @@ void GUIChatConsole::drawPrompt()
 		c.clipAgainst(text_rect);
 
 		if (c.isValid()) {
-	
+
 			TextBidiData text_bidi = applyBidiReordering(txt_line);
 			core::stringw txt_line_bidi = text_bidi.TextBidi;
-				
+
 			ChatSelection real_mark_begin = m_mark_end > m_mark_begin ? m_mark_begin : m_mark_end;
 			ChatSelection real_mark_end = m_mark_end > m_mark_begin ? m_mark_end : m_mark_begin;
 
@@ -579,25 +579,25 @@ void GUIChatConsole::drawPrompt()
 					real_mark_end.selection_type == ChatSelection::SELECTION_PROMPT) {
 
 				s32 mbegin = 0, mend = 0;
-				s32 mark_start_pos = 0; 
+				s32 mark_start_pos = 0;
 				s32 mark_end_pos = txt_line_bidi.size();
 				s32 visual_mark_begin = 0;
 				s32 visual_mark_end = txt_line_bidi.size();
-	
+
 				// highlight start is on this line
 				s32 logical_pos_in_line = real_mark_begin.scroll + real_mark_begin.character;
 				visual_mark_begin = text_bidi.visualCursorPos(logical_pos_in_line);
-				
+
 				s = txt_line_bidi.subString(0, visual_mark_begin);
 				mbegin = m_font->getDimension(s.c_str()).Width;
-	
+
 				// deal with kerning
 				const wchar_t* this_letter = visual_mark_begin < (s32)txt_line_bidi.size() ? &(txt_line_bidi[visual_mark_begin]) : 0;
 				const wchar_t* previous_letter = visual_mark_begin > 0 ? &(txt_line_bidi[visual_mark_begin - 1]) : 0;
 				mbegin += m_font->getKerningWidth(this_letter, previous_letter);
-		
+
 				mark_start_pos = visual_mark_begin;
-	
+
 				// highlight end is on this line
 				logical_pos_in_line = real_mark_end.scroll + real_mark_end.character;
 				visual_mark_end = text_bidi.visualCursorPos(logical_pos_in_line);
@@ -613,38 +613,38 @@ void GUIChatConsole::drawPrompt()
 					core::swap(mark_start_pos, mark_end_pos);
 					core::swap(mbegin, mend);
 				}
-	
+
 				core::rect<s32> mark_rect = text_rect;
 				mark_rect.UpperLeftCorner.X += mbegin;
 				mark_rect.LowerRightCorner.X = mark_rect.UpperLeftCorner.X + mend - mbegin;
-	
+
 				// draw mark
 				IGUISkin* skin = Environment->getSkin();
 				skin->draw2DRectangle(this, skin->getColor(EGDC_HIGH_LIGHT), mark_rect, &local_clip_rect);
-	
+
 				// draw text before marked
 				core::rect<s32> before_rect = text_rect;
 				before_rect.LowerRightCorner.X = mark_rect.UpperLeftCorner.X;
 				s = txt_line_bidi.subString(0, mark_start_pos);
-	
+
 				if (s.size())
 					m_font->draw(s.c_str(), before_rect,
 						video::SColor(255, 255, 255, 255),
 						false, true, &local_clip_rect, false);
-	
+
 				// draw marked text
 				s = txt_line_bidi.subString(mark_start_pos, mark_end_pos - mark_start_pos);
-	
+
 				if (s.size())
 					m_font->draw(s.c_str(), mark_rect,
 						video::SColor(255, 255, 255, 255),
 						false, true, &local_clip_rect, false);
-	
+
 				// draw text after marked
 				core::rect<s32> after_rect = text_rect;
 				after_rect.UpperLeftCorner.X = mark_rect.LowerRightCorner.X;
 				s = txt_line_bidi.subString(mark_end_pos, txt_line_bidi.size() - mark_end_pos);
-	
+
 				if (s.size())
 					m_font->draw(s.c_str(), after_rect,
 						video::SColor(255, 255, 255, 255),
@@ -662,10 +662,10 @@ void GUIChatConsole::drawPrompt()
 	if ((m_cursor_blink & 0x8000) != 0) {
 		TextBidiData text_bidi = applyBidiReordering(txt_line);
 		s32 rtl_cursor_pos = text_bidi.visualCursorPos(prompt.getCursorPos());
-		
+
 		if (text_bidi.CharIsRtl.size() > 0 && text_bidi.CharIsRtl[0] && rtl_cursor_pos > 0)
 			rtl_cursor_pos--;
-		
+
 		s = text_bidi.TextBidi.subString(0, rtl_cursor_pos);
 
 		s32 charcursorpos = m_font->getDimension(s.c_str()).Width +
@@ -778,25 +778,35 @@ ChatSelection GUIChatConsole::getPromptCursorPos(s32 x, s32 y)
 		return selection;
 
 	ChatPrompt& prompt = m_chat_backend->getPrompt();
+	std::wstring text = prompt.getLine();
+	core::stringw txt_line = text.c_str();
+
+	if (txt_line.empty())
+		return selection;
+
+	x += 3;
+
+	core::rect<s32> text_rect = getPromptTextRect();
+	if (y < text_rect.UpperLeftCorner.Y)
+		y = text_rect.UpperLeftCorner.Y;
+	if (y > text_rect.LowerRightCorner.Y)
+		y = text_rect.LowerRightCorner.Y;
+
+	if (x < text_rect.UpperLeftCorner.X)
+		x = text_rect.UpperLeftCorner.X;
+
+	TextBidiData text_bidi = applyBidiReordering(txt_line);
+	s32 visual_pos = m_font->getCharacterFromPos(text_bidi.TextBidi.c_str(),
+			x - text_rect.UpperLeftCorner.X);
+
+	s32 logical_pos = text_bidi.logicalCursorPos(visual_pos);
+	if (logical_pos < 0)
+		logical_pos = 0;
+	if (logical_pos > (s32)txt_line.size())
+		logical_pos = txt_line.size();
 
 	selection.selection_type = ChatSelection::SELECTION_PROMPT;
-	selection.scroll = prompt.getViewPosition();
-
-	std::wstring prompt_text = prompt.getVisiblePortion();
-	irr::core::stringw text = prompt_text.c_str();
-	text = text.subString(1, prompt_text.size() - 1);
-
-	std::wstring begin_text = L"]";
-	int begin_text_size = m_font->getDimension(begin_text.c_str()).Width;
-	int text_pos = m_fontsize.X + begin_text_size + m_round_screen_offset;
-	int pos = m_font->getCharacterFromPos(text.c_str(), x - text_pos);
-
-	if (pos == -1) {
-		selection.x_max = true;
-		selection.character = text.size() - 1;
-	} else {
-		selection.character = pos;
-	}
+	selection.character = logical_pos;
 
 	return selection;
 }
@@ -811,13 +821,8 @@ ChatSelection GUIChatConsole::getCurrentPromptCursorPos()
 	ChatPrompt& prompt = m_chat_backend->getPrompt();
 
 	selection.selection_type = ChatSelection::SELECTION_PROMPT;
-	selection.scroll = prompt.getViewPosition();
-	selection.character = prompt.getVisibleCursorPosition() - 1;
-
-	if ((unsigned int)selection.character > prompt.getLine().size() - selection.scroll - 1) {
-		selection.character--;
-		selection.x_max = true;
-	}
+	selection.scroll = 0;
+	selection.character = prompt.getCursorPos();
 
 	return selection;
 }
@@ -1003,9 +1008,9 @@ bool GUIChatConsole::OnEvent(const SEvent& event)
 			s32 rows = -(s32)buf.getRows();
 			m_vscrollbar->setPos(m_vscrollbar->getPos() + rows);
 			m_chat_backend->scrollPageUp();
-			
+
 			calculatePromptScrollPos();
-			
+
 			return true;
 		}
 		else if(event.KeyInput.Key == KEY_NEXT)
@@ -1014,9 +1019,9 @@ bool GUIChatConsole::OnEvent(const SEvent& event)
 			s32 rows = buf.getRows();
 			m_vscrollbar->setPos(m_vscrollbar->getPos() + rows);
 			m_chat_backend->scrollPageDown();
-			
+
 			calculatePromptScrollPos();
-			
+
 			return true;
 		}
 		else if(event.KeyInput.Key == KEY_RETURN)
@@ -1030,9 +1035,9 @@ bool GUIChatConsole::OnEvent(const SEvent& event)
 			} else {
 				updateVScrollBar(true, true);
 			}
-			
+
 			calculatePromptScrollPos();
-			
+
 			return true;
 		}
 		else if(event.KeyInput.Key == KEY_UP)
@@ -1079,7 +1084,7 @@ bool GUIChatConsole::OnEvent(const SEvent& event)
 					m_mark_end.reset();
 				}
 			}
-			
+
 			calculatePromptScrollPos();
 
 			return true;
@@ -1108,7 +1113,7 @@ bool GUIChatConsole::OnEvent(const SEvent& event)
 					m_mark_end.reset();
 				}
 			}
-			
+
 			calculatePromptScrollPos();
 
 			return true;
@@ -1137,7 +1142,7 @@ bool GUIChatConsole::OnEvent(const SEvent& event)
 					m_mark_end.reset();
 				}
 			}
-			
+
 			calculatePromptScrollPos();
 
 			return true;
@@ -1162,9 +1167,9 @@ bool GUIChatConsole::OnEvent(const SEvent& event)
 				ChatPrompt::CURSOROP_DELETE,
 				ChatPrompt::CURSOROP_DIR_LEFT,
 				scope);
-				
+
 			calculatePromptScrollPos();
-			
+
 			return true;
 		}
 		else if(event.KeyInput.Key == KEY_DELETE)
@@ -1187,9 +1192,9 @@ bool GUIChatConsole::OnEvent(const SEvent& event)
 				ChatPrompt::CURSOROP_DELETE,
 				ChatPrompt::CURSOROP_DIR_RIGHT,
 				scope);
-				
+
 			calculatePromptScrollPos();
-			
+
 			return true;
 		}
 		else if(event.KeyInput.Key == KEY_KEY_A && event.KeyInput.Control)
@@ -1213,7 +1218,7 @@ bool GUIChatConsole::OnEvent(const SEvent& event)
 					ChatPrompt::CURSOROP_DIR_RIGHT,
 					ChatPrompt::CURSOROP_SCOPE_LINE);
 			}
-			
+
 			calculatePromptScrollPos();
 
 			return true;
@@ -1292,9 +1297,9 @@ bool GUIChatConsole::OnEvent(const SEvent& event)
 				ChatPrompt::CURSOROP_DELETE,
 				ChatPrompt::CURSOROP_DIR_LEFT, // Ignored
 				ChatPrompt::CURSOROP_SCOPE_SELECTION);
-				
+
 			calculatePromptScrollPos();
-			
+
 			return true;
 		}
 		else if(event.KeyInput.Key == KEY_KEY_U && event.KeyInput.Control)
@@ -1305,9 +1310,9 @@ bool GUIChatConsole::OnEvent(const SEvent& event)
 				ChatPrompt::CURSOROP_DELETE,
 				ChatPrompt::CURSOROP_DIR_LEFT,
 				ChatPrompt::CURSOROP_SCOPE_LINE);
-				
+
 			calculatePromptScrollPos();
-			
+
 			return true;
 		}
 		else if(event.KeyInput.Key == KEY_KEY_K && event.KeyInput.Control)
@@ -1318,9 +1323,9 @@ bool GUIChatConsole::OnEvent(const SEvent& event)
 				ChatPrompt::CURSOROP_DELETE,
 				ChatPrompt::CURSOROP_DIR_RIGHT,
 				ChatPrompt::CURSOROP_SCOPE_LINE);
-				
+
 			calculatePromptScrollPos();
-				
+
 			return true;
 		}
 		else if(event.KeyInput.Key == KEY_TAB)
@@ -1345,9 +1350,9 @@ bool GUIChatConsole::OnEvent(const SEvent& event)
 			#else
 				prompt.input(event.KeyInput.Char);
 			#endif
-			
+
 			calculatePromptScrollPos();
-			
+
 			return true;
 		}
 	}
@@ -1370,7 +1375,7 @@ bool GUIChatConsole::OnEvent(const SEvent& event)
 			}
 
 		}
-		
+
 		calculatePromptScrollPos();
 
 		return true;
@@ -1436,7 +1441,7 @@ bool GUIChatConsole::OnEvent(const SEvent& event)
 				m_mark_end = getCursorPos(event.MouseInput.X, event.MouseInput.Y);
 			}
 		}
-		
+
 		calculatePromptScrollPos();
 
 		return true;
