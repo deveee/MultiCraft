@@ -29,7 +29,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "client/fontengine.h"
 #include "log.h"
 #include "gettext.h"
-#include "util/bidi.h"
+#include "bidi.h"
 #include <algorithm>
 #include <string>
 #ifdef HAVE_TOUCHSCREENGUI
@@ -514,7 +514,7 @@ void GUIChatConsole::calculatePromptScrollPos()
 	core::stringw txt_line = text.c_str();
 	s32 logical_cpos = prompt.getCursorPos();
 
-	TextBidiData text_bidi = applyBidiReordering(txt_line);
+	core::TextBidiData text_bidi = applyBidiReordering(txt_line);
 	s32 rtl_cursor_pos = text_bidi.visualCursorPos(logical_cpos);
 
 	if (text_bidi.CharIsRtl.size() > 0 && text_bidi.CharIsRtl[0] && rtl_cursor_pos > 0)
@@ -567,7 +567,7 @@ void GUIChatConsole::drawPrompt()
 
 		if (c.isValid()) {
 
-			TextBidiData text_bidi = applyBidiReordering(txt_line);
+			core::TextBidiData text_bidi = applyBidiReordering(txt_line);
 			core::stringw txt_line_bidi = text_bidi.TextBidi;
 
 			ChatSelection real_mark_begin = m_mark_end > m_mark_begin ? m_mark_begin : m_mark_end;
@@ -660,7 +660,7 @@ void GUIChatConsole::drawPrompt()
 
 	// draw cursor
 	if ((m_cursor_blink & 0x8000) != 0) {
-		TextBidiData text_bidi = applyBidiReordering(txt_line);
+		core::TextBidiData text_bidi = applyBidiReordering(txt_line);
 		s32 rtl_cursor_pos = text_bidi.visualCursorPos(prompt.getCursorPos());
 
 		if (text_bidi.CharIsRtl.size() > 0 && text_bidi.CharIsRtl[0] && rtl_cursor_pos > 0)
@@ -795,7 +795,7 @@ ChatSelection GUIChatConsole::getPromptCursorPos(s32 x, s32 y)
 	if (x < text_rect.UpperLeftCorner.X)
 		x = text_rect.UpperLeftCorner.X;
 
-	TextBidiData text_bidi = applyBidiReordering(txt_line);
+	core::TextBidiData text_bidi = applyBidiReordering(txt_line);
 	s32 visual_pos = m_font->getCharacterFromPos(text_bidi.TextBidi.c_str(),
 			x - text_rect.UpperLeftCorner.X);
 

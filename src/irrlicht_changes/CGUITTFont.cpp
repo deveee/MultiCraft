@@ -34,7 +34,7 @@
 #include <iostream>
 #include "CGUITTFont.h"
 #include "porting.h"
-#include "util/bidi.h"
+#include "bidi.h"
 
 
 namespace irr

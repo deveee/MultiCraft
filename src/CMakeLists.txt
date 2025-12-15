@@ -572,7 +572,6 @@ include_directories(
 	${GMP_INCLUDE_DIR}
 	${JSON_INCLUDE_DIR}
 	${X11_INCLUDE_DIR}
-	${SHEENBIDI_INCLUDE_DIR}
 	${PROJECT_SOURCE_DIR}/script
 )
 
@@ -614,7 +613,6 @@ if(BUILD_CLIENT)
 		luautf8
 		luachacha
 		chacha
-		sheenbidi
 	)
 	if(NOT USE_LUAJIT)
 		set_target_properties(${PROJECT_NAME} PROPERTIES
@@ -737,7 +735,6 @@ if(BUILD_SERVER)
 		luautf8
 		luachacha
 		chacha
-		sheenbidi
 	)
 	set_target_properties(${PROJECT_NAME}server PROPERTIES
 		COMPILE_DEFINITIONS "SERVER")

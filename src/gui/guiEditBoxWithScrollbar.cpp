@@ -12,7 +12,7 @@
 #include "rect.h"
 #include "porting.h"
 #include "Keycodes.h"
-#include "util/bidi.h"
+#include "bidi.h"
 
 /*
 todo:
@@ -180,7 +180,7 @@ void GUIEditBoxWithScrollBar::draw()
 					start_pos = ml ? m_broken_text_positions[i] : 0;
 				}
 
-				TextBidiData text_bidi = applyBidiReordering(*txt_line);
+				core::TextBidiData text_bidi = applyBidiReordering(*txt_line);
 				core::stringw txt_line_bidi = text_bidi.TextBidi;
 
 				// draw mark and marked text
@@ -282,7 +282,7 @@ void GUIEditBoxWithScrollBar::draw()
 				start_pos = m_broken_text_positions[cursor_line];
 			}
 			
-			TextBidiData text_bidi = applyBidiReordering(*txt_line);
+			core::TextBidiData text_bidi = applyBidiReordering(*txt_line);
 			s32 rtl_cursor_pos = text_bidi.visualCursorPos(m_cursor_pos - start_pos);
 			
 			if (text_bidi.CharIsRtl.size() > 0 && text_bidi.CharIsRtl[0] && rtl_cursor_pos > 0)
@@ -341,7 +341,7 @@ s32 GUIEditBoxWithScrollBar::getCursorPos(s32 x, s32 y)
 	if (!txt_line)
 		return 0;
 
-	TextBidiData text_bidi = applyBidiReordering(*txt_line);
+	core::TextBidiData text_bidi = applyBidiReordering(*txt_line);
 	s32 visual_pos = font->getCharacterFromPos(text_bidi.TextBidi.c_str(), x - m_current_text_rect.UpperLeftCorner.X);
 	
 	s32 logical_pos = text_bidi.logicalCursorPos(visual_pos);
@@ -560,7 +560,7 @@ void GUIEditBoxWithScrollBar::calculateScrollPos()
 		core::stringw *txt_line = has_broken_text ? &m_broken_text[curs_line] : &Text;
 		s32 logical_cpos = has_broken_text ? m_cursor_pos - m_broken_text_positions[curs_line] : m_cursor_pos;
 		
-		TextBidiData text_bidi = applyBidiReordering(*txt_line);
+		core::TextBidiData text_bidi = applyBidiReordering(*txt_line);
 		s32 rtl_cursor_pos = text_bidi.visualCursorPos(logical_cpos);
 		
 		if (text_bidi.CharIsRtl.size() > 0 && text_bidi.CharIsRtl[0] && rtl_cursor_pos > 0)
