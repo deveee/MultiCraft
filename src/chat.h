@@ -308,7 +308,7 @@ public:
 	// Get the recent messages buffer
 	ChatBuffer& getRecentBuffer();
 	// Concatenate all recent messages
-	EnrichedString getRecentChat() const;
+	EnrichedString getRecentChat(bool bidi_reordering) const;
 	// Get the console prompt
 	ChatPrompt& getPrompt();
 
