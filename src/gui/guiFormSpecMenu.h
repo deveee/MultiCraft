@@ -467,6 +467,8 @@ private:
 	 */
 	void legacySortElements(core::list<IGUIElement *>::Iterator from);
 
+	bool handleSelectedItem(const SEvent& event);
+
 	int m_btn_height;
 	gui::IGUIFont *m_font = nullptr;
 };

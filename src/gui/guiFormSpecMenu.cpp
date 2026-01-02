@@ -2857,7 +2857,7 @@ void GUIFormSpecMenu::parseModel(parserData *data, const std::string &element)
 	scene::IAnimatedMesh *mesh;
 	if (m_client != nullptr) {
 		mesh = m_client->getMesh(meshstr);
-#if defined(__ANDROID__) || defined(__APPLE__)
+//#if defined(__ANDROID__) || defined(__APPLE__)
 	} else if (meshstr.compare(meshstr.size() - 2, 2, ".e") == 0) {
 		std::string data, decrypted_data, filename;
 		if (fs::ReadFile(meshstr, data) &&
@@ -2872,7 +2872,7 @@ void GUIFormSpecMenu::parseModel(parserData *data, const std::string &element)
 		} else {
 			mesh = nullptr;
 		}
-#endif
+//#endif
 	} else {
 		mesh = smgr->getMesh(meshstr.c_str());
 	}
@@ -4244,21 +4244,27 @@ bool GUIFormSpecMenu::preprocessEvent(const SEvent& event)
 #endif
 #endif
 
-	// Mouse wheel and move events: send to hovered element instead of focused
-	if (event.EventType == EET_MOUSE_INPUT_EVENT &&
-			(event.MouseInput.Event == EMIE_MOUSE_WHEEL ||
-			(event.MouseInput.Event == EMIE_MOUSE_MOVED &&
-			event.MouseInput.ButtonStates == 0))) {
- 		s32 x = event.MouseInput.X;
- 		s32 y = event.MouseInput.Y;
- 		gui::IGUIElement *hovered =
- 			Environment->getRootGUIElement()->getElementFromPoint(
- 				core::position2d<s32>(x, y));
- 		if (hovered && isMyChild(hovered)) {
-			hovered->OnEvent(event);
-			return event.MouseInput.Event == EMIE_MOUSE_WHEEL;
- 		}
- 	}
+	if (event.EventType == EET_MOUSE_INPUT_EVENT && m_selected_item) {
+		handleSelectedItem(event);
+	} else {
+		// Mouse wheel and move events: send to hovered element instead of focused
+		if (event.EventType == EET_MOUSE_INPUT_EVENT &&
+				(event.MouseInput.Event == EMIE_MOUSE_WHEEL ||
+				(event.MouseInput.Event == EMIE_MOUSE_MOVED &&
+				event.MouseInput.ButtonStates == 0))) {
+	 		s32 x = event.MouseInput.X;
+	 		s32 y = event.MouseInput.Y;
+	 		gui::IGUIElement *hovered =
+	 			Environment->getRootGUIElement()->getElementFromPoint(
+	 				core::position2d<s32>(x, y));
+	 		if (hovered && isMyChild(hovered)) {
+				hovered->OnEvent(event);
+				return event.MouseInput.Event == EMIE_MOUSE_WHEEL;
+	 		}
+	 	}
+	}
+
+
 
 	if (event.EventType == irr::EET_JOYSTICK_INPUT_EVENT) {
 		/* TODO add a check like:
@@ -4315,57 +4321,8 @@ void GUIFormSpecMenu::clearSelection()
 	m_selected_dragging = false;
 }
 
-bool GUIFormSpecMenu::OnEvent(const SEvent& event)
+bool GUIFormSpecMenu::handleSelectedItem(const SEvent& event)
 {
-	if (event.EventType==EET_KEY_INPUT_EVENT) {
-		KeyPress kp(event.KeyInput);
-		if (event.KeyInput.PressedDown && (
-				(kp == EscapeKey) || (kp == CancelKey) ||
-				((m_client != NULL) && (kp == getKeySetting("keymap_inventory"))))) {
-			tryClose();
-			return true;
-		}
-
-		if (m_client != NULL && event.KeyInput.PressedDown &&
-				(kp == getKeySetting("keymap_screenshot"))) {
-			m_client->makeScreenshot();
-		}
-
-		if (event.KeyInput.PressedDown && kp == getKeySetting("keymap_toggle_debug"))
-			m_show_debug = !m_show_debug;
-
-		if (event.KeyInput.PressedDown &&
-			(event.KeyInput.Key==KEY_RETURN ||
-			 event.KeyInput.Key==KEY_UP ||
-			 event.KeyInput.Key==KEY_DOWN)
-			) {
-			switch (event.KeyInput.Key) {
-				case KEY_RETURN:
-					current_keys_pending.key_enter = true;
-					break;
-				case KEY_UP:
-					current_keys_pending.key_up = true;
-					break;
-				case KEY_DOWN:
-					current_keys_pending.key_down = true;
-					break;
-				break;
-				default:
-					//can't happen at all!
-					FATAL_ERROR("Reached a source line that can't ever been reached");
-					break;
-			}
-			if (current_keys_pending.key_enter && m_allowclose) {
-				acceptInput(quit_mode_accept);
-				quitMenu();
-			} else {
-				acceptInput();
-			}
-			return true;
-		}
-
-	}
-
 	/* Mouse event other than movement, or crossing the border of inventory
 	  field while holding right mouse button
 	 */
@@ -4485,7 +4442,7 @@ bool GUIFormSpecMenu::OnEvent(const SEvent& event)
 			//	<< event.MouseInput.X << "," << event.MouseInput.Y << ")"
 			//	<< std::endl;
 
-			m_selected_dragging = false;
+			//m_selected_dragging = false;
 
 			if (s.isValid() && s.listname == "craftpreview") {
 				// Craft preview has been clicked: craft
@@ -4515,7 +4472,7 @@ bool GUIFormSpecMenu::OnEvent(const SEvent& event)
 						shift_move_amount = button == BET_RIGHT ? 1 : count;
 					}
 				}
-			} else { // m_selected_item != NULL
+			} else if (!m_selected_dragging) { // m_selected_item != NULL
 				assert(m_selected_amount >= 1);
 
 				if (s.isValid()) {
@@ -4555,6 +4512,9 @@ bool GUIFormSpecMenu::OnEvent(const SEvent& event)
 						drop_amount = MYMIN(m_selected_amount, 10);
 					else  // left
 						drop_amount = m_selected_amount;
+				} else {
+					// Mouse down on an empty space, start dragging again
+					//m_selected_dragging = true;
 				}
 			}
 		break;
@@ -4576,7 +4536,7 @@ bool GUIFormSpecMenu::OnEvent(const SEvent& event)
 				}
 			}
 
-			m_selected_dragging = false;
+			//m_selected_dragging = false;
 			// Keep track of whether the mouse button be released
 			// One click is drag without dropping. Click + release
 			// + click changes to drop item when moved mode
@@ -4751,6 +4711,63 @@ bool GUIFormSpecMenu::OnEvent(const SEvent& event)
 		}
 		m_old_pointer = m_pointer;
 	}
+	
+	//return Parent ? Parent->OnEvent(event) : false;
+	return false;
+}
+
+bool GUIFormSpecMenu::OnEvent(const SEvent& event)
+{
+	if (event.EventType==EET_KEY_INPUT_EVENT) {
+		KeyPress kp(event.KeyInput);
+		if (event.KeyInput.PressedDown && (
+				(kp == EscapeKey) || (kp == CancelKey) ||
+				((m_client != NULL) && (kp == getKeySetting("keymap_inventory"))))) {
+			tryClose();
+			return true;
+		}
+
+		if (m_client != NULL && event.KeyInput.PressedDown &&
+				(kp == getKeySetting("keymap_screenshot"))) {
+			m_client->makeScreenshot();
+		}
+
+		if (event.KeyInput.PressedDown && kp == getKeySetting("keymap_toggle_debug"))
+			m_show_debug = !m_show_debug;
+
+		if (event.KeyInput.PressedDown &&
+			(event.KeyInput.Key==KEY_RETURN ||
+			 event.KeyInput.Key==KEY_UP ||
+			 event.KeyInput.Key==KEY_DOWN)
+			) {
+			switch (event.KeyInput.Key) {
+				case KEY_RETURN:
+					current_keys_pending.key_enter = true;
+					break;
+				case KEY_UP:
+					current_keys_pending.key_up = true;
+					break;
+				case KEY_DOWN:
+					current_keys_pending.key_down = true;
+					break;
+				break;
+				default:
+					//can't happen at all!
+					FATAL_ERROR("Reached a source line that can't ever been reached");
+					break;
+			}
+			if (current_keys_pending.key_enter && m_allowclose) {
+				acceptInput(quit_mode_accept);
+				quitMenu();
+			} else {
+				acceptInput();
+			}
+			return true;
+		}
+
+	}
+
+	handleSelectedItem(event);
 
 	if (event.EventType == EET_GUI_EVENT) {
 		if (event.GUIEvent.EventType == gui::EGET_TAB_CHANGED
