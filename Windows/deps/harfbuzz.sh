@@ -4,8 +4,7 @@ HARFBUZZ_VERSION=12.3.2
 
 . ./sdk.sh
 
-mkdir -p output/harfbuzz/lib
-mkdir -p deps; cd deps
+export DEPS_ROOT=$(pwd)
 
 if [ ! -d harfbuzz-src ]; then
 	git clone -b $HARFBUZZ_VERSION --depth 1 https://github.com/harfbuzz/harfbuzz.git harfbuzz-src
@@ -18,8 +17,8 @@ cmake .. \
 	-DBUILD_SHARED_LIBS=FALSE \
 	-DCMAKE_BUILD_TYPE=Release \
 	-DCMAKE_C_FLAGS_RELEASE="$CFLAGS" \
-	-DFREETYPE_LIBRARY="../../freetype/lib/libfreetype.a ../../libpng/lib/libpng.a" \
-	-DFREETYPE_INCLUDE_DIRS="../../freetype/include" \
+	-DFREETYPE_LIBRARY="$DEPS_ROOT/freetype/lib/libfreetype.a $DEPS_ROOT/libpng/lib/libpng.a" \
+	-DFREETYPE_INCLUDE_DIRS="$DEPS_ROOT/freetype/include" \
 	-DHB_HAVE_GLIB=OFF \
 	-DHB_HAVE_GOBJECT=OFF \
 	-DHB_HAVE_ICU=OFF \
@@ -34,6 +33,7 @@ mkdir -p ../../harfbuzz/include/harfbuzz
 cp ../src/*.h ../../harfbuzz/include/harfbuzz
 # update lib
 rm -rf ../../harfbuzz/lib/libharfbuzz.a
+mkdir -p ../../harfbuzz/lib
 cp libharfbuzz.a ../../harfbuzz/lib/libharfbuzz.a
 
-echo "Freetype build successful"
+echo "Harfbuzz build successful"

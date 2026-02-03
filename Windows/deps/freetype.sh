@@ -4,6 +4,8 @@ FREETYPE_VERSION=2.14.1
 
 . ./sdk.sh
 
+export DEPS_ROOT=$(pwd)
+
 if [ ! -d freetype-src ]; then
 	wget https://sourceforge.net/projects/freetype/files/freetype2/$FREETYPE_VERSION/freetype-$FREETYPE_VERSION.tar.xz
 	tar -xaf freetype-$FREETYPE_VERSION.tar.xz
@@ -21,22 +23,19 @@ else
 	HARFBUZZ_FLAGS=" \
 		-DFT_REQUIRE_HARFBUZZ=TRUE \
 		-DFT_DYNAMIC_HARFBUZZ=FALSE \
-		-DHarfBuzz_LIBRARY=../../harfbuzz/lib/libharfbuzz.a \
-		-DHarfBuzz_INCLUDE_DIR=../../harfbuzz/include"
+		-DHarfBuzz_LIBRARY=$DEPS_ROOT/harfbuzz/lib/libharfbuzz.a \
+		-DHarfBuzz_INCLUDE_DIRS=$DEPS_ROOT/harfbuzz/include"
 fi
 
 cmake .. \
 	-DCMAKE_BUILD_TYPE=Release \
 	-DBUILD_SHARED_LIBS=FALSE \
+	-DCMAKE_C_FLAGS_RELEASE="$CFLAGS" \
 	-DFT_DISABLE_BZIP2=TRUE \
 	-DFT_DISABLE_BROTLI=TRUE \
-	-DFT_REQUIRE_PNG=TRUE \
+	-DFT_DISABLE_PNG=TRUE \
 	-DFT_REQUIRE_ZLIB=TRUE \
-	-DCMAKE_C_FLAGS_RELEASE="$CFLAGS" \
-	-DPNG_LIBRARY="../../libpng/lib/libpng.a" \
-	-DPNG_PNG_INCLUDE_DIR="../../libpng/include" \
-	-DZLIB_LIBRARY="../../zlib/lib/libz.a" \
-	-DZLIB_INCLUDE_DIRS="../../zlib/include" \
+	$HARFBUZZ_FLAGS
 
 cmake --build . -j${NPROC}
 
