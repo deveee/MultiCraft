@@ -295,6 +295,8 @@ public:
 
 	void openEditor();
 
+	void updateKeymap();
+
 	static bool isActive() { return m_active; }
 	static void setActive(bool active) { m_active = active; }
 

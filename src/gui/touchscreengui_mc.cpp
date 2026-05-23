@@ -83,10 +83,8 @@ TouchScreenGUI::TouchScreenGUI(IrrlichtDevice *device):
 	m_button_size = RenderingEngine::getDisplayDensity() *
 			g_settings->getFloat("hud_scaling") * 64.0f;
 
-	std::string keyname_dig = g_settings->get("keymap_dig");
-	m_keycode_dig = keyname_to_keycode(keyname_dig.c_str());
-	std::string keyname_place = g_settings->get("keymap_place");
-	m_keycode_place = keyname_to_keycode(keyname_place.c_str());
+	m_keycode_dig = getKeySetting("keymap_dig").getKeyCode();
+	m_keycode_place = getKeySetting("keymap_place").getKeyCode();
 	m_dig_and_move = g_settings->getBool("dig_and_move");
 	m_press_sound = g_settings->get("btn_press_sound");
 }
@@ -1382,27 +1380,30 @@ bool TouchScreenGUI::isButtonPressed(irr::EKEY_CODE keycode)
 			return true;
 	}
 
-	if (m_camera.dig) {
-		if (m_keycode_dig == keycode)
-			return true;
-	}
-
-	if (m_camera.place) {
-		if (m_keycode_place == keycode) {
-			m_camera.place = false;
-			return true;
+	if (m_keycode_dig != m_keycode_place) {
+		if (m_camera.dig) {
+			if (m_keycode_dig == keycode) {
+				return true;
+			}
 		}
-	}
 
-	if (m_camera_additional.dig) {
-		if (m_keycode_dig == keycode)
-			return true;
-	}
+		if (m_camera.place) {
+			if (m_keycode_place == keycode) {
+				m_camera.place = false;
+				return true;
+			}
+		}
 
-	if (m_camera_additional.place) {
-		if (m_keycode_place == keycode) {
-			m_camera_additional.place = false;
-			return true;
+		if (m_camera_additional.dig) {
+			if (m_keycode_dig == keycode)
+				return true;
+		}
+
+		if (m_camera_additional.place) {
+			if (m_keycode_place == keycode) {
+				m_camera_additional.place = false;
+				return true;
+			}
 		}
 	}
 
@@ -1432,6 +1433,12 @@ bool TouchScreenGUI::isValidKeymap(std::string settingname, std::string keysym)
 		return false;
 
 	return true;
+}
+
+void TouchScreenGUI::updateKeymap()
+{
+	m_keycode_dig = getKeySetting("keymap_dig").getKeyCode();
+	m_keycode_place = getKeySetting("keymap_place").getKeyCode();
 }
 
 void TouchScreenGUI::step(float dtime)

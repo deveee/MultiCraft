@@ -1,4 +1,5 @@
 /*
+/*
 Minetest
 Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -1049,6 +1050,10 @@ bool Game::startup(bool *kill,
 	this->simple_singleplayer_mode = start_data.isSinglePlayer();
 
 	input->keycache.populate();
+#ifdef HAVE_TOUCHSCREENGUI
+	if (g_touchscreengui)
+		g_touchscreengui->updateKeymap();
+#endif
 
 	driver = device->getVideoDriver();
 	smgr = RenderingEngine::get_scene_manager();
@@ -1846,6 +1851,10 @@ inline bool Game::handleCallbacks()
 
 	if (g_gamecallback->keyconfig_changed) {
 		input->keycache.populate(); // update the cache with new settings
+#ifdef HAVE_TOUCHSCREENGUI
+		if (g_touchscreengui)
+			g_touchscreengui->updateKeymap();
+#endif
 		g_gamecallback->keyconfig_changed = false;
 	}
 
