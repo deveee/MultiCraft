@@ -11,6 +11,8 @@ cd openal-src/build
 
 cmake .. \
 	-DCMAKE_BUILD_TYPE=Release \
+	-DCMAKE_C_COMPILER=gcc \
+	-DCMAKE_CXX_COMPILER=g++ \
 	-DLIBTYPE=STATIC \
 	-DALSOFT_EMBED_HRTF_DATA=ON \
 	-DALSOFT_UTILS=OFF \
