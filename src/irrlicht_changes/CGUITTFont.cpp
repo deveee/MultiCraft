@@ -1006,13 +1006,9 @@ std::vector<TextRun> CGUITTFont::splitIntoFontRuns(
 		uint32_t codepoint = (uint32_t)ch;
 		
 #if defined(_WIN32) || defined(_WIN64)
-		// Surrogate pairs
-		if (ch >= 0xD800 && ch <= 0xDBFF && i + 1 < text.size()) {
-			wchar_t low = text[i + 1];
-			if (low >= 0xDC00 && low <= 0xDFFF) {
-				codepoint = 0x10000 + ((uint32_t)(ch - 0xD800) << 10) + (low - 0xDC00);
-			}
-		} else if (ch >= 0xDC00 && ch <= 0xDFFF) {
+		if (i + 1 < text.size() && isSurrogatePair(ch, text[i + 1])) {
+			codepoint = 0x10000 + ((uint32_t)(ch - 0xD800) << 10) + (text[i + 1] - 0xDC00);
+		} else if (isLowSurrogate(ch)) {
 			continue;
 		}
 #endif
@@ -1254,15 +1250,16 @@ s32 CGUITTFont::getCharacterFromPos(const core::stringw& text, s32 pixel_x) cons
 
 			if (pixel_x < glyph_end) {
 				bool clicked_left_half = pixel_x < (glyph_start + shaped_glyph.x_advance / 2);
+				s32 next_cluster = const_cast<CGUITTFont*>(this)->getNextClusterPos(text, shaped_glyph.cluster);
 
 				if (!run.is_rtl) {
 					if (clicked_left_half)
 						return shaped_glyph.cluster;
 					else
-						return shaped_glyph.cluster + 1;
+						return next_cluster;
 				} else {
 					if (clicked_left_half)
-						return shaped_glyph.cluster + 1;
+						return next_cluster;
 					else
 						return shaped_glyph.cluster;
 				}
